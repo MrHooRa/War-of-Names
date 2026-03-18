@@ -1,1778 +1,1157 @@
-Design / Identity / UX BRD
-مشروع: لعبة / منصة “حرب الأسماء”
-المستند: Game Identity + Product Visual Direction + UX/UI Foundation
-الإصدار: Draft v1
-النطاق: بناء هوية اللعبة العامة أولًا، ثم قواعد اشتقاق هوية الموقع والمنصة منها
-1) الهدف من هذا المستند
+# Design / Identity / UX BRD
+
+**مشروع:** لعبة / منصة "حرب الأسماء"
+**المستند:** Game Identity + Product Visual Direction + UX/UI Foundation
+**الإصدار:** V2.0 — مبني بالكامل من الواجهات المنفذة فعليًا
+**النطاق:** توثيق الهوية البصرية والتجريبية المعتمدة كما ظهرت في النماذج الأولية المنفذة يدويًا
+**المصدر:** 11 ملف HTML في `/Front-end/War of Names - Main Template - 1.0/`
+
+---
+
+## 1) الهدف من هذا المستند
 
-هذا المستند يحدد الهوية البصرية والتجريبية الأساسية للعبة قبل الدخول في تفصيل واجهات الموقع.
+هذا المستند يوثق الهوية البصرية والتصميمية لمنصة "حرب الأسماء" كما تم تنفيذها فعليًا في النماذج الأولية. كل قرار تصميمي مذكور هنا مُستخرج مباشرة من الكود المنفذ — وليس توجهًا نظريًا أو مقترحًا. هذا المستند هو المرجع الرسمي عند بناء تطبيق React.
+
+---
+
+## 2) جرد الشاشات المنفذة (Screen Inventory)
+
+| # | الملف | العنوان | النوع | الوصف |
+|---|-------|---------|-------|-------|
+| 02 | `02-navigation-updated.html` | قائمة المتسابقين | داخل اللعبة | لوحة الترتيب مع بحث وفلاتر وبطاقات لاعبين |
+| 03 | `03-.html` | إنشاء حساب لاعب | تدفق المصادقة | نموذج تسجيل مع مراحل تقدم |
+| 04 | `04-.html` | انضم للمسابقة | تدفق المصادقة | إدخال كود الدعوة واختيار اللقب |
+| 05 | `05-player-dashboard-unified-navigation-linked.html` | لوحة التحكم | داخل اللعبة | لوحة اللاعب: إحصائيات، سجل معارك، مخزن، تحديات |
+| 06 | `06-.html` | المتجر التكتيكي | داخل اللعبة | عرض العناصر مع تصنيفات + شريط الجرد الجانبي |
+| 07 | `07-.html` | جلسة الاختبار | داخل اللعبة | واجهة أسئلة مع مؤقت ومساعدات وخيارات |
+| 08 | `08-battle-result-linked-navigation.html` | نصر ساحق! | نتيجة معركة | شاشة فوز بعد هجوم ناجح |
+| 09 | `09-lobby-linked.html` | Lobby | واجهة خاصة | واجهة انتظار غامرة بالكامل (داكنة فقط) |
+| 10 | `10-battle-result-defeat-text-modified.html` | هزيمة! | نتيجة معركة | شاشة خسارة بعد هجوم فاشل |
+| 11 | `11-.html` | مرجع المتجر الشامل | مرجعي | وثيقة مرجعية لكل عناصر المتجر ونظام الندرة |
+| 12 | `12-.html` | مرجع المتجر الشامل | مرجعي | نسخة موسعة من مرجع المتجر |
+
+---
+
+## 3) نظام الألوان المعتمد (Color System)
 
-يركز على:
+### 3.1 الألوان الأساسية للعلامة (Brand Core)
 
-هوية اللعبة
+هذه الألوان ثابتة في Tailwind config عبر جميع الشاشات القياسية:
 
-شخصية العلامة
+| Token | القيمة | الدور |
+|-------|--------|-------|
+| `brand-teal` | `#0B8A8D` | اللون الأساسي للأفعال في الوضع الفاتح |
+| `brand-teal-hover` | `#067a79` | حالة الهوفر للأساسي |
+| `brand-teal-light` | `#17a2b8` | نسخة أفتح للتدرجات والتأكيدات الثانوية |
+| `brand-slate` | `#64748B` | اللون الأساسي للأفعال في الوضع الداكن |
+| `brand-orange` | `#D84315` | الخطر، الهجوم، الإلحاح، العناصر الأسطورية |
+| `brand-dark` | `#1F2937` | خلفية البطاقات في الوضع الداكن |
+| `brand-light-bg` | `#F8F9FA` | خلفية الصفحة في الوضع الفاتح |
+| `brand-dark-bg` | `#111827` | خلفية الصفحة في الوضع الداكن |
+| `brand-card-dark` | `#1F2937` | سطح البطاقات في الوضع الداكن |
+| `brand-success` | `#10B981` | النجاح، الفوز، الحالة النشطة |
+| `brand-danger` | `#EF4444` | الخسارة، الخطأ، الحالات الحرجة |
+
+### 3.2 استراتيجية الألوان المزدوجة (Dual-Tone Strategy)
 
-الانطباع العام
+قرار تصميمي جوهري: **اللون الأساسي يتغير بين الوضعين:**
+- **الوضع الفاتح:** `brand-teal` (#0B8A8D) هو لون الأفعال الأساسية
+- **الوضع الداكن:** `brand-slate` (#64748B) يحل محل التيل كلون أساسي
 
-الاتجاه البصري
+هذا يظهر في كل مكان: الأزرار، الروابط، البادجات، أيقونات التنقل، المؤشرات.
 
-اللغة البصرية
+**تطبيقات عملية:**
+```
+bg-brand-teal dark:bg-brand-slate           // أزرار أساسية
+text-brand-teal dark:text-brand-slate       // نصوص مميزة
+bg-brand-teal/10 dark:bg-brand-slate/20     // خلفيات خفيفة
+border-brand-teal/20 dark:border-brand-slate/30  // حدود
+```
 
-أسلوب الألوان
+### 3.3 ألوان الحالات داخل اللعبة (State Colors)
 
-أسلوب الخطوط
+مُستخرجة من الشاشات المنفذة فعليًا:
 
-أسلوب الحركة
+| الحالة | العربي | اللون الفاتح | اللون الداكن | مثال الاستخدام |
+|--------|--------|-------------|-------------|----------------|
+| نشط | نشط | `emerald-600` مع نقطة `animate-pulse` | `emerald-400` | بادج الحالة في الليدربورد |
+| محمي | محمي | `purple-600` مع أيقونة درع | `purple-400` | بادج حماية، زر هجوم معطل |
+| مفلس | مفلس | `red-500` مع أيقونة شبح | `red-900` | صف معتم بـ `opacity-60` وخط مشطوب |
+| انتظار | انتظار | `amber-600` | `amber-400` | بادج بسيط بدون أيقونة |
+| فوز | نصر ساحق | `brand-success` (#10B981) | نفسه | شاشة النصر الكاملة |
+| خسارة | هزيمة | `brand-danger` (#EF4444) | نفسه | شاشة الهزيمة الكاملة |
 
-أسلوب التفاعل
+### 3.4 ألوان نظام الندرة (Rarity Colors)
 
-شكل العالم البصري للعبة
+من ملف المتجر المرجعي (11-.html):
 
-قواعد التوحيد
+| الندرة | العربي | اللون | المعالجة البصرية |
+|--------|--------|-------|-----------------|
+| عادي (Common) | عادي | `#94A3B8` | بادج رمادي بسيط |
+| نادر (Rare) | نادر | `#0D47A1` | بادج داكن، بدج أسود |
+| ملحمي (Epic) | ملحمي | `#64748B` | ظل خفيف `glow-epic` |
+| أسطوري (Legendary) | أسطوري | `#D84315` | نبض متوهج `pulse-glow` مستمر |
+| خرافي (Mythic) | خرافي | `#7C3AED` | توهج مكثف `pulse-glow-mythic` مع `scale(1.02)` |
 
-كيف تتحول هذه الهوية إلى موقع ومنصة متماسكة
+### 3.5 ألوان الترتيب (Rank Badge Gradients)
 
-ما الذي يبنى جاهزًا
+من شاشة الليدربورد (02):
 
-ما الذي يبنى مخصصًا
+| المركز | التدرج الفاتح | التدرج الداكن |
+|--------|--------------|--------------|
+| #1 ذهبي | `135deg, #FDE68A → #F59E0B` | `135deg, #F59E0B → #B45309` |
+| #2 فضي | `135deg, #E5E7EB → #9CA3AF` | `135deg, #9CA3AF → #4B5563` |
+| #3 برونزي | `135deg, #FDBA74 → #D97706` | `135deg, #D97706 → #92400E` |
+| #4+ عادي | خلفية `gray-50` | خلفية `gray-800/50` |
 
-كيف نتجنب الفوضى البصرية أو تعدد السكربتات والواجهات المنفصلة
+### 3.6 ألوان إضافية في شاشة اللوبي (Lobby-Specific)
 
-2) المبدأ الأساسي
-2.1 الترتيب الصحيح للبناء
+شاشة اللوبي (09) تستخدم مجموعة موسعة للأزرار الملونة:
+
+| Token | القيمة | الاستخدام |
+|-------|--------|-----------|
+| `brand-bg` | `#0a0d14` | خلفية اللوبي الأساسية |
+| `brand-surface` | `#151b29` | سطح عناصر اللوبي |
+| `brand-teal-light` | `#00D9E9` | نسخة ساطعة للتوهج في اللوبي |
+| `brand-purple` | `#9333EA` | زر الليدربورد في اللوبي |
+| `brand-blue` | `#3B82F6` | زر القواعد في اللوبي |
+| `brand-emerald` | `#10B981` | مؤشر الاتصال |
+| `brand-border` | `#2A3142` | حدود اللوبي |
 
-الترتيب المعتمد يجب أن يكون:
+---
+
+## 4) نظام الخطوط المعتمد (Typography System)
+
+### 4.1 عائلات الخطوط
+
+| الدور في Tailwind | الخط | مصدر التحميل |
+|-------------------|------|-------------|
+| `font-display` | Cairo | Google Fonts |
+| `font-heading` | Changa | Google Fonts |
+| `font-body` | Cairo | Google Fonts |
+
+### 4.2 الأوزان المستخدمة
+
+- **Cairo:** 400, 600, 700, 800, 900
+- **Changa:** 400, 600, 700, 800
+
+### 4.3 التطبيق العملي كما ظهر في الشاشات
+
+| الموقع | الخط | الوزن | الأحجام النموذجية |
+|--------|------|-------|-------------------|
+| عناوين الصفحات الرئيسية | `font-display` | `font-black` (900) | `text-4xl md:text-5xl` أو `text-5xl md:text-7xl` |
+| عناوين البطاقات والأقسام | `font-heading` | `font-black` (800) | `text-lg` أو `text-xl` |
+| أسماء الأزرار والإجراءات | `font-heading` | `font-bold` أو `font-black` | `text-sm` أو `text-lg` |
+| نص الجسم والوصف | `font-body` (inherited) | `font-medium` أو `font-bold` | `text-sm` أو `text-base` |
+| التسميات الصغيرة والبادجات | `font-heading` أو `font-display` | `font-black` أو `font-bold` | `text-[10px]` أو `text-xs` |
+| الأرقام الكبيرة (نقاط/مراكز) | `font-display` | `font-black` | `text-2xl` إلى `text-6xl` |
+| نص المساعدة | (inherited) | `font-bold` | `text-[10px]` |
+
+### 4.4 أنماط نصية بارزة
+
+- **تسميات uppercase مع tracking:** `text-[10px] font-black uppercase tracking-widest` — تُستخدم فوق الإحصائيات الكبيرة
+- **النقاط كأرقام:** دائمًا بـ `font-display font-black` بأحجام كبيرة
+- **التأكيد بالحجم لا بالزخرفة:** لا يوجد underline أو italic في العناوين — التأكيد بالحجم والوزن فقط
 
-هوية اللعبة
+---
 
-لغة اللعبة البصرية
+## 5) نظام الأيقونات (Icon System)
+
+### 5.1 المكتبة
 
-شخصية المنتج
-
-Design language
-
-UI patterns
-
-هوية المنصة والموقع
-
-تفصيل الشاشات
-
-التوسع المستقبلي
-
-2.2 لماذا هذا مهم؟
-
-لأن اللعبة يجب أن تبدو:
-
-لعبة فعلًا
-
-لكن بدون طفولية
-
-بدون فوضى
-
-بدون شكل cheap
-
-بدون أن تبدو كلوحة إدارية باردة
-
-وبدون أن تنقلب إلى “فلاشية” أو مبالغ فيها
-
-3) الرؤية البصرية العامة للعبة
-3.1 التوجه المعتمد
-
-الهوية المطلوبة للعبة هي:
-
-احترافية نظيفة + لعبة تنافسية أنيقة + لمسة غموض استراتيجية
-
-هذا يعني أن اللعبة يجب أن تبدو:
-
-شبابية
-
-حيوية
-
-ذكية
-
-نظيفة
-
-ملونة
-
-واضحة
-
-فيها شخصية
-
-لكن ليست طفولية أو مبهرجة بلا معنى
-
-3.2 الترجمة البصرية لهذا التوجه
-
-الواجهة يجب أن توصل هذه المشاعر:
-
-تنافس
-
-ترقب
-
-ذكاء
-
-اكتشاف
-
-مواجهة
-
-غموض لطيف
-
-فوز وخسارة واضحة
-
-هوية قوية وقابلة للتذكر
-
-4) شخصية اللعبة Brand Personality
-4.1 الشخصية الأساسية
-
-اللعبة يجب أن تبدو كأنها:
-
-ذكية
-
-اجتماعية
-
-تنافسية
-
-واثقة
-
-مرحة بشكل مضبوط
-
-غير رسمية
-
-غير حكومية
-
-غير مملة
-
-غير مفرطة في الصخب
-
-4.2 ما ليست عليه اللعبة
-
-اللعبة ليست:
-
-لوحة تحكم شركات جامدة
-
-موقع رسمي مؤسسي
-
-لعبة أطفال
-
-لعبة neon/gamer RGB مبالغ
-
-تصميم cheap template
-
-تصميم cartoon رخيص
-
-أو صفحات منفصلة كل وحدة بروح مختلفة
-
-5) الركائز البصرية العليا للهوية
-
-هذه هي الركائز التي يجب أن تحكم كل شيء:
-
-5.1 الشكل Shape Language
-
-من الصور المرجعية التي أرسلتها، واضح أن عندك انجذاب قوي إلى:
-
-الأشكال الواضحة
-
-الزوايا الدائرية الثقيلة
-
-البطاقات النظيفة
-
-outline واضح
-
-طبقات وظلال بسيطة
-
-عناصر قابلة للتكرار
-
-أشكال لعب واضحة مثل:
-
-hexagons
-
-rounded pills
-
-framed cards
-
-badges
-
-layered title text
-
-القرار
-
-الهوية الأساسية للعبة يجب أن تعتمد على:
-
-Hexagon as signature motif
-
-Rounded pill controls
-
-Framed blocks/cards
-
-Strong outlines
-
-Controlled layered shadows
-
-5.2 التباين Contrast
-
-اللعبة لازم تعتمد على:
-
-خلفيات واضحة
-
-عناصر أساسية بارزة
-
-ألوان primary وaccent قوية
-
-تباين ممتاز للنصوص والحالات
-
-5.3 السطح Surface Style
-
-الأسلوب المطلوب:
-
-flat-ish base
-
-مع outline ثقيل نسبيًا
-
-مع ظل طبقي خفيف
-
-بدون realism
-
-بدون glassmorphism
-
-بدون gradients مبالغ فيها كقاعدة عامة
-
-6) الاستلهام من الأمثلة التي أرسلتها
-
-الصور التي أرسلتها أعطت اتجاهًا مهمًا جدًا، ويمكن تلخيصه كالتالي:
-
-6.1 عناصر قوية يجب الاستفادة منها
-
-العناوين العربية الجريئة ذات الطبقات
-
-هوية ألوان مميزة وقابلة للتبديل
-
-خلفيات بنفسجية رئيسية
-
-أنماط خلفية خفيفة ومتكررة
-
-استخدام أشكال hexagonal
-
-أزرار pills كبيرة وواضحة
-
-visual feedback واضح
-
-صفحات onboarding / tutorial مرحة وخفيفة
-
-interaction style شبابي
-
-بساطة في layout مع هوية قوية
-
-6.2 عناصر لا يجب نسخها كما هي
-
-المبالغة في أسلوب arcade الكامل
-
-الاعتماد الكامل على شاشة ثابتة game scene في كل الصفحات
-
-تحويل كل واجهة إلى لوحة لعب فعلية
-
-التضحية بالوضوح الإداري لصالح “الجو”
-
-كثرة الألوان في نفس الشاشة بدون hierarchy
-
-6.3 الاستنتاج الصحيح
-
-نحن لا نبني clone لهذه المراجع.
-نحن نبني:
-هوية أصلية خاصة بحرب الأسماء
-لكن تستفيد من:
-
-النظافة
-
-جرأة العنوان
-
-التباين
-
-الطابع الشبابي
-
-الواجهة الممتعة
-
-الحركة الخفيفة
-
-والإخراج الموحد
-
-7) هوية اللعبة أولًا: Brand Core
-7.1 اسم اللعبة
-
-الاسم الحالي المؤقت/المرجعي:
-حرب الأسماء
-
-هذا الاسم قوي جدًا بصريًا لأنه:
-
-واضح
-
-له حضور
-
-سهل البناء عليه
-
-يعطي صدام وتوتر
-
-ويسمح باللعب البصري على:
-
-الأسماء
-
-الألقاب
-
-الكشف
-
-الحرب
-
-الرتب
-
-السيطرة
-
-7.2 النغمة الشعورية للاسم
-
-اسم اللعبة يجب أن يظهر:
-
-بثقل
-
-ولكن بطابع شبابي
-
-مع ألوان قوية
-
-مع طبقات
-
-مع قابلية animation intro
-
-مع قابلية استخدامه كشعار رئيسي أو lockup title
-
-8) اتجاه الشعار والهوية النصية
-8.1 أسلوب الشعار
-
-الشعار يجب أن يكون:
-
-عربي بالكامل
-
-سهل القراءة
-
-سميك
-
-واضح
-
-layered
-
-playful but controlled
-
-قابل للاستخدام:
-
-كشعار رئيسي
-
-كشاشة افتتاح
-
-كبطاقة
-
-كعلامة داخلية
-
-كصورة اجتماعية
-
-كبداية animation
-
-8.2 أسلوب التنفيذ
-
-أفضل اتجاه للشعار:
-
-Custom Arabic wordmark
-
-مع:
-
-fill colors متعددة لكن محدودة
-
-dark offset shadow
-
-outline خفيف أو واضح حسب النسخة
-
-قابلية نسخ:
-
-full-color version
-
-mono version
-
-light/dark background versions
-
-8.3 المبدأ
-
-لا تجعل الشعار “مضحك” أو “طفولي”.
-خله:
-
-مرح
-
-قوي
-
-واضح
-
-ويتحمل الوقوف فوق واجهة أكثر نضجًا
-
-9) الهوية اللونية Color Identity
-
-أنت قلت بوضوح إن التحديد النهائي يكون عند بناء الهوية الرسمية.
-وهذا صحيح. لذلك هنا سنحدد المنهج وليس فقط أكواد ألوان عشوائية.
-
-9.1 المنهج المطلوب
-
-اللعبة تحتاج نظام ألوان من 3 طبقات:
-
-الطبقة 1: الألوان الجوهرية للهوية
-
-هذه ألوان العلامة الأساسية
-
-الطبقة 2: ألوان اللعب والحالات
-
-للربح، الخسارة، الهجوم، الندرة، الحماية، الإفلاس، إلخ
-
-الطبقة 3: ألوان themes الثانوية
-
-للتنويع داخل بعض الشاشات أو المواسم أو العناصر
-
-9.2 الاتجاه اللوني المقترح للهوية الأساسية
-
-من مراجعك، ومن طبيعة المشروع، أفضل اتجاه للهوية الأساسية:
-
-Base Brand Set
-
-بنفسجي أساسي: لون الهوية الرئيسي
-
-أبيض/أوف-وايت: للأسطح الأساسية
-
-أصفر قوي: لإبراز الفوز والاهتمام والعناوين الثانوية
-
-أحمر/كورال واضح: للهجوم والخطر
-
-سماوي/تركواز خفيف: للربط والذكاء/التوازن
-
-رمادي داكن/بنفسجي داكن: للظلال والنصوص الثقيلة
-
-هذا الاتجاه قريب جدًا من هوية “حروف مع عزيز” التي أرسلتها، وهو مناسب لأنه:
-
-شبابي
-
-عربي
-
-مميز
-
-وليس “سايبربنك”
-
-وليس “مؤسسي”
-
-9.3 ألوان الحالات داخل اللعبة
-
-هذه لا تكون من نفس ألوان الهوية فقط، بل نظام وظيفي:
-
-Attack / danger → أحمر واضح
-
-Success / win → أخضر أو أخضر مزرق مضبوط
-
-Warning / pending → أصفر/برتقالي
-
-Protection → أزرق/سماوي
-
-Bankrupt → لون واضح مميز غير ملتبس، مع معالجة بصرية قوية
-
-Rare item → بنفسجي/ذهبي حسب الندرة
-
-My state / selected → accent موحد
-
-9.4 قاعدة مهمة جدًا
-
-لا يجب أن تتحول اللعبة إلى قوس قزح.
-حتى لو كانت مرحة، لازم الألوان تكون:
-
-محسوبة
-
-وظيفية
-
-قابلة للتوسعة
-
-ومتسقة
-
-10) نظام الألوان الموسمية / الثانوية
-
-اللعبة من النوع الذي يمكن أن يستفيد مستقبلاً من:
-
-ثيمات موسمية
-
-ثيمات عناصر
-
-ثيمات دورات
-
-ثيمات صناديق
-
-لكن هذا لا يعني أن نغير brand colors كل مرة.
-
-القرار
-
-الهوية الثابتة تبقى ثابتة، لكن يسمح بـ:
-
-seasonal accents
-
-event palettes
-
-item-level accent variations
-
-category color coding
-
-11) الخطوط Typography Direction
-11.1 الهدف
-
-الخط لازم يخدم:
-
-اللعبة
-
-الوضوح
-
-العربية
-
-الجوال
-
-الكثافة المعتدلة
-
-العناوين الجريئة
-
-النصوص الإدارية الواضحة
-
-11.2 التقسيم الصحيح
-
-تحتاج غالبًا خطين أو طبقتين استخدام:
-
-1) Display / Title Arabic
-
-لعناوين اللعبة، الشعارات، الشاشات المهمة، banners
-
-2) UI Arabic
-
-للنصوص، الجداول، الأزرار، النماذج، الإشعارات، الإدارة
-
-11.3 القاعدة
-
-لا تستخدم خط عرض مبالغ فيه داخل كل الواجهة.
-العنوان شيء، وواجهة الاستخدام شيء آخر.
-
-11.4 الاتجاه المطلوب
-
-عنوان عربي له شخصية
-
-خط واجهة عربي واضح، نظيف، مريح جدًا للجوال
-
-أوزان متعددة
-
-تباين واضح بين display وinterface
-
-12) الشكل العام لواجهة اللعبة
-12.1 طبيعة الواجهة
-
-أنت حددتها بشكل ممتاز:
-في الوسط، لكنها تميل للمنصة الإدارية الذكية أكثر من لعبة فلاشية
-
-إذن الواجهة يجب أن تكون:
-
-game-lite controlled
-
-ليست HUD كاملة
-
-وليست dashboard corporate بارد
-
-مزيج ذكي
-
-12.2 الترجمة العملية
-
-المنتج سيكون له:
-
-shell موحد
-
-design system واضح
-
-صفحات لعب ممتعة
-
-صفحات إدارة مرتبة
-
-لكن الاثنين من نفس العائلة البصرية
-
-13) الفصل بين هوية اللعبة وهوية المنصة
-13.1 هوية اللعبة
-
-تظهر في:
-
-الشعار
-
-العناوين
-
-الشاشات العامة
-
-البداية
-
-onboarding
-
-الفوز/الخسارة
-
-الصناديق
-
-المتجر
-
-العناصر
-
-جلسات اللعب
-
-الـ empty states الممتعة
-
-animation moments
-
-13.2 هوية المنصة
-
-تظهر في:
-
-dashboard shell
-
-navigation
-
-forms
-
-data views
-
-admin structure
-
-tables
-
-filters
-
-panels
-
-settings
-
-13.3 القاعدة
-
-هوية المنصة تُشتق من اللعبة، لكنها تكون:
-
-أنظف
-
-أكثر هدوءًا
-
-أكثر نظامًا
-
-أقل ضجيجًا
-
-14) اتجاه UX العام
-14.1 مبادئ UX الأساسية
-
-الواجهة يجب أن تكون:
-
-واضحة جدًا
-
-سريعة الفهم
-
-فيها hierarchy ممتاز
-
-لا تتطلب شرحًا لكل خطوة
-
-تحترم الجوال أولًا
-
-تقدم feedback واضح
-
-وتقلل الخطوات
-
-14.2 التجربة المطلوبة للمتسابق
-
-المتسابق يجب أن يشعر أن اللعبة:
-
-سهلة الدخول
-
-سهلة التصفح
-
-مفهومة
-
-ممتعة
-
-فيها طاقة
-
-لكن ما تضيعك
-
-14.3 التجربة المطلوبة للمشرف
-
-المشرف يجب أن يشعر أن النظام:
-
-منظم
-
-قوي
-
-واضح
-
-سريع
-
-موثوق
-
-وليس مبعثرًا أو طفوليًا
-
-15) User Journey العليا
-15.1 رحلة المتسابق
-
-يجب أن تكون كالتالي:
-
-دخول سريع وواضح
-
-رؤية حالته الحالية فورًا
-
-رؤية:
-
-نقاطه
-
-رتبته
-
-حالته
-
-آخر أحداثه
-
-الوصول السريع إلى:
-
-قائمة المتسابقين
-
-الهجوم
-
-المتجر
-
-الجرد
-
-جلسات الأسئلة
-
-استلام feedback واضح
-
-الإحساس بالحركة والتقدم
-
-15.2 رحلة المشرف
-
-وصول سريع إلى لوحة الدورة الحالية
-
-رؤية:
-
-حالة المسابقة
-
-أهم التنبيهات
-
-عدد الجلسات
-
-وضع التسجيل
-
-أهم الأحداث
-
-إدارة سريعة بدون ضياع
-
-عدم الحاجة للتنقل بين صفحات متناقضة بصريًا
-
-16) Information Architecture العليا
-16.1 للمتسابق
-
-أفضل IA للمتسابق:
-
-الرئيسية
-
-المتسابقون
-
-الهجوم / الأهداف
-
-المتجر
-
-الجرد
-
-الأسئلة
-
-الإشعارات
-
-الحساب
-
-16.2 للمشرف
-
-أفضل IA للمشرف:
-
-لوحة القيادة
-
-الدورة الحالية
-
-المتسابقون
-
-الهجمات
-
-الأسئلة
-
-المتجر والعناصر
-
-التوزيعات
-
-الإشعارات
-
-الإعدادات
-
-السجلات
-
-17) نظام التنقل Navigation
-17.1 القرار المعتمد
-
-Hybrid Navigation
-
-للمشرف
-
-Sidebar + Top utility bar
-
-للمتسابق
-
-واجهة أخف
-
-top summary + primary tabs / nav sections
-
-وعلى الجوال:
-
-bottom navigation أو compact nav بحسب الشاشة
-
-17.2 لماذا هذا مهم؟
-
-لأن المتسابق يحتاج:
-
-سرعة
-
-وضوح
-
-قلة تعقيد
-
-والمشرف يحتاج:
-
-عمق
-
-تحكم
-
-كثافة أعلى
-
-18) الفصل البصري بين المتسابق والمشرف
-
-نعم، لكن بذكاء.
-
-18.1 لا نريد
-
-نظامين شكلهما منفصل تمامًا
-
-أو هوية مختلفة كليًا
-
-18.2 نريد
-
-نفس العائلة
-
-لكن:
-
-المتسابق أكثر حيوية
-
-المشرف أكثر هدوءًا
-
-تغير في emphasis
-
-اختلاف بسيط في اللون المساعد أو كثافة الزينة
-
-18.3 التطبيق
-
-المتسابق:
-
-visual accents أكثر
-
-cards أكثر حيوية
-
-feedback أوضح
-
-المشرف:
-
-information-dense but clean
-
-أقل زخرفة
-
-أقوى في التنظيم
-
-19) الصفحات الأعلى أولوية بصريًا
-
-بناءً على ترتيبك، هذه الشاشات يجب أن تُعطى أعلى عناية تصميمية:
-
-الصفحة الرئيسية للمسابقة
-
-قائمة المتسابقين
-
-ملف المتسابق
-
-نافذة الهجوم
-
-المتجر
-
-الجرد
-
-جلسة الأسئلة
-
-الإشعارات
-
-صفحة المشرف الرئيسية
-
-إدارة الأسئلة
-
-لوحة الدورة الحالية
-
-هذه ليست مجرد صفحات، بل يجب تحويلها إلى:
-Primary page templates
-
-20) Primary Page Templates
-
-هذه أهم نقطة لمنع الفوضى ومنع “كل صفحة سكربت منفصل”.
-
-20.1 Template A — Home / Command Center
-
-لـ:
-
-الصفحة الرئيسية للمسابقة
-
-صفحة المشرف الرئيسية
-
-لوحة الدورة الحالية
-
-يتكون من:
-
-top summary strip
-
-primary stats cards
-
-action panel
-
-recent events
-
-attention widgets
-
-quick actions
-
-20.2 Template B — Ranked Collection View
-
-لـ:
-
-قائمة المتسابقين
-
-بعض القوائم التنافسية
-
-أجزاء من إدارة المتسابقين
-
-يتكون من:
-
-header
-
-controls/filter/search
-
-ranked list/cards/table hybrid
-
-status markers
-
-row actions
-
-20.3 Template C — Profile / Detail View
-
-لـ:
-
-ملف المتسابق
-
-ملف عنصر
-
-تفاصيل جلسة
-
-تفاصيل هجوم
-
-يتكون من:
-
-identity header
-
-status summary
-
-primary actions
-
-info sections
-
-history blocks
-
-side insights
-
-20.4 Template D — Action Flow / Modal
-
-لـ:
-
-الهجوم
-
-شراء عنصر
-
-استخدام عنصر
-
-فتح صندوق
-
-تأكيد إجراء
-
-إنهاء/بدء جلسة
-
-يتكون من:
-
-clear title
-
-effect preview
-
-warnings
-
-confirm step
-
-outcome step
-
-20.5 Template E — Quiz Play View
-
-لـ:
-
-جلسة السؤال
-
-onboarding التعليمية
-
-challenge flow
-
-يتكون من:
-
-focused content area
-
-minimal distractions
-
-progress indicator
-
-answer area
-
-feedback area
-
-20.6 Template F — Admin Management View
-
-لـ:
-
-إدارة الأسئلة
-
-إدارة العناصر
-
-إدارة التوزيعات
-
-إدارة الإعدادات
-
-يتكون من:
-
-top page tools
-
-filters/search
-
-primary table/list
-
-side detail drawer أو details panel
-
-create/edit modal or page
-
-21) Design System Requirement
-
-نعم، يجب أن يكون داخل المستند كجزء أساسي، وليس إضافة تجميلية.
-
-22) Design System Core Rules
-22.1 Color Roles
-
-بدل مجرد ألوان عشوائية، نحدد:
-
-brand primary
-
-brand support
-
-surface colors
-
-text hierarchy
-
-state colors
-
-rarity colors
-
-event colors
-
-22.2 Typography Roles
-
-display title
-
-page title
-
-section title
-
-card title
-
-body
-
-helper text
-
-micro labels
-
-badges/numbers
-
-22.3 Spacing System
-
-نظام موحد للمسافات
-
-لا random padding/margin
-
-responsive spacing rules
-
-page gutters واضحة
-
-22.4 Radius Style
-
-roundness واضحة ومعتمدة
-
-buttons, cards, pills, inputs, panels من نفس العائلة
-
-22.5 Elevation / Shadow Rules
-
-layers بسيطة
-
-outline + shadow controlled
-
-لا خلط بين 10 أنواع ظلال
-
-22.6 Stroke / Outline Rules
-
-بما أن المرجع البصري عندك يعتمد على outlines:
-
-يجب تحديد متى نستخدم outline
-
-ومتى نستخدم ظل
-
-ومتى نستخدم الاثنين
-
-ومتى نكتفي بسطح نظيف
-
-22.7 Button Hierarchy
-
-primary
-
-secondary
-
-ghost
-
-danger
-
-success
-
-game-action button
-
-admin-action button
-
-22.8 Status Badges
-
-محمي
-
-مفلس
-
-نشط
-
-منتهي
-
-نادر
-
-جديد
-
-متاح
-
-غير متاح
-
-22.9 Cards
-
-أنواع cards موحدة:
-
-stat card
-
-player card
-
-event card
-
-item card
-
-reward card
-
-empty state card
-
-22.10 Tables / Lists
-
-أنت لا تريد جداول مملة.
-إذن يجب اعتماد:
-
-hybrid list/table styles
-
-cards for mobile
-
-row emphasis
-
-ranking treatment
-
-no dead spreadsheet feeling
-
-22.11 Modal Rules
-
-كل modal/action flow يجب أن يكون من نفس العائلة:
-
-title
-
-context
-
-effect preview
-
-confirm
-
-result
-
-22.12 Empty / Error / Loading States
-
-هذه يجب أن تُصمم ضمن الهوية، لا تُترك عشوائية.
-
-23) Visual Language للعناصر المستقبلية
-
-هذه نقطة مهمة جدًا لأنك ذكرت:
-
-صناديق
-
-animation عند الشراء
-
-عنصر يخرج من الصندوق
-
-مؤثرات خفيفة وراقية
-
-القرار
-
-الهوية يجب أن تدعم من البداية:
-
-item reveal moment
-
-box opening moment
-
-success animation
-
-defeat state
-
-rank change highlight
-
-attack success reveal
-
-subtle celebratory particles
-
-light motion system
-
-لكن
-
-الحركة يجب أن تكون:
-
-خفيفة
-
-سريعة
-
-غير مزعجة
-
-قابلة للتخطي
-
-ولا تعيق الاستخدام
-
-24) Motion Direction
-24.1 نوع الحركة المناسب
-
-soft pop
-
-lift/fade
-
-slide with intent
-
-reveal
-
-burst light
-
-confetti controlled
-
-box opening layered reveal
-
-hover press depth
-
-24.2 ما الذي لا نريده
-
-transitions بطيئة
-
-مؤثرات مبالغ فيها
-
-animations كثيرة في نفس الشاشة
-
-motion يشتت المستخدم
-
-مؤثرات “cheap mobile game”
-
-25) أسلوب النصوص داخل الواجهة
-25.1 اللغة
-
-عربي بالكامل
-
-i18n-ready
-
-tone شبابي
-
-لغة لعب
-
-لكن مفهومة ونظيفة
-
-25.2 النبرة
-
-أفضل مزيج:
-
-labels واضحة
-
-messages أقرب للغة طبيعية
-
-بعض اللمسات باللهجة النجدية عند المناسب، لكن بحذر
-
-25.3 القاعدة
-
-لا تجعل النظام كله لهجة.
-الأفضل:
-
-الواجهة الأساسية: عربية واضحة طبيعية
-
-الرسائل التفاعلية/النجاحات/التلميحات: مجال أوسع لشخصية اللعبة
-
-مثال اتجاه
-
-“هجوم ناجح”
-
-“ضبطتها”
-
-“راح عليك”
-
-“مقفلة عليك هالمرة”
-
-“مفلس”
-
-“جاهز للهجوم”
-
-“ما تقدر تهاجم الحين”
-
-لكن هذا يحتاج Microcopy Rules واضحة.
-
-26) Microcopy Rules
-
-يجب تضمينها داخل الـ BRD:
-
-26.1 نبرة المتسابق
-
-واضحة
-
-مباشرة
-
-مرحة بضبط
-
-غير مملة
-
-بدون تكلف
-
-26.2 نبرة المشرف
-
-أوضح
-
-أكثر مباشرة
-
-أقل لعبًا
-
-لكن ما تزال ضمن الهوية
-
-26.3 نبرة التحذير
-
-صريحة
-
-قصيرة
-
-لا غموض
-
-26.4 نبرة الفوز/الخسارة
-
-قوية وواضحة
-
-غير مزعجة
-
-قابلة للتكرار
-
-27) قواعد منع التفكك البصري
-
-هذه أهم نقطة عندك، وأنا معك فيها جدًا.
-
-ممنوع:
-
-كل صفحة لها تخطيط مختلف بلا سبب
-
-كل feature له زر وشكل مختلف
-
-كل مطور يختار style منفصل
-
-كل modal بمزاج مختلف
-
-كل list تتصمم من الصفر
-
-كل جدول بشكل جديد
-
-كل card بنمط جديد
-
-استخدام templates متعددة متناقضة
-
-المطلوب:
-
-page shells موحدة
-
-section patterns موحدة
-
-cards system موحد
-
-action bars موحدة
-
-forms system موحد
-
-overlays system موحد
-
-filters/search patterns موحدة
-
-feedback patterns موحدة
-
-28) Framework / UI Kit Recommendation
-
-بناءً على متطلباتك:
-
-React/Vite
-
-هوية خاصة
-
-مرونة
-
-تقليل بناء كل شيء من الصفر
-
-رغبة في عدم تشويه الهوية
-
-دعم design system قوي
-
-أفضل توجه لك ليس template كامل مغلق.
-الأفضل عندك:
-
-الخيار الموصى به
-Foundation جاهز + هوية خاصة فوقه
-
-أفضل stack design/UI direction:
-
-Tailwind CSS
-
-Headless / primitive-based component system
-
-Custom design tokens
-
-Custom page templates
-
-Reusable component library داخلي للمشروع
-
-لماذا؟
-
-لأنه يعطيك:
-
-سرعة
-
-مرونة
-
-عدم الوقوع في فخ template cheap
-
-إمكانية صنع هوية خاصة
-
-وعدم كتابة كل شيء من الصفر
-
-ما الذي أبنيه مخصصًا؟
-
-branding shell
-
-player cards
-
-attack modal
-
-item cards
-
-reward reveal
-
-leaderboard rows
-
-status badges
-
-event panels
-
-home sections
-
-quiz experience shell
-
-ما الذي يمكن أخذه جاهزًا كأساس؟
-
-dialogs
-
-dropdowns
-
-tabs
-
-accordion
-
-command/search
-
-popovers
-
-drawers
-
-form primitives
-
-date/time pickers
-
-tables base
-
-pagination
-
-toasts
-
-29) Template Strategy
-لا أنصح بـ:
-
-شراء admin template كامل والقص عليه
-
-أو شراء game UI template واستخدامه كمنصة
-
-أوصي بـ:
-
-use component primitives
-
-build custom shells and patterns
-
-keep layout architecture controlled
-
-maintain central design tokens
-
-هذا يحقق:
-
-هوية أصلية
-
-صيانة أسهل
-
-تعديل أسهل
-
-توسع أسهل
-
-30) Responsive Strategy
-30.1 التوجه
-
-Mobile-first usability، وليس mobile-only.
-
-30.2 القواعد
-
-المتسابق يجب أن يكون ممتاز على الجوال
-
-المشرف usable على الجوال لكن optimized أكثر على tablet/desktop
-
-القوائم الثقيلة تتحول في الجوال إلى cards أو stacked sections
-
-modals الثقيلة تتحول إلى drawers أو full sheets عند الحاجة
-
-leaderboard يجب أن يبقى قابلًا للقراءة على الجوال
-
-quiz session لازم يكون ممتاز جدًا على الجوال
-
-31) صفحة اللعبة الرئيسية Main Competition Home
-
-هذه أهم شاشة.
-ويجب أن تكون:
-
-جذابة
-
-واضحة
-
-مختصرة
-
-تعطي حالة اللاعب فورًا
-
-وتوجهه بسرعة
-
-يجب أن تحتوي على:
-
-اسم المسابقة
-
-حالتك
-
-نقاطك
-
-ترتيبك
-
-حالة الدورة
-
-أهم حدث عليك
-
-أزرار سريعة:
-
-المتسابقون
-
-هجوم
-
-المتجر
-
-الأسئلة
-
-الإشعارات
-
-32) قائمة المتسابقين
-
-هذه ثاني أهم شاشة.
-لا تجعلها جدولًا مملًا.
-
-المطلوب
-
-ranking-focused
-
-readable
-
-status-rich
-
-visually alive
-
-easy to scan
-
-يجب أن تحتوي على:
-
-اللقب
-
-الترتيب
-
-النقاط
-
-الهجمات الصحيحة
-
-الهجمات عليه
-
-الحالة
-
-تمييز المفلس
-
-دخول للملف
-
-33) ملف المتسابق
-
-هذه الشاشة يجب أن تكون:
-
-واضحة
-
-فيها شخصية
-
-strategic
-
-لا تفضح معلومات أكثر من اللازم
-
-يجب أن تعرض:
-
-اللقب
-
-الحالة
-
-الترتيب
-
-النقاط
-
-ملخص هجمات
-
-مؤشرات مناسبة
-
-زر الهجوم
-
-history snippets المسموحة
-
-34) نافذة الهجوم
-
-هذه من أخطر الشاشات UXيًا.
-
-لازم تكون:
-
-واضحة جدًا
-
-قوية بصريًا
-
-فيها suspense بسيط
-
-لكنها لا تربك
-
-لازم يظهر فيها:
-
-من تهاجم
-
-وش تتوقع
-
-كم ممكن تكسب
-
-كم ممكن تخسر
-
-التحذيرات
-
-التأكيد
-
-35) المتجر والجرد
-
-يجب أن يكونا:
-
-جذابين
-
-مفهومين
-
-مريحين بصريًا
-
-غير شبيهين بصفحة admin inventory ثقيلة
-
-المتجر
-
-item cards
-
-rarity clearly visible
-
-cost clear
-
-effect short
-
-buy action obvious
-
-الجرد
-
-owned state
-
-active / expired / usable
-
-quantity
-
-use action
-
-timers إذا لزم
-
-36) جلسة الأسئلة
-
-هذه الشاشة يجب أن تكون:
-
-نظيفة جدًا
-
-مركزة
-
-minimal distractions
-
-واضحة على الجوال
-
-excellent typography
-
-excellent CTA hierarchy
-
-37) صفحة المشرف الرئيسية
-
-هذه ليست مكانًا للاستعراض البصري.
-هي يجب أن تكون:
-
-قوية
-
-مفهومة
-
-منظمة
-
-fast scanning
-
-alert-driven
-
-لا تكون مملة
+**Iconify** عبر web component:
+```html
+<script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+```
+
+### 5.2 مجموعات الأيقونات المستخدمة
+
+| المجموعة | الاستخدام | أمثلة |
+|----------|-----------|-------|
+| `lucide:*` | أيقونات الواجهة الأساسية | `lucide:swords`, `lucide:trophy`, `lucide:zap`, `lucide:shield-check`, `lucide:home`, `lucide:search`, `lucide:moon`, `lucide:sun`, `lucide:user`, `lucide:arrow-left`, `lucide:chevron-left`, `lucide:crown`, `lucide:flame`, `lucide:target`, `lucide:history`, `lucide:package`, `lucide:shopping-bag`, `lucide:shopping-cart`, `lucide:help-circle`, `lucide:timer`, `lucide:award`, `lucide:ghost`, `lucide:gift`, `lucide:lightbulb`, `lucide:bell`, `lucide:settings`, `lucide:book-open`, `lucide:at-sign`, `lucide:lock`, `lucide:eye`, `lucide:key`, `lucide:check`, `lucide:x-circle`, `lucide:trending-down`, `lucide:plus`, `lucide:trash-2`, `lucide:dollar-sign`, `lucide:sliders-horizontal` |
+| `mdi:*` | أيقونات عناصر اللعبة | `mdi:bomb`, `mdi:shield-outline`, `mdi:magic-staff`, `mdi:sword-cross`, `mdi:flare` |
+
+### 5.3 أحجام الأيقونات النموذجية
+
+| السياق | الحجم |
+|--------|-------|
+| داخل زر التنقل السفلي | `text-[1.3rem]` |
+| داخل أزرار ونصوص | `text-lg` أو `text-xl` |
+| أيقونات إحصائيات كبيرة | `text-3xl` إلى `text-5xl` |
+| أيقونات بطاقات عناصر المتجر | `text-6xl` |
+| أيقونة شاشة النتيجة الرئيسية | `text-4xl md:text-5xl` |
+
+---
+
+## 6) أنماط الخلفيات والأنسجة (Background Patterns)
+
+### 6.1 النمط الرئيسي للصفحات `.bg-pattern-main`
+
+خطوط قطرية دقيقة بزاوية 45 درجة — تظهر في كل الشاشات القياسية:
+
+```css
+/* الوضع الفاتح */
+background-image: repeating-linear-gradient(
+  45deg,
+  rgba(31, 41, 55, 0.02) 0,
+  rgba(31, 41, 55, 0.02) 2px,
+  transparent 2px,
+  transparent 12px
+);
+
+/* الوضع الداكن */
+background-image: repeating-linear-gradient(
+  45deg,
+  rgba(229, 231, 235, 0.02) 0,
+  rgba(229, 231, 235, 0.02) 2px,
+  transparent 2px,
+  transparent 12px
+);
+```
+
+### 6.2 نمط الفوتر `.bg-footer-pattern`
+
+خطوط قطرية عكسية (-45 درجة) على خلفية داكنة:
+
+```css
+background-color: #1F2937;
+background-image: repeating-linear-gradient(
+  -45deg,
+  transparent, transparent 15px,
+  rgba(255, 255, 255, 0.02) 15px,
+  rgba(255, 255, 255, 0.02) 30px
+);
+```
+
+### 6.3 أشكال ضبابية ديكورية
+
+البطاقات الكبيرة تحتوي على دوائر ضبابية ديكورية في الزوايا:
+```html
+<div class="absolute top-0 right-0 w-32 h-32 bg-brand-teal/5 dark:bg-brand-slate/5
+     rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<div class="absolute bottom-0 left-0 w-24 h-24 bg-brand-orange/5
+     rounded-full blur-xl -ml-12 -mb-12"></div>
+```
+
+### 6.4 خلفية اللوبي — نمط السداسيات (Hexagon Pattern)
+
+شاشة اللوبي (09) تستخدم خلفية سداسية SVG فريدة:
+```css
+.hex-bg {
+  background-image: url("data:image/svg+xml,...hexagon SVG...");
+  background-size: 100px 173.2px;
+}
+```
+مع أشكال SVG سداسية دوارة كعناصر خلفية متحركة.
+
+---
+
+## 7) نظام التخطيط والتنقل (Layout & Navigation)
+
+### 7.1 الاتجاه العام
+
+كل الشاشات تستخدم `<html lang="ar" dir="rtl">`.
+
+الهيكل العام مبني بـ `flex-row-reverse` في الهيدر لعكس الترتيب مع الحفاظ على توافق RTL:
+```html
+<div class="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
+```
+
+### 7.2 الهيكل العام للصفحة
+
+```
+┌─────────────────────────────────────────┐
+│  Header (sticky top-0 z-50)             │  view-transition-name: main-header/main-nav
+│  ┌─────────┬──────────┬──────────────┐  │
+│  │ Controls│   Nav    │  Logo+Season │  │  (flex-row-reverse)
+│  └─────────┴──────────┴──────────────┘  │
+├─────────────────────────────────────────┤
+│  Main Content                           │  view-transition-name: main-content
+│  max-w-5xl / max-w-7xl mx-auto          │
+│  px-4 py-8 md:py-12                     │
+│  space-y-8 / space-y-10                 │
+├─────────────────────────────────────────┤
+│  Footer                                 │  view-transition-name: footer (بعض الشاشات)
+│  bg-footer-pattern py-12                │
+├─────────────────────────────────────────┤
+│  Mobile Bottom Nav (md:hidden)          │  view-transition-name: mobile-nav
+│  fixed bottom-0 z-50                    │
+└─────────────────────────────────────────┘
+```
+
+### 7.3 التنقل العلوي (Desktop Header)
+
+```html
+<header class="sticky top-0 z-50 bg-white dark:bg-brand-card-dark
+  border-b border-gray-200 dark:border-gray-800
+  p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm">
+```
+
+**العناصر (من اليمين لليسار في RTL):**
+1. **الشعار + الموسم:** شعار الصورة (130px/150px) مع نص الموسم الحالي
+2. **روابط التنقل:** الرئيسية، المتصدرين، المتجر، قواعد اللعبة
+3. **أدوات المستخدم:** زر تبديل الثيم + ملف المستخدم المصغر (اسم + نقاط + حرف أول)
+
+**حالة الرابط النشط:**
+```
+bg-brand-teal/10 dark:bg-brand-slate/20
+text-brand-teal dark:text-brand-slate font-black
+```
+
+**حالة الرابط العادي:**
+```
+text-gray-600 dark:text-gray-300
+hover:text-brand-teal dark:hover:text-brand-slate
+hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold
+```
+
+### 7.4 التنقل السفلي (Mobile Bottom Nav)
+
+```html
+<nav class="md:hidden fixed bottom-0 w-full bg-white dark:bg-brand-card-dark
+  border-t border-gray-100 dark:border-gray-800
+  flex justify-around items-center py-2 px-2 z-50
+  shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]
+  dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.2)]">
+```
+
+**5 عناصر:**
+1. الرئيسية (`lucide:home`)
+2. المتصدرين (`lucide:trophy`)
+3. **زر الهجوم (FAB مرتفع)** (`lucide:swords`)
+4. المتجر (`lucide:shopping-bag`)
+5. حسابي (`lucide:user`)
+
+**زر الهجوم المركزي — التصميم الفريد:**
+```html
+<button class="flex flex-col items-center justify-center
+  w-12 h-12 bg-brand-teal text-white dark:bg-brand-orange/80
+  rounded-full -mt-6
+  border-[3px] border-brand-light-bg dark:border-brand-dark-bg
+  shadow-sm active:scale-95">
+  <iconify-icon icon="lucide:swords" class="text-2xl"></iconify-icon>
+</button>
+```
+
+**ملاحظة مهمة:** في الوضع الداكن، زر الهجوم يتحول من تيل إلى برتقالي (`dark:bg-brand-orange/80`).
+
+### 7.5 عروض المحتوى (Content Widths)
+
+| الشاشة | العرض |
+|--------|-------|
+| الليدربورد (02) | `max-w-5xl` |
+| لوحة اللاعب (05) | `max-w-7xl` |
+| المتجر (06) | `max-w-7xl` |
+| جلسة الأسئلة (07) | `max-w-4xl` |
+| نتائج المعارك (08, 10) | `max-w-4xl` |
+| شاشات المصادقة (03, 04) | `max-w-lg` |
+
+---
+
+## 8) نظام البطاقات والأسطح (Card & Surface System)
+
+### 8.1 البطاقة القياسية
+
+```html
+<div class="bg-white dark:bg-brand-card-dark
+  border border-gray-200 dark:border-gray-700
+  rounded-2xl shadow-sm
+  hover:shadow-md dark:hover:shadow-black/20
+  smooth-transition hover:-translate-y-1">
+```
+
+### 8.2 البطاقة الكبيرة (Hero/Section Cards)
+
+```html
+<div class="bg-white dark:bg-brand-card-dark
+  border border-gray-200 dark:border-gray-700
+  rounded-3xl shadow-sm p-6 md:p-10
+  relative overflow-hidden">
+```
+
+### 8.3 بطاقة المصادقة (Auth Cards)
+
+```html
+<div class="bg-white dark:bg-brand-card-dark
+  border border-gray-200 dark:border-gray-800
+  rounded-3xl shadow-xl p-8 md:p-10
+  relative overflow-hidden">
+```
+
+### 8.4 بطاقة عنصر المتجر
+
+```html
+<div class="group bg-white dark:bg-brand-card-dark
+  border border-gray-200 dark:border-gray-700
+  rounded-2xl shadow-sm hover:shadow-md
+  smooth-transition flex flex-col min-h-[360px] p-5">
+```
+
+### 8.5 بطاقة العنصر الفريد (Special Featured Item)
+
+```html
+<div class="group bg-white dark:bg-[#151c2b]
+  border-2 border-brand-orange/20 dark:border-brand-orange/30
+  rounded-2xl shadow-sm p-6 sm:p-8
+  sm:col-span-2 xl:col-span-3
+  relative overflow-hidden">
+```
+
+### 8.6 نظام انحناء الزوايا (Border Radius Scale)
+
+| الاستخدام | الفئة | القيمة |
+|-----------|-------|--------|
+| بادجات صغيرة | `rounded-md` | 6px |
+| أزرار التنقل | `rounded-lg` | 8px |
+| أزرار، حقول إدخال، عناصر صغيرة | `rounded-xl` | 12px |
+| بطاقات قياسية | `rounded-2xl` | 16px |
+| بطاقات كبيرة، أقسام رئيسية | `rounded-3xl` | 24px |
+| بطاقة Hero (لوحة اللاعب) | `rounded-[2rem]` | 32px |
+
+### 8.7 Chamfered Cards (بطاقات مشطوفة)
+
+تُستخدم كأسلوب بصري مميز في بعض العناصر:
+```css
+.chamfer-card {
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px),
+    calc(100% - 12px) 100%, 0 100%, 0 12px);
+}
+.chamfer-btn {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+```
+
+---
+
+## 9) نظام الأزرار (Button System)
+
+### 9.1 الزر الأساسي (Primary)
+
+```html
+<button class="btn-press bg-brand-teal hover:bg-brand-teal-hover text-white
+  dark:bg-brand-slate/80 dark:hover:bg-brand-slate
+  py-4 rounded-xl font-heading font-black text-lg
+  shadow-lg shadow-brand-teal/20
+  smooth-transition">
+```
+
+### 9.2 زر الهجوم (Attack/Danger)
+
+```html
+<a class="btn-press bg-brand-teal hover:bg-brand-teal-hover text-white
+  dark:bg-brand-orange/80 dark:hover:bg-brand-orange
+  py-2.5 rounded-xl font-heading font-bold text-sm tracking-wider
+  shadow-sm hover:shadow smooth-transition">
+  هجوم
+</a>
+```
+
+### 9.3 زر CTA كبير (Hero Action)
+
+```html
+<a class="btn-press bg-gradient-to-r from-brand-orange to-[#e65100]
+  hover:from-[#e65100] hover:to-[#ff5722]
+  text-white px-8 py-4 md:py-5 rounded-2xl
+  font-heading font-black text-xl
+  shadow-lg shadow-brand-orange/20
+  flex items-center justify-center gap-3
+  smooth-transition hover:-translate-y-1">
+  <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
+  ابدأ الهجوم
+</a>
+```
+
+### 9.4 الزر الثانوي (Secondary/Outlined)
+
+```html
+<a class="btn-press bg-white dark:bg-brand-card-dark
+  border-2 border-gray-200 hover:border-brand-teal
+  dark:border-gray-700 dark:hover:border-brand-teal
+  text-gray-700 hover:text-brand-teal
+  py-4 md:py-5 rounded-2xl font-heading font-black text-lg
+  shadow-sm hover:shadow-md smooth-transition">
+```
+
+### 9.5 الزر المعطل (Disabled)
+
+```html
+<button disabled class="opacity-60 cursor-not-allowed
+  bg-gray-100 dark:bg-gray-800
+  text-gray-400 dark:text-gray-500
+  py-2.5 rounded-xl font-heading font-bold text-sm">
+  مغلق
+</button>
+```
+
+### 9.6 زر شراء في المتجر
+
+```html
+<button class="btn-press w-full bg-brand-teal dark:bg-brand-slate/20
+  text-white dark:text-brand-slate
+  font-heading font-bold py-3 rounded-xl
+  flex items-center justify-center gap-2
+  hover:bg-brand-teal-hover dark:hover:bg-brand-slate/30
+  smooth-transition border dark:border-brand-slate/30">
+  <iconify-icon icon="lucide:shopping-cart"></iconify-icon>
+  1,200 نقطة
+</button>
+```
+
+### 9.7 سلوك الضغط (Press Behavior)
+
+```css
+.btn-press:active {
+  transform: scale(0.98) translateY(2px);
+}
+```
+
+---
+
+## 10) نظام الحركة والانتقالات (Motion & Animation System)
+
+### 10.1 الانتقال القياسي
+
+```css
+.smooth-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+```
+
+### 10.2 انتقالات العرض (View Transitions API)
+
+```css
+@view-transition { navigation: auto; }
+```
+
+**العناصر الثابتة (بدون حركة):**
+```css
+::view-transition-old(main-header),
+::view-transition-new(main-header),
+::view-transition-old(mobile-nav),
+::view-transition-new(mobile-nav) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+```
+
+**المحتوى الرئيسي (اختفاء/ظهور مع إزاحة):**
+```css
+::view-transition-old(main-content) {
+  animation: 0.2s-0.25s ease-out both fade-out;
+}
+::view-transition-new(main-content) {
+  animation: 0.25s-0.3s ease-in 0.1s both fade-in;
+}
+
+@keyframes fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+```
+
+### 10.3 أسماء View Transition المستخدمة
+
+| الاسم | الشاشات | السلوك |
+|-------|---------|--------|
+| `main-header` | الليدربورد | ثابت (بدون حركة) |
+| `main-nav` | اللوحة، المتجر، الأسئلة، النتائج | ثابت (بدون حركة) |
+| `mobile-nav` | جميع الشاشات الداخلية | ثابت (بدون حركة) |
+| `main-content` | جميع الشاشات | اختفاء/ظهور متحرك |
+| `brand` | شاشات المصادقة (03, 04) | ثابت (الشعار) |
+| `footer` | نتائج المعارك | ثابت |
+
+### 10.4 حركات الهوفر
+
+| العنصر | الحركة |
+|--------|--------|
+| البطاقات | `hover:-translate-y-1` |
+| أزرار الهيدر | `hover:-translate-y-0.5` |
+| أيقونات الإحصائيات | `group-hover:scale-110` |
+| أيقونات عناصر المتجر | `group-hover:scale-110` |
+| البطاقات (shadow) | `hover:shadow-md dark:hover:shadow-black/20` |
+
+### 10.5 حركات خاصة
+
+| الحركة | الاستخدام |
+|--------|-----------|
+| `floating` (3s ease-in-out infinite) | أيقونة شاشة النتيجة (فوز/هزيمة) |
+| `animate-pulse` | نقطة الحالة "نشط" |
+| `animate-bounce` | أيقونة الهدية في المتجر، توست الإجابة الصحيحة |
+| `shimmer` (3s infinite linear) | بادج الندرة الفريدة |
+| `progress-glow` | شريط تقدم الأسئلة (box-shadow brand-teal) |
+
+### 10.6 حركات اللوبي (خاصة)
+
+شاشة اللوبي تستخدم نظام حركة متقدم:
+
+| الحركة | الوصف | التوقيت |
+|--------|-------|---------|
+| `slideDownFade` | الهيدر ينزلق من الأعلى | 0.8s cubic-bezier(0.16, 1, 0.3, 1) |
+| `fadeInScale` | الشعار يظهر مع تكبير وتوهج | 1s cubic-bezier(0.16, 1, 0.3, 1) |
+| `rotateShape` | سداسيات الخلفية تدور | 45s linear infinite |
+| `rotateShapeReverse` | سداسيات عكسية | 55s linear infinite |
+| `shimmerSlide` | لمعان الأزرار عند الهوفر | 3s infinite linear |
+| Magnetic hover | الأزرار تتبع مؤشر الماوس | JS-driven, 0.10 multiplier |
+
+**منحنيات التوقيت المخصصة للوبي:**
+```
+spring: cubic-bezier(0.175, 0.885, 0.32, 1.275)
+smooth: cubic-bezier(0.25, 1, 0.5, 1)
+```
+
+---
+
+## 11) استراتيجية الوضع الداكن (Dark Mode Strategy)
+
+### 11.1 آلية التفعيل
+
+```javascript
+tailwind.config = { darkMode: 'class' }
+```
+يُخزن في `localStorage.theme` ويُقرأ عند تحميل الصفحة.
+
+### 11.2 جدول التحويل
+
+| العنصر | الوضع الفاتح | الوضع الداكن |
+|--------|-------------|-------------|
+| خلفية الصفحة | `bg-brand-light-bg` (#F8F9FA) | `bg-brand-dark-bg` (#111827) |
+| خلفية البطاقة | `bg-white` | `bg-brand-card-dark` (#1F2937) |
+| حدود البطاقة | `border-gray-200` | `border-gray-700` أو `border-gray-800` |
+| النص الرئيسي | `text-gray-800` أو `text-gray-900` | `text-gray-200` أو `text-white` |
+| النص الثانوي | `text-gray-500` | `text-gray-400` |
+| اللون الأساسي | `brand-teal` | `brand-slate` |
+| خلفية الإدخال | `bg-gray-100` أو `bg-gray-50` | `bg-gray-900/50` أو `bg-gray-800` |
+| الظلال | `shadow-sm/md` | `shadow-none` أو `shadow-black/20` |
+| الهيدر | `bg-white` | `bg-brand-card-dark` |
+| الفوتر | `bg-[#1F2937]` | `bg-[#0f141f]` |
+| زر الهجوم (جوال) | `bg-brand-teal` | `bg-brand-orange/80` |
+
+### 11.3 نمط التلوين الشفاف (Opacity-based Coloring)
+
+في الوضع الداكن، الألوان المميزة تُستخدم بشفافية أعلى:
+```
+الفاتح: bg-brand-teal/10
+الداكن: dark:bg-brand-slate/20   (شفافية أعلى للتعويض)
+```
+
+---
+
+## 12) نظام حقول الإدخال (Form Input System)
+
+### 12.1 حقل الإدخال القياسي
+
+```html
+<input class="w-full bg-gray-100 dark:bg-gray-900/50
+  border border-gray-200 dark:border-gray-700
+  py-3.5 pr-11 pl-4 rounded-xl font-bold
+  focus:outline-none focus:ring-2
+  focus:ring-brand-teal/10 focus:border-brand-teal
+  dark:focus:border-brand-slate dark:focus:ring-brand-slate/20
+  transition-all
+  text-gray-800 dark:text-white
+  placeholder:text-gray-400">
+```
+
+### 12.2 حقل بحث (Search Input)
+
+```html
+<div class="relative bg-white dark:bg-brand-card-dark
+  border border-gray-200 dark:border-gray-700
+  focus-within:border-brand-teal dark:focus-within:border-brand-slate
+  focus-within:ring-2 focus-within:ring-brand-teal/20
+  rounded-xl shadow-sm overflow-hidden">
+  <iconify-icon icon="lucide:search"
+    class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
+  </iconify-icon>
+  <input class="w-full bg-transparent py-3.5 pr-14 pl-6 font-medium
+    focus:outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400">
+</div>
+```
+
+### 12.3 أيقونة داخل الحقل
+
+الأيقونة تُوضع بشكل مطلق (absolute) داخل `relative` wrapper مع `pointer-events-none`، وتتلون عند التركيز عبر `group-focus-within:text-brand-teal`.
+
+---
+
+## 13) نظام البادجات والحالات (Badge & Status System)
+
+### 13.1 بادج الحالة "نشط"
+
+```html
+<span class="bg-emerald-50 text-emerald-600
+  dark:bg-emerald-900/20 dark:text-emerald-400
+  px-3 py-1 rounded-md text-[11px] font-bold
+  flex items-center gap-2">
+  <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+  نشط
+</span>
+```
+
+### 13.2 بادج "محمي"
+
+```html
+<span class="bg-purple-50 text-purple-600
+  dark:bg-purple-900/20 dark:text-purple-400
+  px-3 py-1 rounded-md text-[11px] font-bold
+  flex items-center gap-1.5">
+  <iconify-icon icon="lucide:shield-check"></iconify-icon>
+  محمي
+</span>
+```
+
+### 13.3 بادج "مفلس"
+
+```html
+<span class="bg-red-50 text-red-500
+  dark:bg-red-900/10 dark:text-red-900
+  px-3 py-1 rounded-md text-[11px] font-bold
+  flex items-center gap-1.5">
+  <iconify-icon icon="lucide:ghost"></iconify-icon>
+  مفلس
+</span>
+```
+
+### 13.4 بادج "انتظار"
+
+```html
+<span class="bg-amber-50 text-amber-600
+  dark:bg-amber-900/20 dark:text-amber-400
+  px-3 py-1 rounded-md text-[11px] font-bold">
+  انتظار
+</span>
+```
+
+### 13.5 بادج الندرة
+
+```html
+<!-- عادي -->
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300
+  text-[10px] font-black px-2.5 py-1 rounded shadow-sm">عادي</span>
+
+<!-- نادر -->
+<span class="bg-gray-800 dark:bg-gray-900 text-white dark:text-gray-300
+  text-[10px] font-black px-2.5 py-1 rounded shadow-sm">نادر</span>
+
+<!-- أسطوري -->
+<span class="bg-brand-teal text-white dark:bg-brand-slate
+  text-[10px] font-black px-2.5 py-1 rounded shadow-sm">أسطوري</span>
+
+<!-- فريد (مع تأثير لامع) -->
+<span class="text-[10px] font-black rarity-unique-glow text-white
+  px-4 py-1.5 rounded-full border border-brand-orange/20">عنصر فريد</span>
+```
+
+---
+
+## 14) قوالب الصفحات المعتمدة (Page Templates)
+
+### 14.1 القالب A — صفحة القائمة المرتبة (Ranked Collection)
+
+**الشاشة:** الليدربورد (02)
+
+**الهيكل:**
+1. عنوان الصفحة مع إحصائيات سريعة (بطاقة المركز الحالي)
+2. بطاقة "مركزك" للجوال (sticky)
+3. شريط بحث + فلتر
+4. تسميات أعمدة الجدول (desktop only)
+5. قائمة بطاقات اللاعبين (grid 12 أعمدة على desktop)
+6. زر "استكشاف المزيد"
+
+### 14.2 القالب B — لوحة التحكم (Dashboard)
+
+**الشاشة:** لوحة اللاعب (05)
+
+**الهيكل:**
+1. قسم Hero (بطاقة كبيرة: أفاتار + معلومات + CTA)
+2. شبكة إحصائيات (2x2 على الجوال، 4 أعمدة على desktop)
+3. تخطيط عمودين (8/4 على desktop): محتوى رئيسي + شريط جانبي
+4. العمود الرئيسي: سجل المعارك + المخزن
+5. العمود الجانبي: بطاقة السلسلة + تحديات اليوم
+
+### 14.3 القالب C — المتجر (Store/Grid)
+
+**الشاشة:** المتجر التكتيكي (06)
+
+**الهيكل:**
+1. عنوان الصفحة مع وصف
+2. تخطيط 4 أعمدة (3 للمحتوى + 1 للجرد الجانبي)
+3. تبويبات تصنيف + بحث
+4. شبكة بطاقات العناصر (1-2-3 أعمدة حسب الشاشة)
+5. عنصر مميز يمتد على عرض كامل
+6. شريط جرد جانبي ثابت (sticky)
+7. قسم نصائح تكتيكية
+
+### 14.4 القالب D — نتيجة / مخرجات (Outcome)
+
+**الشاشات:** الفوز (08)، الهزيمة (10)
+
+**الهيكل:**
+1. أيقونة كبيرة متحركة (floating) مع توهج ملون
+2. عنوان ضخم (text-5xl md:text-7xl) ملون بلون النتيجة
+3. نص وصفي
+4. شبكة إحصائيتين (النقاط + المركز الجديد)
+5. بطاقة رد فعل الخصم
+6. أزرار إجراء (العودة + هجوم آخر)
+
+### 14.5 القالب E — تدفق المصادقة (Auth Flow)
+
+**الشاشات:** التسجيل (03)، الانضمام (04)
+
+**الهيكل:**
+1. شعار العلامة في الأعلى (brand view-transition)
+2. مؤشر تقدم المراحل (شريط مئوي)
+3. بطاقة مركزية واحدة (max-w-lg)
+4. حقول إدخال مع أيقونات
+5. زر إجراء أساسي
+6. رابط بديل (تسجيل الدخول / الرجوع)
+7. فوتر بسيط
+
+### 14.6 القالب F — جلسة اللعب المركزة (Focused Play)
+
+**الشاشة:** جلسة الأسئلة (07)
+
+**الهيكل:**
+1. هيدر التنقل العادي (مع نص "جلسة الأسئلة المباشرة")
+2. شريط التقدم + النقاط المكتسبة
+3. مؤقت عائم (SVG دائري) فوق البطاقة
+4. بطاقة السؤال الكبيرة (rounded-3xl shadow-xl)
+5. شبكة خيارات (2x2)
+6. أزرار مساعدة (حذف إجابتين / تجميد الوقت)
+7. زر "السؤال التالي"
+8. توست إجابة صحيحة (fixed bottom-center)
+
+### 14.7 القالب G — اللوبي الغامر (Immersive Lobby)
+
+**الشاشة:** اللوبي (09)
+
+**الهيكل:**
+1. خلفية كاملة الشاشة (أشكال سداسية دوارة + توهجات)
+2. هيدر بسيط (مؤشر اتصال + أيقونات إشعارات/إعدادات)
+3. شعار مركزي كبير مع تأثير توهج
+4. شبكة أزرار 4 بترتيب قوس (arc)
+5. كل زر بلون مميز: تيل (صفحتي)، بنفسجي (الصدارة)، برتقالي (المتجر)، أزرق (القواعد)
+6. تأثير مغناطيسي على الأزرار (JS)
+7. لا يوجد فوتر ولا تنقل سفلي
+
+---
+
+## 15) أنماط المكونات المتكررة (Recurring Component Patterns)
+
+### 15.1 بطاقة الإحصائية
+
+```html
+<div class="bg-white dark:bg-brand-card-dark p-8 md:p-10 rounded-2xl
+  border border-gray-200 dark:border-gray-700 shadow-sm
+  hover:shadow-md smooth-transition flex flex-col items-center
+  justify-center text-center group hover:-translate-y-1">
+  <iconify-icon icon="..." class="text-[color] mb-3 text-5xl
+    group-hover:scale-110 smooth-transition drop-shadow-sm"></iconify-icon>
+  <span class="text-gray-500 dark:text-gray-400 text-xs font-black
+    uppercase tracking-widest mb-1">التسمية</span>
+  <div class="text-5xl md:text-6xl font-black text-gray-900 dark:text-white">
+    القيمة
+  </div>
+</div>
+```
+
+### 15.2 صف في سجل المعارك
+
+```html
+<div class="p-6 px-8 flex flex-col md:flex-row md:items-center
+  justify-between gap-4 hover:bg-gray-50 dark:hover:bg-gray-800/30
+  smooth-transition">
+  <div class="flex items-center gap-5">
+    <div class="w-14 h-14 rounded-2xl bg-[state-color]-50 dark:bg-[state-color]-900/20
+      text-[state-color] flex items-center justify-center shadow-sm">
+      <iconify-icon icon="..." class="text-2xl"></iconify-icon>
+    </div>
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-[state-color]"></span>
+        <div class="font-bold text-gray-900 dark:text-white text-lg">الوصف</div>
+      </div>
+      <div class="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1
+        flex items-center gap-2">
+        <iconify-icon icon="lucide:clock" class="text-xs"></iconify-icon>
+        منذ 15 دقيقة
+      </div>
+    </div>
+  </div>
+  <div class="text-[state-color] font-black text-xl">+450 نقطة</div>
+</div>
+```
+
+### 15.3 عنصر الجرد (Inventory Item)
+
+```html
+<div class="bg-white dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700
+  p-3.5 rounded-xl shadow-sm
+  hover:border-brand-teal dark:hover:border-brand-slate
+  group smooth-transition">
+  <!-- أيقونة + معلومات + كمية -->
+  <div class="mt-3 flex gap-2">
+    <button class="flex-1 btn-press bg-brand-teal/10 dark:bg-brand-slate/20
+      text-brand-teal dark:text-brand-slate font-heading font-bold text-xs
+      py-2 rounded-lg hover:bg-brand-teal hover:text-white smooth-transition">
+      استخدام
+    </button>
+    <button class="w-10 h-10 flex items-center justify-center bg-gray-100
+      dark:bg-gray-800 rounded-lg hover:bg-brand-danger hover:text-white
+      text-gray-500 transition-colors">
+      <iconify-icon icon="lucide:trash-2"></iconify-icon>
+    </button>
+  </div>
+</div>
+```
+
+### 15.4 شريط التقدم (Progress Bar)
+
+```html
+<div class="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+  <div class="h-full bg-brand-teal dark:bg-brand-slate w-[40%] rounded-full"></div>
+</div>
+```
+
+**النسخة المتقدمة مع تدرج:**
+```html
+<div class="h-full bg-gradient-to-l from-brand-teal to-brand-teal-light
+  dark:from-brand-slate dark:to-[#4f5c6e] rounded-full"></div>
+```
+
+### 15.5 إشعارات Toast
+
+```html
+<div class="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[100]">
+  <div class="bg-white dark:bg-brand-card-dark
+    border-l-4 border-brand-success rounded-xl shadow-lg
+    p-4 flex items-center gap-4 min-w-[280px]">
+    <div class="w-10 h-10 rounded-full bg-brand-success/10 text-brand-success
+      flex items-center justify-center">
+      <iconify-icon icon="lucide:check" class="text-xl"></iconify-icon>
+    </div>
+    <div>
+      <div class="font-heading font-black text-gray-900 dark:text-white">العنوان</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">التفاصيل</div>
+    </div>
+  </div>
+</div>
+```
+
+### 15.6 زر تبديل الثيم
+
+```html
+<button class="w-11 h-11 bg-gray-50 dark:bg-gray-800
+  border border-gray-200 dark:border-gray-700
+  flex items-center justify-center rounded-xl text-xl
+  text-gray-600 dark:text-gray-300
+  hover:bg-gray-100 dark:hover:bg-gray-700
+  smooth-transition hover:-translate-y-0.5 shadow-sm">
+  <iconify-icon icon="lucide:moon" class="dark:hidden"></iconify-icon>
+  <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
+</button>
+```
+
+### 15.7 خيارات الأسئلة (Quiz Options)
+
+**الحالة العادية:**
+```html
+<button class="btn-press group relative flex items-center justify-between
+  p-5 bg-white dark:bg-gray-800/50
+  border-2 border-gray-200 dark:border-gray-700
+  hover:border-brand-teal dark:hover:border-brand-slate
+  hover:bg-gray-50 dark:hover:bg-gray-800
+  rounded-2xl smooth-transition text-right shadow-sm hover:shadow-md">
+```
+
+**الحالة المحددة:**
+```html
+<button class="btn-press group relative flex items-center justify-between
+  p-5 bg-brand-teal/5 dark:bg-brand-slate/10
+  border-2 border-brand-teal dark:border-brand-slate
+  rounded-2xl text-right shadow-sm">
+  <!-- علامة صح -->
+  <div class="absolute -top-2 -right-2 bg-brand-teal text-white
+    w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+    <iconify-icon icon="lucide:check" class="text-[10px]"></iconify-icon>
+  </div>
+</button>
+```
+
+---
+
+## 16) الاستجابة والتصميم المتجاوب (Responsive Strategy)
+
+### 16.1 نقاط الكسر المستخدمة
+
+| النقطة | الكلاس | الاستخدام |
+|--------|--------|-----------|
+| جوال | (افتراضي) | التصميم الأساسي — الأولوية للمتسابق |
+| متوسط | `md:` (768px) | إظهار التنقل العلوي، إخفاء السفلي |
+| كبير | `lg:` (1024px) | تخطيطات متعددة الأعمدة |
+| كبير جدًا | `xl:` (1280px) | شبكات أكثر كثافة |
+
+### 16.2 أنماط التحويل بين الأحجام
+
+| المكون | جوال | desktop |
+|--------|------|---------|
+| التنقل | bottom nav (fixed) | top horizontal nav (sticky) |
+| بطاقة المركز | sticky أسفل الهيدر | inline في عنوان الصفحة |
+| شبكة الإحصائيات | `grid-cols-2` | `grid-cols-4` |
+| بطاقات المتجر | `grid-cols-1` | `sm:grid-cols-2 xl:grid-cols-3` |
+| تخطيط Dashboard | عمود واحد | `lg:grid-cols-12` (8+4) |
+| تخطيط المتجر | عمود واحد | `lg:grid-cols-4` (3+1) |
+| خيارات الأسئلة | عمود واحد | `md:grid-cols-2` |
+| أعمدة الجدول | مخفية (`.hide-mobile`) | مرئية |
+
+### 16.3 قاعدة padding العامة
+
+```
+الصفحة: px-4 py-8 md:py-12
+البطاقات: p-5 أو p-6 md:p-8 أو md:p-10
+الهيدر: p-4 md:px-6 md:py-4
+```
+
+---
+
+## 17) نبرة الواجهة والنصوص (Microcopy & Voice)
+
+### 17.1 أمثلة فعلية من الشاشات المنفذة
+
+| الموقع | النص | النبرة |
+|--------|------|--------|
+| وصف الليدربورد | "تنافس مع أفضل المحاربين وارتقِ في التصنيف" | تحفيزية واضحة |
+| وصف الحساب | "أدخل بياناتك الأساسية للبدء في رحلة الغزو والسيطرة" | مرحة + لعبية |
+| وصف الانضمام | "أدخل كود المسابقة واختر لقبك، لكن انتبه لحد يعرف من انت!" | شبابية + تحذير مرح |
+| وصف المتجر | "تسلّح بأفضل العناصر لتسيطر على ساحة حرب الأسماء" | قتالية + تنافسية |
+| نصر | "لقد تفوقت في المبارزة وأثبت أن اسمك هو الأقوى في الميدان" | فخر وانتصار |
+| هزيمة | "للأسف خسرت هذه المعركة، حاول مرة أخرى وتحسّن من مستواك" | تشجيعية رغم الخسارة |
+| رد الخصم (فوز) | "يا لك من ماكر! لم أكن أتوقع هذا الهجوم الخاطف.." | شخصية حية |
+| رد الخصم (خسارة) | "لقد كنت خصماً سهلاً! يبدو أنك تحتاج إلى المزيد من التدريب" | استفزازية مضبوطة |
+| سلسلة انتصارات | "5 أيام متتالية!" | حماسية |
+| بحث عن كود | "ما عندك كود؟ دورلك على واحد" | لهجة نجدية خفيفة |
+| البايو | "وسع وسع يا فقير انت وياه، الأوله دايييم لنا ....." | لهجة شعبية مرحة |
+| إجابة صحيحة | "إجابة صحيحة! +250 نقطة مكافأة سرعة" | مباشرة + مكافأة |
+
+### 17.2 القواعد المستنتجة
+
+1. **العناوين والتسميات:** عربية فصحى واضحة
+2. **الأوصاف والرسائل التفاعلية:** أقرب للعامية المفهومة مع لمسة لعبية
+3. **ردود الأفعال داخل اللعبة:** شخصية حية وممتعة
+4. **التحذيرات والأوضاع:** واضحة ومباشرة بلا غموض
+5. **لمسة اللهجة النجدية:** موجودة لكنها خفيفة ومحسوبة
+
+---
+
+## 18) ملاحظات تقنية للتحويل إلى React
+
+### 18.1 المكونات المشتركة القابلة لإعادة الاستخدام
+
+من تحليل الشاشات، هذه المكونات تتكرر ويجب استخراجها:
+
+1. **AppHeader** — الهيدر مع التنقل والمستخدم المصغر
+2. **MobileBottomNav** — التنقل السفلي مع FAB الهجوم
+3. **AppFooter** — الفوتر مع bg-footer-pattern
+4. **ThemeToggle** — زر تبديل الثيم
+5. **UserMiniProfile** — حرف أول + اسم + نقاط
+6. **StatCard** — بطاقة إحصائية مع أيقونة ورقم
+7. **PlayerRow** — صف لاعب في الليدربورد
+8. **RankBadge** — بادج الترتيب (ذهبي/فضي/برونزي/عادي)
+9. **StatusBadge** — بادج الحالة (نشط/محمي/مفلس/انتظار)
+10. **RarityBadge** — بادج الندرة
+11. **ItemCard** — بطاقة عنصر في المتجر
+12. **InventoryItem** — عنصر في الجرد الجانبي
+13. **ProgressBar** — شريط تقدم
+14. **QuizOption** — خيار في الأسئلة
+15. **BattleHistoryRow** — صف في سجل المعارك
+16. **Toast** — إشعار مؤقت
+17. **SearchInput** — حقل بحث مع أيقونة
+
+### 18.2 Tailwind Config المطلوب
+
+```js
+module.exports = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        'brand-teal': '#0B8A8D',
+        'brand-teal-hover': '#067a79',
+        'brand-teal-light': '#17a2b8',
+        'brand-slate': '#64748B',
+        'brand-orange': '#D84315',
+        'brand-dark': '#1F2937',
+        'brand-light-bg': '#F8F9FA',
+        'brand-dark-bg': '#111827',
+        'brand-card-dark': '#1F2937',
+        'brand-success': '#10B981',
+        'brand-danger': '#EF4444',
+        // Rarity system
+        'rarity-common': '#94A3B8',
+        'rarity-rare': '#0D47A1',
+        'rarity-epic': '#64748B',
+        'rarity-legendary': '#D84315',
+        'rarity-mythic': '#7C3AED',
+        // Lobby-specific
+        'brand-bg': '#0a0d14',
+        'brand-surface': '#151b29',
+        'brand-purple': '#9333EA',
+        'brand-blue': '#3B82F6',
+        'brand-emerald': '#10B981',
+        'brand-border': '#2A3142',
+      },
+      fontFamily: {
+        display: ['Cairo', 'sans-serif'],
+        heading: ['Changa', 'sans-serif'],
+        body: ['Cairo', 'sans-serif'],
+      },
+    },
+  },
+}
+```
+
+### 18.3 CSS مخصص يجب نقله
+
+1. `.bg-pattern-main` — نمط الخطوط القطرية
+2. `.bg-footer-pattern` — نمط الفوتر
+3. `.smooth-transition` — الانتقال المعياري
+4. `.btn-press:active` — سلوك الضغط
+5. `.chamfer-card` / `.chamfer-btn` — قص الزوايا
+6. Rank badge gradients — تدرجات بادجات الترتيب
+7. View Transitions CSS — انتقالات الصفحات
+8. `.floating` animation — لشاشات النتائج
+9. `.rarity-unique-glow` — لمعان الندرة الفريدة
+10. `.progress-glow` — توهج شريط التقدم
+11. Lobby-specific animations — حركات اللوبي المتقدمة
+
+### 18.4 ملاحظات RTL
+
+- كل الـ `flex-row-reverse` في الهيدر مقصود لـ RTL
+- الأيقونات الاتجاهية (`arrow-left`, `chevron-left`) تظهر "يسارية" لكنها في RTL تشير لليمين (الاتجاه الصحيح)
+- حقول الإدخال تستخدم `pr-` للأيقونة (الجانب الأيمن في RTL هو البداية)
+- `text-right` في بعض الأماكن هو الافتراضي في RTL
+
+---
+
+## 19) ملخص الهوية البصرية
+
+| الجانب | القرار المعتمد |
+|--------|---------------|
+| اللون الأساسي | Teal (#0B8A8D) فاتح / Slate (#64748B) داكن |
+| لون الخطر والهجوم | Orange (#D84315) |
+| الخطوط | Cairo (عرض + جسم) + Changa (عناوين) |
+| الأيقونات | Iconify (lucide + mdi) |
+| الزوايا | مدورة بكثافة (12px-32px) |
+| الأسطح | مسطحة مع حدود + ظلال خفيفة |
+| الحركة | سريعة ومضبوطة (0.2s) مع لمسات خاصة |
+| الاتجاه | RTL أولًا |
+| الثيم | فاتح + داكن (class-based) |
+| النبرة | عربية واضحة + لمسة شبابية مرحة |
+| الشعار | صورة خارجية (Supabase storage) |
+| الحالة | نشط/محمي/مفلس/انتظار — كل واحدة بلون ومؤشر مميز |
+| الندرة | 5 مستويات بألوان وتأثيرات متصاعدة |
