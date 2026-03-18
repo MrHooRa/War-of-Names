@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء حساب جديد | حرب الأسماء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&amp;family=Changa:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <meta name="view-transition" content="same-origin">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/9a150d25-7476-4f14-bd65-3a17275e62b1" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/7487124f-8397-4395-aebd-46db91ac1f2e" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" as="document">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-hover': '#067a79',
+                        'brand-teal-light': '#17a2b8',
+                        'brand-slate': '#64748B',
+                        'brand-orange': '#D84315',
+                        'brand-dark': '#1F2937',
+                        'brand-light-bg': '#F8F9FA',
+                        'brand-dark-bg': '#111827',
+                        'brand-card-dark': '#1F2937',
+                        'brand-success': '#10B981',
+                        'brand-danger': '#EF4444',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html { background-color: #F8F9FA; }
+        .dark html { background-color: #111827; }
+        @view-transition { navigation: auto; }
+        ::view-transition { background-color: #111827; }
+
+        .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(31, 41, 55, 0.02) 0, rgba(31, 41, 55, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .dark .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(229, 231, 235, 0.02) 0, rgba(229, 231, 235, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+
+        ::view-transition-old(brand),
+        ::view-transition-new(brand) {
+            animation: none;
+            mix-blend-mode: normal;
+        }
+
+        ::view-transition-old(main-content) {
+            animation: 0.25s ease-out both fade-out;
+        }
+        ::view-transition-new(main-content) {
+            animation: 0.25s ease-in 0.1s both fade-in;
+        }
+
+        @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+        .chamfer-card {
+            clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+        }
+        .smooth-transition {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-press:active {
+            transform: scale(0.98) translateY(2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen flex flex-col relative bg-pattern-main bg-brand-light-bg dark:bg-brand-dark-bg font-body transition-colors duration-300">
+        
+        <!-- Logo Header (Persistent Brand) -->
+        <header class="w-full pt-12 pb-8 flex justify-center" style="view-transition-name: brand">
+            <a href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" id="nav-logo-link" class="block smooth-transition hover:opacity-80 hover:scale-105 transform">
+                <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/cfa1195b-8ce6-48f1-a984-5f575cd05ec4/generated-images/generated-53871963-6c6a-4c03-9b04-9e8a3124af47.png" alt="حرب الأسماء" class="w-[160px] md:w-[200px] object-contain drop-shadow-sm">
+            </a>
+        </header>
+
+        <!-- Main Creation Flow -->
+        <main class="flex-1 flex flex-col items-center px-4 pb-20" style="view-transition-name: main-content">
+            <div class="w-full max-w-lg">
+                
+                <!-- Progress Indicator -->
+                <div class="mb-8 flex items-center justify-between">
+                    <div class="flex-1 flex flex-col gap-2">
+                        <div class="flex justify-between items-end mb-1">
+                            <span class="text-xs font-heading font-black text-brand-teal dark:text-brand-slate uppercase tracking-widest">المرحلة الأولى</span>
+                            <span class="text-[10px] font-bold text-gray-400">50% مكتمل</span>
+                        </div>
+                        <div class="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-brand-teal dark:bg-brand-slate w-1/2 rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registration Card -->
+                <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl shadow-xl p-8 md:p-10 relative overflow-hidden">
+                    <a href="https://p.superdesign.dev/draft/9a150d25-7476-4f14-bd65-3a17275e62b1" id="btn-back-to-login" class="absolute top-6 left-6 z-20 text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate smooth-transition flex items-center gap-1.5 text-sm font-bold bg-gray-50 dark:bg-gray-800/50 hover:bg-brand-teal/10 dark:hover:bg-brand-slate/20 px-3 py-1.5 rounded-lg border border-transparent hover:border-brand-teal/20 dark:hover:border-brand-slate/20">
+                        <iconify-icon icon="lucide:arrow-right" class="text-lg"></iconify-icon>
+                        <span class="hidden sm:inline">رجوع</span>
+                    </a>
+
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-brand-teal/5 dark:bg-brand-slate/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                    
+                    <div class="relative">
+                        <h1 class="font-display text-3xl font-black text-gray-800 dark:text-white mb-2">
+                            إنشاء حساب لاعب</h1>
+                        <p class="text-gray-500 dark:text-gray-400 font-medium mb-8">
+                            أدخل بياناتك الأساسية للبدء في رحلة الغزو والسيطرة
+                        </p>
+
+                        <form action="#" class="space-y-6">
+                            <!-- Username -->
+                            <div class="space-y-2">
+                                <label for="username" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mr-1">اسم المستخدم (المعرف)</label>
+                                <div class="relative group">
+                                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-brand-teal smooth-transition">
+                                        <iconify-icon icon="lucide:at-sign" class="text-lg"></iconify-icon>
+                                    </div>
+                                    <input type="text" id="username" name="username" placeholder="warrior_2024" class="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3.5 pr-11 pl-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:focus:border-brand-slate dark:focus:ring-brand-slate/20 transition-all text-gray-800 dark:text-white placeholder:text-gray-400">
+                                </div>
+                                <p class="text-[10px] text-gray-400 mr-1">هذا هو اسم حسابك لتتمكن من الدخول</p>
+                            </div>
+
+                            <!-- Real Name -->
+                            <div class="space-y-2">
+                                <label for="fullname" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mr-1">الاسم الحقيقي أو المعروف</label>
+                                <div class="relative group">
+                                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-brand-teal smooth-transition">
+                                        <iconify-icon icon="lucide:user" class="text-lg"></iconify-icon>
+                                    </div>
+                                    <input type="text" id="fullname" name="fullname" placeholder="سلطان بن محمد" class="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3.5 pr-11 pl-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:focus:border-brand-slate dark:focus:ring-brand-slate/20 transition-all text-gray-800 dark:text-white placeholder:text-gray-400">
+                                </div>
+                            </div>
+
+                            <!-- Password -->
+                            <div class="space-y-2">
+                                <label for="password" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mr-1">كلمة المرور</label>
+                                <div class="relative group">
+                                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-brand-teal smooth-transition">
+                                        <iconify-icon icon="lucide:lock" class="text-lg"></iconify-icon>
+                                    </div>
+                                    <input type="password" id="password" name="password" placeholder="••••••••" class="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3.5 pr-11 pl-12 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:focus:border-brand-slate dark:focus:ring-brand-slate/20 transition-all text-gray-800 dark:text-white placeholder:text-gray-400">
+                                    <button type="button" class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 hover:text-brand-teal transition-colors">
+                                        <iconify-icon icon="lucide:eye" class="text-lg"></iconify-icon>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Submit Action -->
+                            <div class="pt-4">
+                                <a href="https://p.superdesign.dev/draft/7487124f-8397-4395-aebd-46db91ac1f2e" id="btn-continue-registration" class="btn-press w-full bg-brand-teal hover:bg-brand-teal-hover text-white dark:bg-brand-slate dark:hover:bg-brand-slate/80 py-4 rounded-xl font-heading font-black text-lg shadow-lg shadow-brand-teal/20 hover:shadow-md transition-all flex items-center justify-center gap-3">
+                                    الخطوة التالية
+                                    <iconify-icon icon="lucide:chevron-left" class="text-xl"></iconify-icon>
+                                </a>
+                            </div>
+                        </form>
+
+                        <!-- Login Link -->
+                        <div class="mt-10 text-center">
+                            <p class="text-gray-500 dark:text-gray-400 font-bold">
+                                لديك حساب بالفعل؟
+                                <a href="https://p.superdesign.dev/draft/9a150d25-7476-4f14-bd65-3a17275e62b1" id="link-to-login" class="text-brand-teal dark:text-brand-slate hover:text-brand-teal-hover hover:underline mr-1 smooth-transition inline-flex items-center gap-1">
+                                    سجل دخولك من هنا
+                                    <iconify-icon icon="lucide:arrow-left" class="text-sm rtl:rotate-180"></iconify-icon>
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trust Indicators -->
+                
+            </div>
+        </main>
+
+        <!-- Minimal Footer -->
+        <footer class="py-8 px-6 text-center">
+            <p class="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest">
+                جميع الحقوق محفوظة © 2026 حرب الأسماء
+            </p>
+            <!-- Theme Toggle for accessibility during setup -->
+            
+        </footer>
+
+    </div>
+
+    <script>
+        const toggleBtn = document.getElementById('theme-toggle');
+        const htmlElement = document.documentElement;
+
+        if (localStorage.getItem('theme') === 'dark') {
+            htmlElement.classList.add('dark');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.setItem('theme', htmlElement.classList.contains('dark') ? 'dark' : 'light');
+        });
+    </script>
+
+</body></html>

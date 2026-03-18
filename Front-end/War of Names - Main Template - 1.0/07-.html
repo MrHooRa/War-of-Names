@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جلسة الاختبار | حرب الأسماء</title>
+    <meta name="view-transition" content="same-origin">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Changa:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/2792460f-96b6-45e2-b2e2-1db215fac775" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" as="document">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-hover': '#067a79',
+                        'brand-teal-light': '#17a2b8',
+                        'brand-slate': '#64748B',
+                        'brand-orange': '#D84315',
+                        'brand-dark': '#1F2937',
+                        'brand-light-bg': '#F8F9FA',
+                        'brand-dark-bg': '#111827',
+                        'brand-card-dark': '#1F2937',
+                        'brand-success': '#10B981',
+                        'brand-danger': '#EF4444',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html { background-color: #F8F9FA; }
+        .dark html { background-color: #111827; }
+        @view-transition { navigation: auto; }
+        ::view-transition { background-color: transparent; }
+        
+        ::view-transition-old(brand-logo),
+        ::view-transition-new(brand-logo),
+        ::view-transition-old(user-badge),
+        ::view-transition-new(user-badge) {
+            animation: none;
+            mix-blend-mode: normal;
+        }
+
+        ::view-transition-old(main-content) {
+            animation: 0.2s ease-out both fade-out;
+        }
+        ::view-transition-new(main-content) {
+            animation: 0.3s ease-in 0.1s both fade-in;
+        }
+
+        @keyframes fade-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.98); } }
+        @keyframes fade-in { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: scale(1); } }
+
+        .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(31, 41, 55, 0.02) 0, rgba(31, 41, 55, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .dark .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(229, 231, 235, 0.02) 0, rgba(229, 231, 235, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        
+        .smooth-transition {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-press:active {
+            transform: scale(0.98) translateY(2px);
+        }
+
+        .progress-glow {
+            box-shadow: 0 0 15px rgba(11, 138, 141, 0.3);
+        }
+        
+        .timer-ring {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 70;
+            transition: stroke-dashoffset 1s linear;
+        }
+    </style>
+  <style>sd-component { display: block; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/petite-vue@0.4.1/dist/petite-vue.iife.js" defer init></script>
+</head>
+<body>
+    <div class="min-h-screen flex flex-col relative bg-pattern-main bg-brand-light-bg dark:bg-brand-dark-bg font-body text-gray-800 dark:text-gray-200 transition-colors duration-300">
+        
+        <!-- Unified Navigation Header -->
+        <!-- component: HeaderTopNavBar (05e56da8-b389-4886-abd6-1e53bf5136d2) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;battle&quot;,&quot;logoHref&quot;:&quot;https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf&quot;,&quot;homeHref&quot;:&quot;https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf&quot;,&quot;leaderboardHref&quot;:&quot;https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186&quot;,&quot;shopHref&quot;:&quot;https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec&quot;,&quot;rulesHref&quot;:&quot;#rules&quot;,&quot;profileHref&quot;:&quot;https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3&quot;,&quot;seasonText&quot;:&quot;جلسة الأسئلة المباشرة&quot;,&quot;userTitle&quot;:&quot;المحارب الذهبي&quot;,&quot;userPoints&quot;:&quot;8,450&quot;,&quot;userInitial&quot;:&quot;م&quot;}, $emit() {} }">
+<header class="sticky top-0 z-50 bg-white dark:bg-brand-card-dark border-b border-gray-200 dark:border-gray-800 p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-4">
+            <a :href="logoHref" id="nav-logo-link" class="block smooth-transition hover:opacity-80">
+                <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[130px] md:w-[150px] object-contain drop-shadow-sm">
+            </a>
+            <div class="hidden lg:flex flex-col items-start border-r border-gray-200 dark:border-gray-700 pr-5">
+                <div class="text-xs font-bold mt-1.5 text-gray-500 dark:text-gray-400">{{ seasonText }}</div>
+            </div>
+        </div>
+
+        <!-- Global Navigation -->
+        <nav class="hidden md:flex items-center gap-1">
+            <a :href="homeHref" id="nav-home" :class="activeItem === 'home' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">الرئيسية</a>
+            <a :href="leaderboardHref" id="nav-leaderboard" :class="activeItem === 'leaderboard' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">المتصدرين</a>
+            <a :href="shopHref" id="nav-shop" :class="activeItem === 'shop' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">المتجر</a>
+            <a :href="rulesHref" id="nav-rules" :class="activeItem === 'rules' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">قواعد اللعبة</a>
+        </nav>
+
+        <!-- User Controls -->
+        <div class="flex items-center gap-4 flex-row-reverse">
+            <!-- Theme Toggle -->
+            <button @click="$emit('toggleTheme')" class="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm">
+                <iconify-icon icon="lucide:moon" class="dark:hidden"></iconify-icon>
+                <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
+            </button>
+
+            <!-- User Mini Profile -->
+            <a :href="profileHref" id="nav-profile-btn" class="flex items-center gap-3 group smooth-transition hover:-translate-y-0.5">
+                <div class="hidden md:flex flex-col text-left">
+                    <span class="font-heading text-xs text-gray-500 dark:text-gray-400">{{ userTitle }}</span>
+                    <span class="font-heading text-sm font-black text-brand-teal dark:text-brand-slate">{{ userPoints }} نقطة</span>
+                </div>
+                <div class="w-11 h-11 bg-brand-teal/10 dark:bg-brand-slate/20 border border-brand-teal/20 dark:border-brand-slate/30 rounded-xl flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-xl shadow-sm">
+                    {{ userInitial }}
+                </div>
+            </a>
+        </div>
+    </div>
+</header>
+</div>
+<!-- /component: HeaderTopNavBar (05e56da8-b389-4886-abd6-1e53bf5136d2) -->
+
+        <!-- Main Session Area -->
+        <main style="view-transition-name: main-content" class="flex-1 flex flex-col items-center justify-center w-full max-w-4xl mx-auto px-4 py-6 md:py-12">
+            
+            <!-- Progress & Score -->
+            <div class="w-full mb-10">
+                <div class="flex justify-between items-end mb-4">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[10px] font-black text-gray-500 dark:text-gray-500 uppercase tracking-widest">التقدم</span>
+                        <div class="font-heading text-2xl font-black text-gray-900 dark:text-white">السؤال 04 <span class="text-gray-400 dark:text-gray-600 font-bold text-lg">/ 10</span></div>
+                    </div>
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="text-[10px] font-black text-gray-500 dark:text-gray-500 uppercase tracking-widest">النقاط المكتسبة</span>
+                        <div class="flex items-center gap-2 text-brand-teal dark:text-brand-slate">
+                            <span class="font-display text-2xl font-black">+1,240</span>
+                            <iconify-icon icon="lucide:zap" class="text-2xl"></iconify-icon>
+                        </div>
+                    </div>
+                </div>
+                <div class="h-3 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-brand-teal dark:bg-brand-slate w-[40%] rounded-full progress-glow smooth-transition"></div>
+                </div>
+            </div>
+
+            <!-- Question Card -->
+            <div class="w-full relative">
+                <!-- Timer Floating -->
+                <div class="absolute -top-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
+                    <div class="relative w-16 h-16 bg-white dark:bg-brand-card-dark rounded-full shadow-md border-2 border-gray-300 dark:border-gray-700 flex items-center justify-center">
+                        <svg class="absolute inset-0 w-full h-full -rotate-90">
+                            <circle cx="32" cy="32" r="28" fill="transparent" stroke="currentColor" stroke-width="4" class="text-gray-200 dark:text-gray-800" />
+                            <circle cx="32" cy="32" r="28" fill="transparent" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="text-brand-teal timer-ring" />
+                        </svg>
+                        <span class="font-display text-xl font-black text-gray-900 dark:text-white">18</span>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-3xl shadow-xl p-8 md:p-14 text-center pt-16">
+                    <h2 class="font-display text-2xl md:text-3xl font-black text-gray-900 dark:text-white leading-relaxed mb-10">
+                        ما هو الاسم التاريخي الذي كان يطلق على المنطقة التي نشأت فيها أول حضارة زراعية في العالم؟
+                    </h2>
+
+                    <!-- Options Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button class="btn-press group relative flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 hover:border-brand-teal dark:hover:border-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl smooth-transition text-right shadow-sm hover:shadow-md">
+                            <span class="font-heading text-lg font-bold text-gray-800 dark:text-gray-300 group-hover:text-brand-teal dark:group-hover:text-brand-slate transition-colors">وادي الرافدين</span>
+                            <div class="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-gray-500 group-hover:bg-brand-teal group-hover:text-white group-hover:border-brand-teal smooth-transition">أ</div>
+                        </button>
+
+                        <button class="btn-press group relative flex items-center justify-between p-5 bg-brand-teal/5 dark:bg-brand-slate/10 border-2 border-brand-teal dark:border-brand-slate rounded-2xl smooth-transition text-right shadow-sm">
+                            <span class="font-heading text-lg font-bold text-brand-teal dark:text-brand-slate">الهلال الخصيب</span>
+                            <div class="w-8 h-8 rounded-lg bg-brand-teal dark:bg-brand-slate border border-brand-teal dark:border-brand-slate flex items-center justify-center font-bold text-white shadow-sm">ب</div>
+                            <div class="absolute -top-2 -right-2 bg-brand-teal text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                                <iconify-icon icon="lucide:check" class="text-[10px]"></iconify-icon>
+                            </div>
+                        </button>
+
+                        <button class="btn-press group relative flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 hover:border-brand-teal dark:hover:border-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl smooth-transition text-right shadow-sm hover:shadow-md">
+                            <span class="font-heading text-lg font-bold text-gray-800 dark:text-gray-300 group-hover:text-brand-teal dark:group-hover:text-brand-slate transition-colors">بلاد فارس</span>
+                            <div class="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-gray-500 group-hover:bg-brand-teal group-hover:text-white group-hover:border-brand-teal smooth-transition">ج</div>
+                        </button>
+
+                        <button class="btn-press group relative flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 hover:border-brand-teal dark:hover:border-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl smooth-transition text-right shadow-sm hover:shadow-md">
+                            <span class="font-heading text-lg font-bold text-gray-800 dark:text-gray-300 group-hover:text-brand-teal dark:group-hover:text-brand-slate transition-colors">ضفاف النيل</span>
+                            <div class="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-gray-500 group-hover:bg-brand-teal group-hover:text-white group-hover:border-brand-teal smooth-transition">د</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Helper Bar -->
+            <div class="flex gap-4 mt-10">
+                <button class="btn-press flex items-center gap-3 px-6 py-3 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl font-bold text-gray-600 dark:text-gray-400 hover:text-brand-orange dark:hover:text-brand-orange smooth-transition shadow-sm">
+                    <iconify-icon icon="lucide:help-circle" class="text-xl"></iconify-icon>
+                    <span>حذف إجابتين</span>
+                    <span class="bg-brand-orange/10 text-brand-orange px-2 py-0.5 rounded text-[10px]">1 متوفر</span>
+                </button>
+                <button class="btn-press flex items-center gap-3 px-6 py-3 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl font-bold text-gray-600 dark:text-gray-400 hover:text-brand-teal dark:hover:text-brand-teal-light smooth-transition shadow-sm">
+                    <iconify-icon icon="lucide:timer" class="text-xl"></iconify-icon>
+                    <span>تجميد الوقت</span>
+                    <span class="bg-brand-teal/10 text-brand-teal px-2 py-0.5 rounded text-[10px]">3 متوفر</span>
+                </button>
+            </div>
+
+            <!-- Next Action -->
+            <div class="mt-12 flex flex-col items-center gap-4">
+                <a href="https://p.superdesign.dev/draft/2792460f-96b6-45e2-b2e2-1db215fac775" id="next-question-btn" class="btn-press bg-brand-teal hover:bg-brand-teal-hover text-white px-12 py-4 rounded-2xl font-heading font-black text-xl shadow-lg hover:shadow-brand-teal/20 flex items-center gap-3 smooth-transition">
+                    <span>السؤال التالي</span>
+                    <iconify-icon icon="lucide:arrow-left"></iconify-icon>
+                </a>
+                <p class="text-xs font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest">اضغط للمتابعة أو انتظر انتهاء الوقت</p>
+            </div>
+        </main>
+
+        <!-- Toast Notification (Correct Answer) -->
+        <div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-brand-success text-white px-6 py-3 rounded-2xl shadow-2xl animate-bounce">
+            <iconify-icon icon="lucide:award" class="text-2xl"></iconify-icon>
+            <span class="font-heading font-black">إجابة صحيحة! +250 نقطة مكافأة سرعة</span>
+        </div>
+
+    </div>
+
+    <script>
+        // Minimal theme toggle persistence
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+</body>
+</html>

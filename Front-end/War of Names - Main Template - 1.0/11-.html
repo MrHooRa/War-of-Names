@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="view-transition" content="same-origin">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مرجع المتجر الشامل | حرب الأسماء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Changa:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-hover': '#067a79',
+                        'brand-teal-light': '#17a2b8',
+                        'brand-slate': '#64748B',
+                        'brand-orange': '#D84315',
+                        'brand-dark': '#1F2937',
+                        'brand-light-bg': '#F8F9FA',
+                        'brand-dark-bg': '#111827',
+                        'brand-card-dark': '#1F2937',
+                        'brand-success': '#10B981',
+                        'brand-danger': '#EF4444',
+                        'rarity-common': '#94A3B8',
+                        'rarity-rare': '#0D47A1',
+                        'rarity-epic': '#64748B',
+                        'rarity-legendary': '#D84315',
+                        'rarity-mythic': '#7C3AED',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Animations for the Reference Page */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(216, 67, 21, 0.4); }
+            50% { box-shadow: 0 0 35px rgba(216, 67, 21, 0.8); }
+        }
+        .animate-pulse-glow-legendary { animation: pulse-glow 2s infinite; }
+
+        @keyframes pulse-glow-mythic {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.5); transform: scale(1); }
+            50% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.9); transform: scale(1.02); }
+        }
+        .animate-pulse-glow-mythic { animation: pulse-glow-mythic 2.5s infinite; }
+
+        @keyframes rotation-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-rotate-slow { animation: rotation-slow 8s linear infinite; }
+
+        @keyframes spin-fast {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .hover-spin:hover iconify-icon { animation: spin-fast 0.6s ease-in-out; }
+
+        @keyframes color-shift {
+            0% { border-color: #64748B; }
+            50% { border-color: #0B8A8D; }
+            100% { border-color: #64748B; }
+        }
+        .animate-color-shift { animation: color-shift 3s infinite; }
+
+        @keyframes page-flip {
+            0% { transform: perspective(400px) rotateY(0); }
+            100% { transform: perspective(400px) rotateY(-20deg); }
+        }
+        .hover-flip:hover .item-icon { animation: page-flip 0.4s forwards; }
+
+        .mystery-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        /* Rarity Glows */
+        .glow-legendary { box-shadow: 0 10px 25px -5px rgba(216, 67, 21, 0.4); }
+        .glow-mythic { box-shadow: 0 10px 30px -5px rgba(124, 58, 237, 0.5); }
+        .glow-epic { box-shadow: 0 10px 20px -5px rgba(100, 116, 139, 0.3); }
+        .glow-rare { box-shadow: 0 10px 20px -5px rgba(13, 71, 161, 0.3); }
+
+        /* Page Layout Utilities */
+        .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(31, 41, 55, 0.02) 0, rgba(31, 41, 55, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .dark .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(229, 231, 235, 0.02) 0, rgba(229, 231, 235, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+
+        /* Custom Scrollbar for Inventory */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+    </style>
+  <style>sd-component { display: block; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/petite-vue@0.4.1/dist/petite-vue.iife.js" defer init></script>
+</head>
+<body class="bg-brand-light-bg dark:bg-brand-dark-bg font-body text-gray-900 dark:text-gray-200 min-h-screen transition-colors duration-300">
+    <div class="min-h-screen flex flex-col relative bg-pattern-main">
+        
+        <!-- Persistent Navigation Header -->
+        <!-- component: HeaderTopNavBar (05e56da8-b389-4886-abd6-1e53bf5136d2) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;shop&quot;,&quot;logoHref&quot;:&quot;https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf&quot;,&quot;homeHref&quot;:&quot;https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf&quot;,&quot;leaderboardHref&quot;:&quot;https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186&quot;,&quot;shopHref&quot;:&quot;#&quot;,&quot;rulesHref&quot;:&quot;#rules&quot;,&quot;profileHref&quot;:&quot;https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3&quot;,&quot;seasonText&quot;:&quot;الموسم التنافسي الأول&quot;,&quot;userTitle&quot;:&quot;المحارب الذهبي&quot;,&quot;userPoints&quot;:&quot;8,450&quot;,&quot;userInitial&quot;:&quot;م&quot;}, $emit() {} }">
+<header class="sticky top-0 z-50 bg-white dark:bg-brand-card-dark border-b border-gray-200 dark:border-gray-800 p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-4">
+            <a :href="logoHref" id="nav-logo-link" class="block smooth-transition hover:opacity-80">
+                <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[130px] md:w-[150px] object-contain drop-shadow-sm">
+            </a>
+            <div class="hidden lg:flex flex-col items-start border-r border-gray-200 dark:border-gray-700 pr-5">
+                <div class="text-xs font-bold mt-1.5 text-gray-500 dark:text-gray-400">{{ seasonText }}</div>
+            </div>
+        </div>
+
+        <!-- Global Navigation -->
+        <nav class="hidden md:flex items-center gap-1">
+            <a :href="homeHref" id="nav-home" :class="activeItem === 'home' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">الرئيسية</a>
+            <a :href="leaderboardHref" id="nav-leaderboard" :class="activeItem === 'leaderboard' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">المتصدرين</a>
+            <a :href="shopHref" id="nav-shop" :class="activeItem === 'shop' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">المتجر</a>
+            <a :href="rulesHref" id="nav-rules" :class="activeItem === 'rules' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">قواعد اللعبة</a>
+        </nav>
+
+        <!-- User Controls -->
+        <div class="flex items-center gap-4 flex-row-reverse">
+            <!-- Theme Toggle -->
+            <button @click="$emit('toggleTheme')" class="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm">
+                <iconify-icon icon="lucide:moon" class="dark:hidden"></iconify-icon>
+                <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
+            </button>
+
+            <!-- User Mini Profile -->
+            <a :href="profileHref" id="nav-profile-btn" class="flex items-center gap-3 group smooth-transition hover:-translate-y-0.5">
+                <div class="hidden md:flex flex-col text-left">
+                    <span class="font-heading text-xs text-gray-500 dark:text-gray-400">{{ userTitle }}</span>
+                    <span class="font-heading text-sm font-black text-brand-teal dark:text-brand-slate">{{ userPoints }} نقطة</span>
+                </div>
+                <div class="w-11 h-11 bg-brand-teal/10 dark:bg-brand-slate/20 border border-brand-teal/20 dark:border-brand-slate/30 rounded-xl flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-xl shadow-sm">
+                    {{ userInitial }}
+                </div>
+            </a>
+        </div>
+    </div>
+</header>
+</div>
+<!-- /component: HeaderTopNavBar (05e56da8-b389-4886-abd6-1e53bf5136d2) -->
+
+        <main style="view-transition-name: main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-10 relative z-10">
+            
+            <!-- Shop Page Title & Welcome -->
+            <div class="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-gray-200 dark:border-gray-800 pb-8">
+                <div class="space-y-3 text-right">
+                    <h1 class="text-4xl md:text-5xl font-display font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-4">
+                        <iconify-icon icon="lucide:shopping-bag" class="text-brand-teal"></iconify-icon>
+                        مرجع عناصر المتجر
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400 text-lg font-medium">
+                        استخدم هذه الصفحة كمرجع لجميع أنواع الندرة، الحالات، والمؤثرات البصرية.
+                    </p>
+                </div>
+                <div class="flex gap-4">
+                    <div class="bg-white dark:bg-brand-card-dark px-6 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-3">
+                        <div class="flex flex-col text-left">
+                            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">رصيدك</span>
+                            <span class="text-xl font-black text-brand-teal dark:text-brand-slate tracking-tighter">12,450 نقطة</span>
+                        </div>
+                        <iconify-icon icon="lucide:zap" class="text-2xl text-amber-500"></iconify-icon>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Navigation -->
+            <!-- component: StoreTabNavigation (45309167-b65d-4fc5-931a-84748cd3f52e) -->
+<div v-scope="{ ...{&quot;activeTab&quot;:&quot;all&quot;,&quot;countAll&quot;:28,&quot;countWeapons&quot;:6,&quot;countArmor&quot;:5,&quot;countSpecial&quot;:11}, $emit() {} }">
+<nav class="flex bg-white dark:bg-[#1a1a1a] border-4 border-brand-dark dark:border-[#64748B]/35 p-1 shape-chamfer-sm w-full md:w-auto overflow-x-auto shadow-harsh dark:shadow-[0_4px_8px_rgba(0,0,0,0.3)]">
+    <button 
+        @click="$emit('selectTab', { tabId: 'all' })" 
+        :class="activeTab === 'all' ? 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0]' : 'text-brand-dark dark:text-[#f0f0f0] hover:bg-brand-cream dark:hover:bg-[#0d0d0d]'" 
+        class="px-5 md:px-8 py-2.5 shape-chamfer-sm font-changa font-bold text-sm whitespace-nowrap transition-colors">
+        الكل <span class="text-[10px] opacity-60 ml-1 font-cairo">({{ countAll }})</span>
+    </button>
+    <button 
+        @click="$emit('selectTab', { tabId: 'weapons' })" 
+        :class="activeTab === 'weapons' ? 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0]' : 'text-brand-dark dark:text-[#f0f0f0] hover:bg-brand-cream dark:hover:bg-[#0d0d0d]'" 
+        class="px-5 md:px-8 py-2.5 shape-chamfer-sm font-changa font-bold text-sm whitespace-nowrap transition-colors">
+        الأسلحة <span class="text-[10px] opacity-60 ml-1 font-cairo">({{ countWeapons }})</span>
+    </button>
+    <button 
+        @click="$emit('selectTab', { tabId: 'armor' })" 
+        :class="activeTab === 'armor' ? 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0]' : 'text-brand-dark dark:text-[#f0f0f0] hover:bg-brand-cream dark:hover:bg-[#0d0d0d]'" 
+        class="px-5 md:px-8 py-2.5 shape-chamfer-sm font-changa font-bold text-sm whitespace-nowrap transition-colors">
+        الدروع <span class="text-[10px] opacity-60 ml-1 font-cairo">({{ countArmor }})</span>
+    </button>
+    <button 
+        @click="$emit('selectTab', { tabId: 'special' })" 
+        :class="activeTab === 'special' ? 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0]' : 'text-brand-dark dark:text-[#f0f0f0] hover:bg-brand-cream dark:hover:bg-[#0d0d0d]'" 
+        class="px-5 md:px-8 py-2.5 shape-chamfer-sm font-changa font-bold text-sm whitespace-nowrap transition-colors">
+        خاص <span class="text-[10px] opacity-60 ml-1 font-cairo">({{ countSpecial }})</span>
+    </button>
+</nav>
+</div>
+<!-- /component: StoreTabNavigation (45309167-b65d-4fc5-931a-84748cd3f52e) -->
+
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                <!-- Items Gallery (8 columns) -->
+                <div class="lg:col-span-9 space-y-12">
+                    
+                    <!-- SECTION: الأسلحة -->
+                    <div>
+                        <div class="flex items-center gap-3 mb-8">
+                            <div class="w-10 h-1 bg-brand-orange rounded-full"></div>
+                            <h2 class="text-2xl font-heading font-black text-gray-900 dark:text-white">قسم الأسلحة (Weapons)</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            
+                            <!-- 1. الفولاذ الأسطوري -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-3xl p-6 glow-legendary animate-pulse-glow-legendary hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group">
+                                <div class="absolute top-0 right-0 p-3">
+                                    <span class="bg-brand-orange text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase shadow-sm">أسطوري</span>
+                                </div>
+                                <div class="w-16 h-16 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center text-brand-orange mb-4 shadow-inner">
+                                    <iconify-icon icon="mdi:sword-cross" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">الفولاذ الأسطوري</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">سيف حاد تم صقره في براكين الشمال العميقة.</p>
+                                <div class="flex items-center justify-between mt-auto">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white">5,000</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-brand-teal-hover transition-colors">شراء</button>
+                                </div>
+                            </div>
+
+                            <!-- 2. سيف النور -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-3xl p-6 glow-epic animate-float hover:-translate-y-2 transition-all duration-300 relative group">
+                                <div class="absolute top-0 right-0 p-3 flex gap-2">
+                                    <span class="bg-brand-slate text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase">ملحمي</span>
+                                    <span class="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase">محدود</span>
+                                </div>
+                                <div class="w-16 h-16 bg-slate-50 dark:bg-slate-800/40 rounded-2xl flex items-center justify-center text-brand-slate mb-4 shadow-sm">
+                                    <iconify-icon icon="mdi:sword" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">سيف النور</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">يصدر ضوءاً يبهر الخصوم في المعارك الليلية.</p>
+                                <div class="flex items-center justify-between mt-auto">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white">3,200</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg">شراء</button>
+                                </div>
+                                <div class="mt-4 text-[10px] font-bold text-red-500 text-center uppercase tracking-widest">متبقي 2 فقط في المخزن!</div>
+                            </div>
+
+                            <!-- 4. حربة النار -->
+                            <div class="bg-white dark:bg-brand-card-dark border-2 border-rarity-mythic rounded-3xl p-6 glow-mythic animate-pulse-glow-mythic hover:-translate-y-2 transition-all duration-300 relative">
+                                <div class="absolute top-0 right-0 p-3 flex gap-2">
+                                    <span class="bg-rarity-mythic text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter">خرافي</span>
+                                    <span class="bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase">جديد</span>
+                                </div>
+                                <div class="w-16 h-16 bg-purple-50 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-rarity-mythic mb-4">
+                                    <iconify-icon icon="mdi:spear" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">حربة النار</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">تخترق أي درع وتترك أثراً حارقاً لا يزول.</p>
+                                <div class="flex items-center justify-between mt-auto">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white">8,500</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg">شراء</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION: تعاويذ -->
+                    <div>
+                        <div class="flex items-center gap-3 mb-8">
+                            <div class="w-10 h-1 bg-rarity-mythic rounded-full"></div>
+                            <h2 class="text-2xl font-heading font-black text-gray-900 dark:text-white">قسم التعاويذ (Spells)</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            
+                            <!-- 13. تجميد الوقت -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-3xl p-6 hover:-translate-y-2 transition-all duration-300 relative group">
+                                <div class="absolute top-0 right-0 p-3">
+                                    <span class="bg-brand-slate text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter">ملحمي</span>
+                                </div>
+                                <div class="w-16 h-16 bg-cyan-50 dark:bg-cyan-900/20 rounded-2xl flex items-center justify-center text-cyan-500 mb-4 animate-rotate-slow shadow-lg shadow-cyan-500/20">
+                                    <iconify-icon icon="mdi:timer-sand-complete" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">تجميد الوقت</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">توقف جميع هجمات الخصوم لمدة 30 دقيقة كاملة.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">4,000</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm">شراء</button>
+                                </div>
+                            </div>
+
+                            <!-- 14. برق السماء -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-rarity-mythic rounded-3xl p-6 glow-mythic animate-color-shift hover:-translate-y-2 transition-all duration-300">
+                                <div class="w-16 h-16 bg-purple-50 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-rarity-mythic mb-4 shadow-xl shadow-purple-500/10">
+                                    <iconify-icon icon="mdi:lightning-bolt" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">برق السماء</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">تدمير عشوائي لملف أي خصم تختار من قائمة المتصدرين.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">9,000</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg">شراء</button>
+                                </div>
+                            </div>
+
+                            <!-- 17. موجة الدمار -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-3xl p-6 opacity-60 hover:opacity-100 transition-all">
+                                <div class="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center text-gray-400 mb-4">
+                                    <iconify-icon icon="mdi:wave" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-400 dark:text-gray-500 mb-1">موجة الدمار</h3>
+                                <p class="text-xs text-gray-400 mb-6">عنصر شائع وبسيط للمبتدئين في اللعبة.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-400">1,000</div>
+                                    <button class="bg-gray-200 dark:bg-gray-800 text-gray-500 px-6 py-2.5 rounded-xl font-bold text-sm cursor-not-allowed">شراء</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION: أدوات خاصة -->
+                    <div>
+                        <div class="flex items-center gap-3 mb-8">
+                            <div class="w-10 h-1 bg-brand-teal rounded-full"></div>
+                            <h2 class="text-2xl font-heading font-black text-gray-900 dark:text-white">أدوات خاصة (Special Tools)</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            
+                            <!-- 19. عملة الحظ -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-3xl p-6 hover-spin hover:-translate-y-2 transition-all duration-300">
+                                <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-700 mb-4 shadow-sm">
+                                    <iconify-icon icon="mdi:coin" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">عملة الحظ</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">تمنحك فرصة 50% لمضاعفة نقاط هجومك القادم.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">800</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md">شراء</button>
+                                </div>
+                            </div>
+
+                            <!-- 21. صندوق الأسرار -->
+                            <div class="bg-white dark:bg-brand-card-dark border-2 border-rarity-mythic rounded-3xl p-6 mystery-pulse hover:-translate-y-2 transition-all duration-300 relative group">
+                                <div class="w-16 h-16 bg-purple-50 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-rarity-mythic mb-4">
+                                    <iconify-icon icon="mdi:archive" class="text-4xl group-hover:scale-110 transition-transform"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">صندوق الأسرار</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">يحتوي على عنصر عشوائي قد يكون نادراً جداً أو أسطورياً.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">6,800</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm">افتح الآن</button>
+                                </div>
+                            </div>
+
+                            <!-- 27. كتاب السحر القديم -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-rarity-mythic rounded-3xl p-6 hover-flip hover:-translate-y-2 transition-all duration-300 group">
+                                <div class="w-16 h-16 bg-purple-50 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-rarity-mythic mb-4 item-icon shadow-sm transition-transform duration-500">
+                                    <iconify-icon icon="mdi:book-open-page-variant" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">كتاب السحر القديم</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">افتح صفحات المعرفة القديمة لتعزيز كل إحصائياتك.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">8,200</div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md">شراء</button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- SECTION: الحالات الخاصة (Sold Out, Coming Soon) -->
+                    <div>
+                        <div class="flex items-center gap-3 mb-8">
+                            <div class="w-10 h-1 bg-gray-400 rounded-full"></div>
+                            <h2 class="text-2xl font-heading font-black text-gray-900 dark:text-white">حالات العناصر (Item States)</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            
+                            <!-- 9.Sold Out Case -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl p-6 opacity-40 grayscale transition-all duration-500 relative cursor-not-allowed">
+                                <div class="absolute inset-0 flex items-center justify-center z-20">
+                                    <span class="bg-gray-800 text-white font-black px-6 py-2 rounded-xl text-lg rotate-12 shadow-2xl border-4 border-white">نفذت الكمية</span>
+                                </div>
+                                <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-700 mb-4">
+                                    <iconify-icon icon="mdi:shield-outline" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-400">جاكيت الفولاذ</h3>
+                                <p class="text-sm text-gray-400 mb-6">درع حماية متين جداً ضد الهجمات العنيفة.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-300">1,200</div>
+                                    <button class="bg-gray-200 dark:bg-gray-800 text-gray-400 px-6 py-2.5 rounded-xl font-bold text-sm">مباع</button>
+                                </div>
+                            </div>
+
+                            <!-- 23. Coming Soon Case -->
+                            <div class="bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-3xl p-6 group">
+                                <div class="absolute top-0 right-0 p-3">
+                                    <span class="bg-gray-500 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase">قريباً</span>
+                                </div>
+                                <div class="w-16 h-16 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center text-brand-orange mb-4 blur-[2px] group-hover:blur-0 transition-all">
+                                    <iconify-icon icon="mdi:crystal-ball" class="text-4xl"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">جوهرة الحكمة</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">عنصر غامض سيغير مجرى اللعبة للأبد.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-2xl font-black text-gray-900 dark:text-white">7,000</div>
+                                    <button class="bg-gray-100 dark:bg-gray-800 text-gray-400 px-6 py-2.5 rounded-xl font-bold text-sm cursor-wait">ترقبونا</button>
+                                </div>
+                            </div>
+
+                            <!-- 6. Hot Deal Case -->
+                            <div class="bg-white dark:bg-brand-card-dark border-2 border-red-500 rounded-3xl p-6 shadow-xl shadow-red-500/10 animate-pulse hover:-translate-y-2 transition-all duration-300">
+                                <div class="absolute top-0 right-0 p-3">
+                                    <span class="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase animate-bounce">عرض ساخن!</span>
+                                </div>
+                                <div class="w-16 h-16 bg-slate-50 dark:bg-slate-800/40 rounded-2xl flex items-center justify-center text-brand-slate mb-4">
+                                    <iconify-icon icon="mdi:lightning-bolt" class="text-4xl text-red-500"></iconify-icon>
+                                </div>
+                                <h3 class="text-xl font-heading font-black text-gray-900 dark:text-white mb-1">سلاح الرعد</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">قوة البرق في قبضة يدك، الآن بخصم 40%.</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex flex-col">
+                                        <span class="text-xs text-red-500 line-through">6,400</span>
+                                        <span class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">3,800</span>
+                                    </div>
+                                    <button class="bg-brand-teal text-white px-6 py-2.5 rounded-xl font-bold text-sm">اشترِ الآن</button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Sidebar Inventory (3 columns) -->
+                <aside class="lg:col-span-3 space-y-8">
+                    
+                    <!-- Sticky Inventory Sidebar -->
+                    <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm sticky top-28">
+                        <div class="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <iconify-icon icon="lucide:package" class="text-xl text-brand-teal"></iconify-icon>
+                                <h3 class="font-heading font-black text-lg text-gray-900 dark:text-white">حقيبتي</h3>
+                            </div>
+                            <span class="text-xs font-bold text-gray-400">4 / 20</span>
+                        </div>
+                        
+                        <!-- Inventory List -->
+                        <div class="p-4 max-h-[500px] overflow-y-auto custom-scrollbar space-y-3">
+                            
+                            <!-- component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+<div v-scope="{ ...{&quot;itemName&quot;:&quot;درع الحماية&quot;,&quot;quantity&quot;:2,&quot;statusText&quot;:&quot;نشط حالياً&quot;,&quot;actionLabel&quot;:&quot;استخدام&quot;,&quot;itemIcon&quot;:&quot;mdi:shield-outline&quot;,&quot;secondaryIcon&quot;:&quot;lucide:trash-2&quot;,&quot;isSpecial&quot;:true}, $emit() {} }">
+<div class="bg-white dark:bg-[#0d0d0d] border-2 border-brand-dark dark:border-[#64748B]/35 p-3 shape-chamfer-sm shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] group hover:-translate-y-1 transition-all" :class="isSpecial ? 'hover:border-brand-orange dark:hover:border-[#D84315]/70' : 'hover:border-brand-neon dark:hover:border-[#64748B]/45'"> <div class="flex items-center gap-3"> <div class="w-12 h-12 bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm flex items-center justify-center flex-shrink-0"> <iconify-icon :icon="itemIcon" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 animate-spin-slow' : 'text-brand-navy dark:text-[#64748B]/80'" class="text-2xl"></iconify-icon> </div> <div class="flex-1 min-w-0"> <div class="flex justify-between items-start"> <h4 class="font-changa font-bold text-sm leading-tight text-brand-dark dark:text-[#f0f0f0] truncate">{{ itemName }}</h4> <span class="text-[10px] font-black px-2 py-0.5 shape-chamfer-sm flex-shrink-0 shadow-harsh-sm dark:shadow-none" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0]' : 'bg-brand-dark dark:bg-[#1a1a1a] text-brand-neon dark:text-[#f0f0f0]'">X{{ quantity }}</span> </div> <div class="text-[10px] font-bold mt-1" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 uppercase' : 'text-brand-dark/60 dark:text-[#a0a0a0]'">{{ statusText }}</div> </div> </div> <div class="mt-3 flex gap-2"> <button @click="$emit('use', { name: itemName })" class="flex-1 btn-press font-changa font-black text-xs py-2 shape-chamfer-sm border-2 shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-300" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0] border-brand-dark dark:border-[#D84315]/70' : 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0] border-brand-dark dark:border-[#64748B]/35'"> {{ actionLabel }} </button> <button @click="$emit('secondaryAction', { name: itemName })" class="w-10 h-10 flex items-center justify-center bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm transition-colors flex-shrink-0 btn-press" :class="isSpecial ? 'hover:bg-brand-success hover:text-white dark:hover:bg-[#64748B]/35' : 'hover:bg-brand-danger hover:text-white dark:hover:bg-brand-danger/80'"> <iconify-icon :icon="secondaryIcon" class="text-sm" :class="isSpecial ? 'text-brand-success dark:text-[#f0f0f0]' : 'text-brand-danger dark:text-[#f0f0f0]'"></iconify-icon> </button> </div> </div>
+</div>
+<!-- /component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+
+                            <!-- component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+<div v-scope="{ ...{&quot;itemName&quot;:&quot;جرعة الطاقة&quot;,&quot;quantity&quot;:5,&quot;statusText&quot;:&quot;متوفر: 5 وحدات&quot;,&quot;actionLabel&quot;:&quot;استخدام&quot;,&quot;itemIcon&quot;:&quot;mdi:bottle-tonic-plus&quot;,&quot;secondaryIcon&quot;:&quot;lucide:trash-2&quot;,&quot;isSpecial&quot;:false}, $emit() {} }">
+<div class="bg-white dark:bg-[#0d0d0d] border-2 border-brand-dark dark:border-[#64748B]/35 p-3 shape-chamfer-sm shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] group hover:-translate-y-1 transition-all" :class="isSpecial ? 'hover:border-brand-orange dark:hover:border-[#D84315]/70' : 'hover:border-brand-neon dark:hover:border-[#64748B]/45'"> <div class="flex items-center gap-3"> <div class="w-12 h-12 bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm flex items-center justify-center flex-shrink-0"> <iconify-icon :icon="itemIcon" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 animate-spin-slow' : 'text-brand-navy dark:text-[#64748B]/80'" class="text-2xl"></iconify-icon> </div> <div class="flex-1 min-w-0"> <div class="flex justify-between items-start"> <h4 class="font-changa font-bold text-sm leading-tight text-brand-dark dark:text-[#f0f0f0] truncate">{{ itemName }}</h4> <span class="text-[10px] font-black px-2 py-0.5 shape-chamfer-sm flex-shrink-0 shadow-harsh-sm dark:shadow-none" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0]' : 'bg-brand-dark dark:bg-[#1a1a1a] text-brand-neon dark:text-[#f0f0f0]'">X{{ quantity }}</span> </div> <div class="text-[10px] font-bold mt-1" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 uppercase' : 'text-brand-dark/60 dark:text-[#a0a0a0]'">{{ statusText }}</div> </div> </div> <div class="mt-3 flex gap-2"> <button @click="$emit('use', { name: itemName })" class="flex-1 btn-press font-changa font-black text-xs py-2 shape-chamfer-sm border-2 shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-300" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0] border-brand-dark dark:border-[#D84315]/70' : 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0] border-brand-dark dark:border-[#64748B]/35'"> {{ actionLabel }} </button> <button @click="$emit('secondaryAction', { name: itemName })" class="w-10 h-10 flex items-center justify-center bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm transition-colors flex-shrink-0 btn-press" :class="isSpecial ? 'hover:bg-brand-success hover:text-white dark:hover:bg-[#64748B]/35' : 'hover:bg-brand-danger hover:text-white dark:hover:bg-brand-danger/80'"> <iconify-icon :icon="secondaryIcon" class="text-sm" :class="isSpecial ? 'text-brand-success dark:text-[#f0f0f0]' : 'text-brand-danger dark:text-[#f0f0f0]'"></iconify-icon> </button> </div> </div>
+</div>
+<!-- /component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+
+                            <!-- component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+<div v-scope="{ ...{&quot;itemName&quot;:&quot;خريطة قديمة&quot;,&quot;quantity&quot;:1,&quot;statusText&quot;:&quot;عنصر مهمة&quot;,&quot;actionLabel&quot;:&quot;استخدام&quot;,&quot;itemIcon&quot;:&quot;mdi:map-legend&quot;,&quot;secondaryIcon&quot;:&quot;lucide:trash-2&quot;,&quot;isSpecial&quot;:false}, $emit() {} }">
+<div class="bg-white dark:bg-[#0d0d0d] border-2 border-brand-dark dark:border-[#64748B]/35 p-3 shape-chamfer-sm shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] group hover:-translate-y-1 transition-all" :class="isSpecial ? 'hover:border-brand-orange dark:hover:border-[#D84315]/70' : 'hover:border-brand-neon dark:hover:border-[#64748B]/45'"> <div class="flex items-center gap-3"> <div class="w-12 h-12 bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm flex items-center justify-center flex-shrink-0"> <iconify-icon :icon="itemIcon" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 animate-spin-slow' : 'text-brand-navy dark:text-[#64748B]/80'" class="text-2xl"></iconify-icon> </div> <div class="flex-1 min-w-0"> <div class="flex justify-between items-start"> <h4 class="font-changa font-bold text-sm leading-tight text-brand-dark dark:text-[#f0f0f0] truncate">{{ itemName }}</h4> <span class="text-[10px] font-black px-2 py-0.5 shape-chamfer-sm flex-shrink-0 shadow-harsh-sm dark:shadow-none" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0]' : 'bg-brand-dark dark:bg-[#1a1a1a] text-brand-neon dark:text-[#f0f0f0]'">X{{ quantity }}</span> </div> <div class="text-[10px] font-bold mt-1" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 uppercase' : 'text-brand-dark/60 dark:text-[#a0a0a0]'">{{ statusText }}</div> </div> </div> <div class="mt-3 flex gap-2"> <button @click="$emit('use', { name: itemName })" class="flex-1 btn-press font-changa font-black text-xs py-2 shape-chamfer-sm border-2 shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-300" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0] border-brand-dark dark:border-[#D84315]/70' : 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0] border-brand-dark dark:border-[#64748B]/35'"> {{ actionLabel }} </button> <button @click="$emit('secondaryAction', { name: itemName })" class="w-10 h-10 flex items-center justify-center bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm transition-colors flex-shrink-0 btn-press" :class="isSpecial ? 'hover:bg-brand-success hover:text-white dark:hover:bg-[#64748B]/35' : 'hover:bg-brand-danger hover:text-white dark:hover:bg-brand-danger/80'"> <iconify-icon :icon="secondaryIcon" class="text-sm" :class="isSpecial ? 'text-brand-success dark:text-[#f0f0f0]' : 'text-brand-danger dark:text-[#f0f0f0]'"></iconify-icon> </button> </div> </div>
+</div>
+<!-- /component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+
+                            <!-- component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+<div v-scope="{ ...{&quot;itemName&quot;:&quot;مفتاح فضي&quot;,&quot;quantity&quot;:3,&quot;statusText&quot;:&quot;قابل للاستخدام&quot;,&quot;actionLabel&quot;:&quot;استخدام&quot;,&quot;itemIcon&quot;:&quot;mdi:key&quot;,&quot;secondaryIcon&quot;:&quot;lucide:trash-2&quot;,&quot;isSpecial&quot;:false}, $emit() {} }">
+<div class="bg-white dark:bg-[#0d0d0d] border-2 border-brand-dark dark:border-[#64748B]/35 p-3 shape-chamfer-sm shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] group hover:-translate-y-1 transition-all" :class="isSpecial ? 'hover:border-brand-orange dark:hover:border-[#D84315]/70' : 'hover:border-brand-neon dark:hover:border-[#64748B]/45'"> <div class="flex items-center gap-3"> <div class="w-12 h-12 bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm flex items-center justify-center flex-shrink-0"> <iconify-icon :icon="itemIcon" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 animate-spin-slow' : 'text-brand-navy dark:text-[#64748B]/80'" class="text-2xl"></iconify-icon> </div> <div class="flex-1 min-w-0"> <div class="flex justify-between items-start"> <h4 class="font-changa font-bold text-sm leading-tight text-brand-dark dark:text-[#f0f0f0] truncate">{{ itemName }}</h4> <span class="text-[10px] font-black px-2 py-0.5 shape-chamfer-sm flex-shrink-0 shadow-harsh-sm dark:shadow-none" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0]' : 'bg-brand-dark dark:bg-[#1a1a1a] text-brand-neon dark:text-[#f0f0f0]'">X{{ quantity }}</span> </div> <div class="text-[10px] font-bold mt-1" :class="isSpecial ? 'text-brand-orange dark:text-[#D84315]/80 uppercase' : 'text-brand-dark/60 dark:text-[#a0a0a0]'">{{ statusText }}</div> </div> </div> <div class="mt-3 flex gap-2"> <button @click="$emit('use', { name: itemName })" class="flex-1 btn-press font-changa font-black text-xs py-2 shape-chamfer-sm border-2 shadow-harsh-sm dark:shadow-[0_2px_4px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-300" :class="isSpecial ? 'bg-brand-orange dark:bg-[#D84315]/80 text-white dark:text-[#f0f0f0] border-brand-dark dark:border-[#D84315]/70' : 'bg-brand-neon dark:bg-[#64748B]/35 text-brand-dark dark:text-[#f0f0f0] border-brand-dark dark:border-[#64748B]/35'"> {{ actionLabel }} </button> <button @click="$emit('secondaryAction', { name: itemName })" class="w-10 h-10 flex items-center justify-center bg-brand-cream dark:bg-[#1a1a1a] border-2 border-brand-dark dark:border-[#64748B]/35 shape-chamfer-sm transition-colors flex-shrink-0 btn-press" :class="isSpecial ? 'hover:bg-brand-success hover:text-white dark:hover:bg-[#64748B]/35' : 'hover:bg-brand-danger hover:text-white dark:hover:bg-brand-danger/80'"> <iconify-icon :icon="secondaryIcon" class="text-sm" :class="isSpecial ? 'text-brand-success dark:text-[#f0f0f0]' : 'text-brand-danger dark:text-[#f0f0f0]'"></iconify-icon> </button> </div> </div>
+</div>
+<!-- /component: InventoryItem (64924a3a-31a6-4625-b756-ddb1fd96e8f9) -->
+
+                        </div>
+
+                        <!-- Sidebar Footer -->
+                        <div class="p-6 border-t border-gray-100 dark:border-gray-800">
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-gray-500">سعة الحقيبة</span>
+                                    <span class="text-brand-teal">20%</span>
+                                </div>
+                                <div class="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="w-[20%] h-full bg-brand-teal"></div>
+                                </div>
+                                <button class="w-full mt-4 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 py-3 rounded-2xl font-bold text-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-100 smooth-transition">
+                                    توسيع الحقيبة
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar Stat Card -->
+                    <div class="bg-brand-orange text-white p-6 rounded-3xl shadow-lg relative overflow-hidden group">
+                        <div class="absolute -right-6 -bottom-6 opacity-20">
+                            <iconify-icon icon="lucide:zap" class="text-8xl"></iconify-icon>
+                        </div>
+                        <p class="text-xs font-black uppercase tracking-widest text-orange-200 mb-1">تحدي اليوم</p>
+                        <h4 class="text-xl font-heading font-black mb-4">تسوق واربح!</h4>
+                        <p class="text-sm text-orange-50 mb-4">اشترِ أي 3 عناصر اليوم واحصل على 500 نقطة إضافية مجاناً.</p>
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 h-1.5 bg-orange-900/30 rounded-full">
+                                <div class="w-[66%] h-full bg-white rounded-full"></div>
+                            </div>
+                            <span class="text-xs font-bold">2/3</span>
+                        </div>
+                    </div>
+
+                </aside>
+
+            </div>
+
+        </main>
+
+        <!-- Persistent Footer -->
+        <!-- component: RefinedGameFooter (9b147155-a6d3-40aa-8b7d-1ffadce7a840) -->
+<div v-scope="{ ...{&quot;logoHref&quot;:&quot;https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf&quot;,&quot;termsHref&quot;:&quot;#terms&quot;,&quot;privacyHref&quot;:&quot;#privacy&quot;,&quot;copyrightText&quot;:&quot;جميع الحقوق محفوظة © 2024 حرب الأسماء - مرجع المتجر الشامل&quot;}, $emit() {} }">
+<footer class="bg-[#1F2937] dark:bg-[#0f141f] py-12 px-6 mt-8" style="background-image: repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(255, 255, 255, 0.02) 15px, rgba(255, 255, 255, 0.02) 30px)">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
+        <a :href="logoHref" id="footer-logo-link" class="transition-all duration-200 ease-in-out hover:opacity-80 block">
+            <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[110px] object-contain opacity-80">
+        </a>
+        <div class="flex flex-col items-center md:items-start gap-4">
+            <div class="flex gap-6 font-medium text-sm text-gray-400">
+                <a :href="termsHref" id="link-terms-ftr" class="hover:text-white transition-all duration-200 ease-in-out">شروط الاستخدام</a>
+                <a :href="privacyHref" id="link-privacy-ftr" class="hover:text-white transition-all duration-200 ease-in-out">سياسة الخصوصية</a>
+            </div>
+            <div class="text-sm text-gray-500">
+                {{ copyrightText }}
+            </div>
+        </div>
+    </div>
+</footer>
+</div>
+<!-- /component: RefinedGameFooter (9b147155-a6d3-40aa-8b7d-1ffadce7a840) -->
+
+        <!-- Mobile Floating Navigation -->
+        <!-- component: RefinedMobileBottomNav (6bb6619c-4198-468a-8a5b-31c428020656) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;shop&quot;,&quot;homeHref&quot;:&quot;https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf&quot;,&quot;leaderboardHref&quot;:&quot;https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186&quot;,&quot;shopHref&quot;:&quot;#&quot;,&quot;profileHref&quot;:&quot;https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3&quot;,&quot;attackHref&quot;:&quot;https://p.superdesign.dev/draft/8f303612-97e0-4d9e-8293-06fd3e273daf&quot;}, $emit() {} }">
+<nav class="md:hidden fixed bottom-0 w-full bg-white dark:bg-brand-card-dark border-t border-gray-100 dark:border-gray-800 flex justify-around items-center py-2 px-2 z-50 transition-colors duration-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.2)]">
+    <a :href="homeHref" id="mobile-nav-home" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'home', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'home' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:home" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">الرئيسية</span>
+    </a>
+    <a :href="leaderboardHref" id="mobile-nav-leaderboard-btn" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'leaderboard', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'leaderboard' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:trophy" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">المتصدرين</span>
+    </a>
+    <button @click="$emit('attack')" id="mobile-nav-attack" class="flex flex-col items-center justify-center w-12 h-12 bg-brand-teal text-white dark:bg-brand-orange/80 rounded-full -mt-6 border-[3px] border-brand-light-bg dark:border-brand-dark-bg shadow-sm smooth-transition active:scale-95">
+        <iconify-icon icon="lucide:swords" class="text-2xl"></iconify-icon>
+    </button>
+    <a :href="shopHref" id="mobile-nav-shop-btn" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'shop', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'shop' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:shopping-bag" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">المتجر</span>
+    </a>
+    <a :href="profileHref" id="mobile-nav-profile" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'profile', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'profile' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:user" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">حسابي</span>
+    </a>
+</nav>
+</div>
+<!-- /component: RefinedMobileBottomNav (6bb6619c-4198-468a-8a5b-31c428020656) -->
+
+    </div>
+
+    <!-- Dark Mode Implementation Script -->
+    <script>
+        const toggleBtn = document.getElementById('dark-mode-toggle');
+        const htmlElement = document.documentElement;
+
+        if (localStorage.getItem('theme') === 'dark') {
+            htmlElement.classList.add('dark');
+        }
+
+        if(toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                htmlElement.classList.toggle('dark');
+                localStorage.setItem('theme', htmlElement.classList.contains('dark') ? 'dark' : 'light');
+            });
+        }
+    </script>
+</body>
+</html>

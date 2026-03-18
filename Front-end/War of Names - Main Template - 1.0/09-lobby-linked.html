@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head>
+    <meta charset="UTF-8">
+    <meta name="view-transition" content="same-origin">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" as="document">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobby | حرب الأسماء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&amp;family=Changa:wght@400;700;800&amp;display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-bg': '#0a0d14',
+                        'brand-surface': '#151b29',
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-light': '#00D9E9',
+                        'brand-orange': '#D84315',
+                        'brand-purple': '#9333EA',
+                        'brand-blue': '#3B82F6',
+                        'brand-emerald': '#10B981',
+                        'brand-border': '#2A3142',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    },
+                    animation: {
+                        'slide-down-fade': 'slideDownFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'fade-in-scale': 'fadeInScale 1s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        slideDownFade: {
+                            '0%': { opacity: '0', transform: 'translateY(-40px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        fadeInScale: {
+                            '0%': { opacity: '0', transform: 'scale(0.85)', filter: 'drop-shadow(0 0 0px rgba(11, 138, 141, 0))' },
+                            '100%': { opacity: '1', transform: 'scale(1)', filter: 'drop-shadow(0 0 40px rgba(11, 138, 141, 0.6)) drop-shadow(0 0 60px rgba(0, 217, 233, 0.3))' },
+                        }
+                    },
+                    transitionTimingFunction: {
+                        'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        'smooth': 'cubic-bezier(0.25, 1, 0.5, 1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0a0d14;
+            color: #FFFFFF;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Custom Transitions Layering */
+        .trans-slow { transition: all 800ms cubic-bezier(0.25, 1, 0.5, 1); }
+        .trans-mid { transition: all 600ms cubic-bezier(0.25, 1, 0.5, 1); }
+        .trans-fast { transition: all 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Hexagon Background */
+        .hex-bg {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='103.92304845413264' viewBox='0 0 60 103.92304845413264' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpolygon points='30 103.92304845413264 0 86.60254037844386 0 51.96152422706632 30 34.64101615137754 60 51.96152422706632 60 86.60254037844386'/%3E%3Cpolygon points='30 51.96152422706632 0 34.64101615137754 0 0 30 -17.32050807568877 60 0 60 34.64101615137754'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            background-size: 100px 173.2px;
+        }
+
+        /* Rotating Shapes Base */
+        .bg-shape {
+            animation: rotateShape var(--rot-speed, 45s) linear infinite;
+            transition: animation-duration 1s ease;
+        }
+        .bg-shape-reverse {
+            animation: rotateShapeReverse var(--rot-speed, 55s) linear infinite;
+            transition: animation-duration 1s ease;
+        }
+        @keyframes rotateShape { to { transform: rotate(360deg); } }
+        @keyframes rotateShapeReverse { to { transform: rotate(-360deg); } }
+
+        /* Global Hover Reactions (Active Lobby State) */
+        body.lobby-active .bg-shape { --rot-speed: 20s; }
+        body.lobby-active .bg-shape-reverse { --rot-speed: 25s; }
+        body.lobby-active #main-logo {
+            transform: scale(1.08);
+            filter: drop-shadow(0 0 60px rgba(11, 138, 141, 0.8)) drop-shadow(0 0 80px rgba(0, 217, 233, 0.5));
+        }
+
+        /* Magnetic Button Layering */
+        .magnetic-wrapper {
+            perspective: 1000px;
+        }
+        .magnetic-inner {
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+        /* Fallback hover effect if JS is disabled */
+        .magnetic-wrapper:hover .magnetic-inner {
+            transform: translateY(-8px) scale(1.05);
+        }
+
+        /* Shimmer Effect for Buttons */
+        .shimmer-bg {
+            background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.08) 60%, transparent 70%);
+            background-size: 250% 100%;
+            animation: shimmerSlide 3s infinite linear;
+        }
+        @keyframes shimmerSlide {
+            0% { background-position: 100% 0; }
+            100% { background-position: -150% 0; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- Background Visual Zone: Ambient Tavern/Club Vibe -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <!-- Warm ambient base -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(21,27,41,1)_0%,rgba(10,13,20,1)_100%)]"></div>
+        
+        <!-- Main subtle hex grid -->
+        <div class="absolute inset-0 hex-bg opacity-30"></div>
+        
+        <!-- Dynamic Rotating Background Shapes -->
+        <div class="absolute top-0 -right-[5%] w-[700px] h-[700px] opacity-10 bg-shape">
+            <svg viewBox="0 0 100 100" class="w-full h-full text-brand-teal fill-current drop-shadow-[0_0_80px_rgba(11,138,141,1)]">
+                <polygon points="50 1, 93.3 25, 93.3 75, 50 99, 6.7 75, 6.7 25"></polygon>
+            </svg>
+        </div>
+        <div class="absolute bottom-[-10%] -left-[10%] w-[900px] h-[900px] opacity-[0.08] bg-shape-reverse">
+            <svg viewBox="0 0 100 100" class="w-full h-full text-brand-orange fill-current drop-shadow-[0_0_100px_rgba(216,67,21,1)]">
+                <polygon points="50 1, 93.3 25, 93.3 75, 50 99, 6.7 75, 6.7 25"></polygon>
+            </svg>
+        </div>
+        
+        <!-- Center Focus Glow -->
+        <div class="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-brand-teal/10 blur-[120px] rounded-full trans-mid" id="center-glow"></div>
+    </div>
+
+    <!-- Header (Minimal) -->
+    <header class="relative z-30 w-full p-6 flex justify-between items-center opacity-0 animate-[slideDownFade_0.5s_ease_0.5s_forwards] pointer-events-none">
+        <div class="flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg pointer-events-auto">
+            <div class="w-2.5 h-2.5 rounded-full bg-brand-emerald animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+            <span class="text-sm font-bold text-gray-200 tracking-wide">المركز الرئيسي متصل</span>
+        </div>
+        <div class="flex gap-4 pointer-events-auto">
+            <a href="#notifications" id="nav-notifications-link" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-teal/50 transition-colors backdrop-blur-md relative">
+                <iconify-icon icon="lucide:bell" class="text-xl"></iconify-icon>
+                <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-brand-orange"></span>
+            </a>
+            <a href="#settings" id="nav-settings-link" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-teal/50 transition-colors backdrop-blur-md">
+                <iconify-icon icon="lucide:settings" class="text-xl"></iconify-icon>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Interactive Content (Center) -->
+    <main class="relative z-20 flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-4 py-12 md:py-8">
+        
+        <!-- Central Interactive Logo -->
+        <div class="relative flex flex-col items-center z-30 mb-12 md:mb-20">
+            <img id="main-logo" src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="h-[clamp(8rem,20vw,16rem)] w-auto object-contain object-center animate-fade-in-scale trans-mid will-change-transform" style="width: 492px; height: 244px;">
+        </div>
+
+        <!-- The Soft Arc Buttons Grid -->
+        <!-- Uses flex with staggered Y translations on desktop to form an arc -->
+        <div class="w-full max-w-5xl flex flex-col md:flex-row justify-center items-stretch md:items-start gap-4 md:gap-6">
+            
+            <!-- Button 1: Profile (Far Left on Desktop - Slightly Raised) -->
+            <div class="magnetic-wrapper w-full md:w-1/4 md:-translate-y-4 transition-transform duration-700 delay-100">
+                <a href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" target="_blank" rel="noopener noreferrer" id="arc-btn-profile" class="magnetic-inner block w-full trans-fast rounded-[24px] focus:outline-none focus:ring-4 focus:ring-brand-teal/50">
+                    <div class="relative overflow-hidden bg-gradient-to-br from-[#101b2b]/95 to-[#0a111a]/95 backdrop-blur-xl border border-brand-teal/30 p-5 md:py-8 rounded-[24px] shadow-lg group hover:border-brand-teal hover:shadow-[0_20px_40px_-10px_rgba(11,138,141,0.6)] trans-fast hover:bg-[#152336]/95">
+                        <div class="absolute inset-0 shimmer-bg opacity-0 group-hover:opacity-100 trans-fast pointer-events-none"></div>
+                        <div class="relative z-10 flex flex-col items-center text-center gap-4">
+                            <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-brand-teal to-cyan-500 flex items-center justify-center shadow-inner group-hover:scale-110 trans-fast">
+                                <iconify-icon icon="lucide:user" class="text-2xl md:text-3xl text-white drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="font-heading font-black text-xl md:text-2xl text-white tracking-wide mb-1">صفحتي</h3>
+                                <p class="text-gray-400 text-[11px] md:text-xs font-bold">إحصائياتك وإنجازاتك</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Button 2: Leaderboard (Inner Left on Desktop - Lowered) -->
+            <div class="magnetic-wrapper w-full md:w-1/4 md:translate-y-6 transition-transform duration-700 delay-200">
+                <a href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" target="_blank" rel="noopener noreferrer" id="arc-btn-leaderboard" class="magnetic-inner block w-full trans-fast rounded-[24px] focus:outline-none focus:ring-4 focus:ring-brand-purple/50">
+                    <div class="relative overflow-hidden bg-gradient-to-br from-[#1b1429]/95 to-[#110c1a]/95 backdrop-blur-xl border border-brand-purple/30 p-5 md:py-8 rounded-[24px] shadow-lg group hover:border-brand-purple hover:shadow-[0_20px_40px_-10px_rgba(147,51,234,0.6)] trans-fast hover:bg-[#251b38]/95">
+                        <div class="absolute inset-0 shimmer-bg opacity-0 group-hover:opacity-100 trans-fast pointer-events-none"></div>
+                        <div class="relative z-10 flex flex-col items-center text-center gap-4">
+                            <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-brand-purple to-fuchsia-500 flex items-center justify-center shadow-inner group-hover:scale-110 trans-fast">
+                                <iconify-icon icon="lucide:trophy" class="text-2xl md:text-3xl text-white drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="font-heading font-black text-xl md:text-2xl text-white tracking-wide mb-1">الصدارة</h3>
+                                <p class="text-gray-400 text-[11px] md:text-xs font-bold">أفضل المحاربين</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Button 3: Store (Inner Right on Desktop - Lowered) -->
+            <div class="magnetic-wrapper w-full md:w-1/4 md:translate-y-6 transition-transform duration-700 delay-300">
+                <a href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" target="_blank" rel="noopener noreferrer" id="arc-btn-store" class="magnetic-inner block w-full trans-fast rounded-[24px] focus:outline-none focus:ring-4 focus:ring-brand-orange/50">
+                    <div class="relative overflow-hidden bg-gradient-to-br from-[#291612]/95 to-[#1a0e0b]/95 backdrop-blur-xl border border-brand-orange/30 p-5 md:py-8 rounded-[24px] shadow-lg group hover:border-brand-orange hover:shadow-[0_20px_40px_-10px_rgba(216,67,21,0.6)] trans-fast hover:bg-[#361d18]/95">
+                        <div class="absolute inset-0 shimmer-bg opacity-0 group-hover:opacity-100 trans-fast pointer-events-none"></div>
+                        <div class="relative z-10 flex flex-col items-center text-center gap-4">
+                            <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-brand-orange to-amber-500 flex items-center justify-center shadow-inner group-hover:scale-110 trans-fast">
+                                <iconify-icon icon="lucide:shopping-bag" class="text-2xl md:text-3xl text-white drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="font-heading font-black text-xl md:text-2xl text-white tracking-wide mb-1">المتجر</h3>
+                                <p class="text-gray-400 text-[11px] md:text-xs font-bold">أسلحة ودروع تكتيكية</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Button 4: Rules (Far Right on Desktop - Slightly Raised) -->
+            <div class="magnetic-wrapper w-full md:w-1/4 md:-translate-y-4 transition-transform duration-700 delay-400">
+                <a href="#rules" id="arc-btn-rules" class="magnetic-inner block w-full trans-fast rounded-[24px] focus:outline-none focus:ring-4 focus:ring-brand-blue/50">
+                    <div class="relative overflow-hidden bg-gradient-to-br from-[#0c1a2e]/95 to-[#08111f]/95 backdrop-blur-xl border border-brand-blue/30 p-5 md:py-8 rounded-[24px] shadow-lg group hover:border-brand-blue hover:shadow-[0_20px_40px_-10px_rgba(59,130,246,0.6)] trans-fast hover:bg-[#122540]/95">
+                        <div class="absolute inset-0 shimmer-bg opacity-0 group-hover:opacity-100 trans-fast pointer-events-none"></div>
+                        <div class="relative z-10 flex flex-col items-center text-center gap-4">
+                            <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-brand-blue to-cyan-500 flex items-center justify-center shadow-inner group-hover:scale-110 trans-fast">
+                                <iconify-icon icon="lucide:book-open" class="text-2xl md:text-3xl text-white drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="font-heading font-black text-xl md:text-2xl text-white tracking-wide mb-1">القواعد</h3>
+                                <p class="text-gray-400 text-[11px] md:text-xs font-bold">دليل النجاة والانتصار</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- JavaScript for Interactions -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Magnetic Hover Effect for Buttons
+            const magnets = document.querySelectorAll('.magnetic-wrapper');
+            
+            magnets.forEach(magnet => {
+                const inner = magnet.querySelector('.magnetic-inner');
+                
+                magnet.addEventListener('mousemove', (e) => {
+                    const rect = magnet.getBoundingClientRect();
+                    // Calculate distance from center of element
+                    const x = e.clientX - rect.left - rect.width / 2;
+                    const y = e.clientY - rect.top - rect.height / 2;
+                    
+                    // Apply transform: move slightly towards mouse + lift + scale
+                    // The max distance is controlled by the multiplier (0.10)
+                    inner.style.transform = `translate(${x * 0.10}px, ${y * 0.10 - 8}px) scale(1.05)`;
+                });
+
+                magnet.addEventListener('mouseleave', () => {
+                    // Reset transform
+                    inner.style.transform = `translate(0px, 0px) scale(1)`;
+                });
+            });
+
+            // 2. Global Hover Reactions (Surrounding effects & Center Glow)
+            const buttons = document.querySelectorAll('.magnetic-wrapper');
+            const body = document.body;
+            const centerGlow = document.getElementById('center-glow');
+
+            buttons.forEach(btn => {
+                btn.addEventListener('mouseenter', () => {
+                    body.classList.add('lobby-active');
+                    // Enhance background glow based on button color
+                    if(btn.querySelector('.border-brand-teal')) centerGlow.style.backgroundColor = 'rgba(11, 138, 141, 0.25)';
+                    if(btn.querySelector('.border-brand-purple')) centerGlow.style.backgroundColor = 'rgba(147, 51, 234, 0.25)';
+                    if(btn.querySelector('.border-brand-orange')) centerGlow.style.backgroundColor = 'rgba(216, 67, 21, 0.25)';
+                    if(btn.querySelector('.border-brand-blue')) centerGlow.style.backgroundColor = 'rgba(59, 130, 246, 0.25)';
+                });
+                btn.addEventListener('mouseleave', () => {
+                    body.classList.remove('lobby-active');
+                    centerGlow.style.backgroundColor = 'rgba(11, 138, 141, 0.1)'; // Reset to default
+                });
+            });
+
+            // Apply stagger animation to buttons on load
+            setTimeout(() => {
+                document.querySelectorAll('.magnetic-wrapper').forEach((el, index) => {
+                    el.style.opacity = '1';
+                    // Initial animation is handled by tailwind classes, 
+                    // this ensures they are visible if JS intercepts something.
+                });
+            }, 100);
+        });
+    </script>
+
+</body></html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>انضم للمسابقة | حرب الأسماء</title>
+    <meta name="view-transition" content="same-origin">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&amp;family=Changa:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-hover': '#067a79',
+                        'brand-teal-light': '#17a2b8',
+                        'brand-slate': '#64748B',
+                        'brand-orange': '#D84315',
+                        'brand-dark': '#1F2937',
+                        'brand-light-bg': '#F8F9FA',
+                        'brand-dark-bg': '#111827',
+                        'brand-card-dark': '#1F2937',
+                        'brand-success': '#10B981',
+                        'brand-danger': '#EF4444',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @view-transition {
+            navigation: auto;
+        }
+        ::view-transition-old(brand),
+        ::view-transition-new(brand) {
+            animation: none;
+            mix-blend-mode: normal;
+        }
+        ::view-transition-old(main-content) {
+            animation: 0.25s ease-out both fade-out;
+        }
+        ::view-transition-new(main-content) {
+            animation: 0.25s ease-in 0.1s both fade-in;
+        }
+        @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+        .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(31, 41, 55, 0.02) 0, rgba(31, 41, 55, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .dark .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(229, 231, 235, 0.02) 0, rgba(229, 231, 235, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .smooth-transition {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-press:active {
+            transform: scale(0.98) translateY(2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen flex flex-col relative bg-brand-light-bg dark:bg-brand-dark-bg bg-pattern-main font-body text-gray-800 dark:text-gray-200">
+        
+        <header class="w-full p-6 md:p-8 flex justify-between items-center z-50">
+            <div style="view-transition-name: brand">
+                <a href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" id="header-logo-link" class="block smooth-transition hover:opacity-80">
+                    
+                </a>
+            </div>
+            <button id="dark-mode-toggle" class="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition shadow-sm">
+                <iconify-icon icon="lucide:moon" class="dark:hidden"></iconify-icon>
+                <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
+            </button>
+        </header>
+
+        <main class="flex-1 flex flex-col items-center justify-center px-4 py-12" style="view-transition-name: main-content">
+            <div class="w-full max-w-lg">
+                <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl shadow-xl p-8 md:p-10 relative overflow-hidden">
+                    
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-brand-teal/5 dark:bg-brand-slate/5 -mr-16 -mt-16 rounded-full blur-2xl"></div>
+                    <div class="absolute bottom-0 left-0 w-24 h-24 bg-brand-orange/5 -ml-12 -mb-12 rounded-full blur-xl"></div>
+
+                    <div class="relative z-10">
+                        <div class="mb-10 text-center">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-brand-teal/10 dark:bg-brand-slate/10 text-brand-teal dark:text-brand-slate rounded-2xl mb-6">
+                                <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
+                            </div>
+                            <h1 class="font-display text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-3 tracking-tight">إنضم للحرب!</h1>
+                            <p class="text-gray-500 dark:text-gray-400 font-medium">
+                                أدخل كود المسابقة واختر لقبك، لكن انتبه لحد يعرف من انت!</p>
+                        </div>
+
+                        <form class="space-y-6">
+                            <div class="space-y-2">
+                                <label for="invite-code" class="font-heading text-sm font-bold text-gray-700 dark:text-gray-300 mr-1">
+                                    كود الدعوة
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 flex items-center">
+                                        <iconify-icon icon="lucide:key" class="text-xl"></iconify-icon>
+                                    </span>
+                                    <input type="text" id="invite-code" placeholder="مثال: WARS-2024-X" class="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700 py-4 pr-12 pl-4 rounded-2xl font-bold tracking-widest uppercase focus:outline-none focus:ring-4 focus:ring-brand-teal/10 dark:focus:ring-brand-slate/20 focus:border-brand-teal dark:focus:border-brand-slate smooth-transition text-gray-900 dark:text-white placeholder:text-gray-400 placeholder:font-normal placeholder:tracking-normal">
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="warrior-name" class="font-heading text-sm font-bold text-gray-700 dark:text-gray-300 mr-1">اللقب</label>
+                                <div class="relative">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 flex items-center">
+                                        <iconify-icon icon="lucide:user" class="text-xl"></iconify-icon>
+                                    </span>
+                                    <input type="text" id="warrior-name" placeholder="اكتب اسمك القتالي هنا..." class="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700 py-4 pr-12 pl-4 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-brand-teal/10 dark:focus:ring-brand-slate/20 focus:border-brand-teal dark:focus:border-brand-slate smooth-transition text-gray-900 dark:text-white placeholder:text-gray-400 placeholder:font-normal">
+                                </div>
+                                <p class="text-[10px] text-gray-500 dark:text-gray-400 mr-2">سيظهر هذا اللقب للمنافسين الآخرين في هذه المسابقة فقط.</p>
+                            </div>
+
+                            <div class="pt-4">
+                                <a href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" id="btn-join-competition" class="btn-press w-full bg-brand-teal hover:bg-brand-teal-hover text-white dark:bg-brand-slate/80 dark:hover:bg-brand-slate py-4 rounded-2xl font-heading font-black text-lg shadow-lg shadow-brand-teal/20 dark:shadow-brand-slate/20 flex items-center justify-center gap-2 smooth-transition">
+                                    انضمام للمسابقة
+                                    <iconify-icon icon="lucide:arrow-left" class="text-xl"></iconify-icon>
+                                </a>
+                            </div>
+                        </form>
+
+                        <div class="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800 flex justify-center">
+                            <a href="https://p.superdesign.dev/draft/2288485d-e0be-40ad-b93b-26826b427adc" id="back-to-step-1" class="flex items-center gap-2 text-brand-teal dark:text-brand-slate hover:underline font-bold text-sm smooth-transition">
+                                <iconify-icon icon="lucide:chevron-right"></iconify-icon>
+                                العودة للخطوة السابقة
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="mt-8 text-center text-sm font-bold text-gray-500 dark:text-gray-400">ما عندك كود؟ دورلك على واحد</p>
+            </div>
+        </main>
+
+        <footer class="w-full py-8 text-center">
+            <p class="text-xs font-bold text-gray-500 dark:text-gray-500">
+                جميع الحقوق محفوظة © 2026 حرب الأسماء
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        const toggleBtn = document.getElementById('dark-mode-toggle');
+        const htmlElement = document.documentElement;
+
+        if (localStorage.getItem('theme') === 'dark') {
+            htmlElement.classList.add('dark');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            if (htmlElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    </script>
+
+</body></html>

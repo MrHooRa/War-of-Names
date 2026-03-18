@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المتجر التكتيكي | حرب الأسماء</title>
+    <meta name="view-transition" content="same-origin">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&amp;family=Changa:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/9a150d25-7476-4f14-bd65-3a17275e62b1" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/2288485d-e0be-40ad-b93b-26826b427adc" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/7487124f-8397-4395-aebd-46db91ac1f2e" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/8f303612-97e0-4d9e-8293-06fd3e273daf" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/2792460f-96b6-45e2-b2e2-1db215fac775" as="document">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-hover': '#067a79',
+                        'brand-teal-light': '#17a2b8',
+                        'brand-slate': '#64748B',
+                        'brand-orange': '#D84315',
+                        'brand-dark': '#1F2937',
+                        'brand-light-bg': '#F8F9FA',
+                        'brand-dark-bg': '#111827',
+                        'brand-card-dark': '#1F2937',
+                        'brand-success': '#10B981',
+                        'brand-danger': '#EF4444',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html {
+            background-color: #F8F9FA;
+        }
+        .dark html {
+            background-color: #111827;
+        }
+        @view-transition {
+            navigation: auto;
+        }
+        ::view-transition-old(main-nav),
+        ::view-transition-new(main-nav),
+        ::view-transition-old(brand),
+        ::view-transition-new(brand),
+        ::view-transition-old(mobile-nav),
+        ::view-transition-new(mobile-nav) {
+            animation: none;
+            mix-blend-mode: normal;
+        }
+        ::view-transition-old(main-content) {
+            animation: 0.25s ease-out both fade-out;
+        }
+        ::view-transition-new(main-content) {
+            animation: 0.25s ease-in 0.1s both fade-in;
+        }
+        @keyframes fade-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(31, 41, 55, 0.02) 0, rgba(31, 41, 55, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .dark .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(229, 231, 235, 0.02) 0, rgba(229, 231, 235, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .bg-footer-pattern {
+            background-color: #1F2937;
+            background-image: repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(255, 255, 255, 0.02) 15px, rgba(255, 255, 255, 0.02) 30px);
+        }
+        .dark .bg-footer-pattern {
+            background-color: #0f141f;
+            background-image: repeating-linear-gradient(45deg, rgba(229, 231, 235, 0.02) 0, rgba(229, 231, 235, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+        .smooth-transition {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-press:active {
+            transform: scale(0.98) translateY(2px);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Inventory Scrollbar */
+        .inventory-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .inventory-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .inventory-scroll::-webkit-scrollbar-thumb {
+            background-color: #E5E7EB;
+            border-radius: 4px;
+        }
+        .dark .inventory-scroll::-webkit-scrollbar-thumb {
+            background-color: #374151;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .rarity-unique-glow {
+            background: linear-gradient(90deg, #D84315 25%, #FFD700 50%, #D84315 75%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+        }
+    </style>
+  <style>sd-component { display: block; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/petite-vue@0.4.1/dist/petite-vue.iife.js" defer init></script>
+</head>
+<body class="bg-brand-light-bg dark:bg-brand-dark-bg font-body text-gray-800 dark:text-[#e5e7eb] min-h-screen transition-colors duration-300">
+    <div class="min-h-screen flex flex-col relative bg-pattern-main">
+        
+        <!-- Header Component -->
+        <!-- component: RefinedLeaderboardHeader (05e56da8-b389-4886-abd6-1e53bf5136d2) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;leaderboard&quot;,&quot;logoHref&quot;:&quot;#&quot;,&quot;homeHref&quot;:&quot;#home&quot;,&quot;leaderboardHref&quot;:&quot;#leaderboard&quot;,&quot;shopHref&quot;:&quot;#shop&quot;,&quot;rulesHref&quot;:&quot;#rules&quot;,&quot;profileHref&quot;:&quot;#profile&quot;,&quot;seasonText&quot;:&quot;الموسم التنافسي الأول&quot;,&quot;userTitle&quot;:&quot;المحارب الذهبي&quot;,&quot;userPoints&quot;:&quot;8,450&quot;,&quot;userInitial&quot;:&quot;م&quot;}, $emit() {} }" style="view-transition-name: main-nav">
+<header class="sticky top-0 z-50 bg-white dark:bg-brand-card-dark border-b border-gray-200 dark:border-gray-800 p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-4">
+            <a :href="logoHref" id="nav-logo-link" class="block smooth-transition hover:opacity-80">
+                <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[130px] md:w-[150px] object-contain drop-shadow-sm">
+            </a>
+            <div class="hidden lg:flex flex-col items-start border-r border-gray-200 dark:border-gray-700 pr-5">
+                <div class="text-xs font-bold mt-1.5 text-gray-500 dark:text-gray-400">{{ seasonText }}</div>
+            </div>
+        </div>
+
+        <!-- Global Navigation -->
+        <nav class="hidden md:flex items-center gap-1">
+            <a :href="homeHref" id="nav-home" :class="activeItem === 'home' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">الرئيسية</a>
+            <a :href="leaderboardHref" id="nav-leaderboard" :class="activeItem === 'leaderboard' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">المتصدرين</a>
+            <a :href="shopHref" id="nav-shop" :class="activeItem === 'shop' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">المتجر</a>
+            <a :href="rulesHref" id="nav-rules" :class="activeItem === 'rules' ? 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-black' : 'text-gray-600 dark:text-gray-300 hover:text-brand-teal dark:hover:text-brand-slate hover:bg-gray-50 dark:hover:bg-gray-800/50 font-bold'" class="px-5 py-2.5 text-sm rounded-lg smooth-transition">قواعد اللعبة</a>
+        </nav>
+
+        <!-- User Controls -->
+        <div class="flex items-center gap-4 flex-row-reverse">
+            <!-- Theme Toggle -->
+            <button @click="$emit('toggleTheme')" class="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm">
+                <iconify-icon icon="lucide:moon" class="dark:hidden"></iconify-icon>
+                <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
+            </button>
+
+            <!-- User Mini Profile -->
+            <a :href="profileHref" id="nav-profile-btn" class="flex items-center gap-3 group smooth-transition hover:-translate-y-0.5">
+                <div class="hidden md:flex flex-col text-left">
+                    <span class="font-heading text-xs text-gray-500 dark:text-gray-400">{{ userTitle }}</span>
+                    <span class="font-heading text-sm font-black text-brand-teal dark:text-brand-slate">{{ userPoints }} نقطة</span>
+                </div>
+                <div class="w-11 h-11 bg-brand-teal/10 dark:bg-brand-slate/20 border border-brand-teal/20 dark:border-brand-slate/30 rounded-xl flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-xl shadow-sm">
+                    {{ userInitial }}
+                </div>
+            </a>
+        </div>
+    </div>
+</header>
+</div>
+<!-- /component: RefinedLeaderboardHeader (05e56da8-b389-4886-abd6-1e53bf5136d2) -->
+
+        <!-- Main Content -->
+        <main style="view-transition-name: main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-10 relative z-10 pb-24 md:pb-12">
+            
+            <!-- Title & Hero Section -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                <div class="space-y-3">
+                    <h1 class="font-display text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white leading-none tracking-tight">
+                        المتجر التكتيكي
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400 font-bold md:text-lg max-w-xl leading-relaxed">
+                        تسلّح بأفضل العناصر لتسيطر على ساحة حرب الأسماء، وضاعف فرصك في الفوز والهيمنة على المتصدرين.
+                    </p>
+                </div>
+                <div class="w-full md:w-auto">
+                    
+                </div>
+            </div>
+
+            <!-- Grid Layout (Tabs + Items + Inventory) -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                
+                <!-- Left Side: Tabs & Items -->
+                <div class="lg:col-span-3 space-y-6">
+                    
+                    <!-- Tabs & Search -->
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <nav class="flex bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 p-1.5 rounded-xl w-full md:w-auto overflow-x-auto no-scrollbar shadow-sm">
+                            <button class="bg-brand-teal dark:bg-brand-slate/20 text-white dark:text-brand-slate px-5 md:px-8 py-2.5 rounded-lg font-heading font-bold text-sm whitespace-nowrap smooth-transition">
+                                الكل <span class="text-[10px] opacity-80 ml-1 font-display">(24)</span>
+                            </button>
+                            <button class="px-5 md:px-8 py-2.5 font-heading font-bold text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg whitespace-nowrap smooth-transition">
+                                الأسلحة <span class="text-[10px] opacity-60 ml-1 font-display">(8)</span>
+                            </button>
+                            <button class="px-5 md:px-8 py-2.5 font-heading font-bold text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg whitespace-nowrap smooth-transition">
+                                الدروع <span class="text-[10px] opacity-60 ml-1 font-display">(6)</span>
+                            </button>
+                            <button class="px-5 md:px-8 py-2.5 font-heading font-bold text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg whitespace-nowrap smooth-transition">
+                                خاص <span class="text-[10px] opacity-60 ml-1 font-display">(10)</span>
+                            </button>
+                        </nav>
+                        <div class="flex-1 relative lg:hidden">
+                            <input type="text" placeholder="بحث سريع..." class="w-full bg-gray-50 dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 py-3 pr-12 pl-4 rounded-xl font-display font-bold focus:outline-none focus:bg-white focus:border-brand-teal dark:focus:border-brand-slate text-gray-900 dark:text-gray-200 placeholder-gray-500 shadow-sm smooth-transition">
+                            <iconify-icon icon="lucide:search" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl"></iconify-icon>
+                        </div>
+                    </div>
+
+                    <!-- Items Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                        
+                        <!-- Item: Letter Bomb (Rare) -->
+                        <div class="group bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-lg dark:hover:shadow-black/20 smooth-transition flex flex-col min-h-[360px] p-5">
+                            <div class="flex-1 flex flex-col items-center text-center relative">
+                                <div class="relative bg-gray-50 dark:bg-gray-800/50 w-full aspect-[4/3] rounded-xl flex items-center justify-center mb-5 overflow-hidden">
+                                    <div class="absolute inset-0 bg-brand-orange opacity-5 dark:opacity-[0.03] blur-xl rounded-full group-hover:opacity-15 dark:group-hover:opacity-10 smooth-transition"></div>
+                                    <iconify-icon icon="mdi:bomb" class="text-6xl text-brand-orange group-hover:scale-110 smooth-transition relative z-10"></iconify-icon>
+                                    <span class="absolute top-3 right-3 bg-gray-800 dark:bg-gray-900 text-white dark:text-gray-300 text-[10px] font-black px-2.5 py-1 rounded shadow-sm">نادر</span>
+                                </div>
+                                <h3 class="font-heading font-black text-xl text-gray-900 dark:text-white group-hover:text-brand-orange transition-colors">قنبلة الحروف</h3>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 leading-relaxed px-1">تنفجر في ملف الخصم وتخفي 3 حروف من اسمه.</p>
+                                
+                                <div class="mt-auto pt-5 w-full">
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 w-full flex justify-between items-center">
+                                        <span class="text-[11px] font-heading font-bold text-gray-500 dark:text-gray-400 uppercase">التأثير</span>
+                                        <span class="text-xs font-bold text-brand-orange">إخفاء -3 / 60د</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn-press w-full bg-brand-teal dark:bg-brand-slate/20 text-white dark:text-brand-slate font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-slate/30 smooth-transition mt-4 border dark:border-brand-slate/30">
+                                <iconify-icon icon="lucide:shopping-cart" class="text-lg"></iconify-icon>
+                                1,200 نقطة
+                            </button>
+                        </div>
+
+                        <!-- Item: Shield (Common) -->
+                        <div class="group bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-lg dark:hover:shadow-black/20 smooth-transition flex flex-col min-h-[360px] p-5">
+                            <div class="flex-1 flex flex-col items-center text-center relative">
+                                <div class="relative bg-gray-50 dark:bg-gray-800/50 w-full aspect-[4/3] rounded-xl flex items-center justify-center mb-5 overflow-hidden">
+                                    <div class="absolute inset-0 bg-blue-500 opacity-5 dark:opacity-[0.03] blur-xl rounded-full group-hover:opacity-15 dark:group-hover:opacity-10 smooth-transition"></div>
+                                    <iconify-icon icon="mdi:shield-outline" class="text-6xl text-blue-500 dark:text-blue-400 group-hover:scale-110 smooth-transition relative z-10"></iconify-icon>
+                                    <span class="absolute top-3 right-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-black px-2.5 py-1 rounded shadow-sm">عادي</span>
+                                </div>
+                                <h3 class="font-heading font-black text-xl text-gray-900 dark:text-white group-hover:text-blue-500 transition-colors">درع الحماية</h3>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 leading-relaxed px-1">درع تكتيكي يمنع الهجمات المباشرة لمدة 3 ساعات.</p>
+                                
+                                <div class="mt-auto pt-5 w-full">
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 w-full flex justify-between items-center">
+                                        <span class="text-[11px] font-heading font-bold text-gray-500 dark:text-gray-400 uppercase">النوع</span>
+                                        <span class="text-xs font-bold text-blue-500 dark:text-blue-400">حماية 100% / 180د</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn-press w-full bg-brand-teal dark:bg-brand-slate/20 text-white dark:text-brand-slate font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-slate/30 smooth-transition mt-4 border dark:border-brand-slate/30">
+                                <iconify-icon icon="lucide:shopping-cart" class="text-lg"></iconify-icon>
+                                850 نقطة
+                            </button>
+                        </div>
+
+                        <!-- Item: Magic Wand (Legendary) -->
+                        <div class="group bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-lg dark:hover:shadow-black/20 smooth-transition flex flex-col min-h-[360px] p-5">
+                            <div class="flex-1 flex flex-col items-center text-center relative">
+                                <div class="relative bg-gray-50 dark:bg-gray-800/50 w-full aspect-[4/3] rounded-xl flex items-center justify-center mb-5 overflow-hidden">
+                                    <div class="absolute inset-0 bg-brand-teal opacity-5 dark:opacity-[0.03] blur-xl rounded-full group-hover:opacity-15 dark:group-hover:opacity-10 smooth-transition"></div>
+                                    <iconify-icon icon="mdi:magic-staff" class="text-6xl text-brand-teal dark:text-brand-slate group-hover:scale-110 smooth-transition relative z-10"></iconify-icon>
+                                    <span class="absolute top-3 right-3 bg-brand-teal text-white dark:bg-brand-slate dark:text-white text-[10px] font-black px-2.5 py-1 rounded shadow-sm">أسطوري</span>
+                                </div>
+                                <h3 class="font-heading font-black text-xl text-gray-900 dark:text-white group-hover:text-brand-teal dark:group-hover:text-brand-slate transition-colors">عصا السحر</h3>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 leading-relaxed px-1">تنسخ أي عنصر يستخدمه خصمك وتضيفه لجردك.</p>
+                                
+                                <div class="mt-auto pt-5 w-full">
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 w-full flex justify-between items-center">
+                                        <span class="text-[11px] font-heading font-bold text-gray-500 dark:text-gray-400 uppercase">القوة</span>
+                                        <span class="text-xs font-bold text-brand-teal dark:text-brand-slate">نسخ عنصر واحد</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn-press w-full bg-brand-teal dark:bg-brand-slate/20 text-white dark:text-brand-slate font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-slate/30 smooth-transition mt-4 border dark:border-brand-slate/30">
+                                <iconify-icon icon="lucide:shopping-cart" class="text-lg"></iconify-icon>
+                                4,500 نقطة
+                            </button>
+                        </div>
+
+                        <!-- Item: Hero Sword (Special - Full Width) -->
+                        <div class="group bg-white dark:bg-[#151c2b] border-2 border-brand-orange/20 dark:border-brand-orange/30 rounded-2xl shadow-sm hover:shadow-md dark:shadow-none p-6 sm:p-8 flex flex-col min-h-[360px] sm:col-span-2 xl:col-span-3 xl:w-4/5 xl:mx-auto relative overflow-hidden smooth-transition hover:border-brand-orange/40">
+                            <div class="absolute inset-0 bg-brand-orange opacity-[0.03] dark:opacity-10 blur-3xl rounded-full group-hover:opacity-[0.05] dark:group-hover:opacity-20 smooth-transition"></div>
+                            <div class="flex-1 flex flex-col items-center text-center relative z-10">
+                                <div class="mb-6 mt-2 relative">
+                                    <iconify-icon icon="mdi:sword-cross" class="text-7xl md:text-8xl text-brand-orange group-hover:scale-110 smooth-transition drop-shadow-[0_0_15px_rgba(216,67,21,0.3)]"></iconify-icon>
+                                </div>
+                                <div class="mb-4">
+                                    <span class="text-[10px] font-black rarity-unique-glow text-white px-4 py-1.5 rounded-full border border-brand-orange/20">عنصر فريد</span>
+                                </div>
+                                <h3 class="font-heading font-black text-2xl md:text-3xl text-gray-900 dark:text-white">سيف البطل المطلق</h3>
+                                <p class="text-sm md:text-base font-medium text-gray-500 dark:text-gray-300 mt-3 max-w-lg leading-relaxed px-2">
+                                    يدمر درع أي خصم بشكل فوري ويخصم 50% من نقاطه. السلاح النهائي لتغيير موازين القوة والوصول للقمة.
+                                </p>
+                            </div>
+                            <button class="btn-press w-full md:w-2/3 mx-auto bg-brand-orange text-white font-heading font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-orange-700 smooth-transition mt-8 shadow-lg shadow-brand-orange/20 relative z-10">
+                                <iconify-icon icon="lucide:shopping-cart" class="text-2xl"></iconify-icon>
+                                15,000 نقطة
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Right Side: Inventory Sidebar -->
+                <aside class="lg:col-span-1">
+                    <div class="sticky top-[88px] z-20">
+                        <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm flex flex-col h-[600px] md:h-[calc(100vh-140px)] min-h-[500px] overflow-hidden">
+                            
+                            <!-- Inventory Header -->
+                            <div class="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate flex items-center justify-center">
+                                        <iconify-icon icon="lucide:package" class="text-lg"></iconify-icon>
+                                    </div>
+                                    <h2 class="font-heading font-black text-lg text-gray-900 dark:text-white">مخزني</h2>
+                                </div>
+                                <span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2.5 py-1 rounded-md font-bold text-[10px]">4 عناصر</span>
+                            </div>
+
+                            <!-- Scrollable Inventory Items -->
+                            <div class="flex-1 overflow-y-auto p-4 space-y-3 inventory-scroll">
+                                
+                                <!-- Inv Item 1 -->
+                                <div class="bg-white dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 p-3.5 rounded-xl shadow-sm hover:border-brand-teal dark:hover:border-brand-slate group smooth-transition">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <iconify-icon icon="mdi:shield-outline" class="text-2xl text-blue-500"></iconify-icon>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex justify-between items-start">
+                                                <h4 class="font-heading font-bold text-sm text-gray-900 dark:text-white truncate">درع الحماية</h4>
+                                                <span class="text-[10px] font-black bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded flex-shrink-0">X2</span>
+                                            </div>
+                                            <div class="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">متوفر: 2 وحدة</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 flex gap-2">
+                                        <button class="flex-1 btn-press bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate font-heading font-bold text-xs py-2 rounded-lg hover:bg-brand-teal hover:text-white dark:hover:bg-brand-slate smooth-transition border border-transparent">
+                                            استخدام
+                                        </button>
+                                        <button class="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-brand-danger hover:text-white text-gray-500 transition-colors flex-shrink-0 btn-press">
+                                            <iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Inv Item 2 (Special) -->
+                                <div class="bg-white dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 p-3.5 rounded-xl shadow-sm hover:border-brand-orange dark:hover:border-brand-orange/50 group smooth-transition">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-orange-50 dark:bg-orange-900/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <iconify-icon icon="mdi:flare" class="text-2xl text-brand-orange animate-spin-slow"></iconify-icon>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex justify-between items-start">
+                                                <h4 class="font-heading font-bold text-sm text-gray-900 dark:text-white truncate">قنبلة الحروف</h4>
+                                                <span class="text-[10px] font-black bg-brand-orange text-white px-2 py-0.5 rounded flex-shrink-0">X1</span>
+                                            </div>
+                                            <div class="text-[10px] text-brand-orange font-bold mt-1 uppercase">تنتهي: 2س 12د</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 flex gap-2">
+                                        <button class="flex-1 btn-press bg-brand-orange text-white font-heading font-bold text-xs py-2 rounded-lg hover:bg-orange-700 smooth-transition">
+                                            تجهيز السلاح
+                                        </button>
+                                        <button class="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-brand-success hover:text-white text-gray-500 transition-colors flex-shrink-0 btn-press">
+                                            <iconify-icon icon="lucide:dollar-sign" class="text-sm"></iconify-icon>
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                            
+                            <!-- Inventory Footer (Capacity) -->
+                            <div class="p-5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
+                                <div class="flex justify-between text-[11px] font-heading font-bold mb-2 text-gray-500 dark:text-gray-400 uppercase">
+                                    <span>السعة المستخدمة</span>
+                                    <span>4 / 10</span>
+                                </div>
+                                <div class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-l from-brand-teal to-brand-teal-light dark:from-brand-slate dark:to-brand-slate w-[40%] rounded-full relative overflow-hidden">
+                                        <div class="absolute inset-0 bg-white/20 w-full h-full" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,0.1) 8px, rgba(0,0,0,0.1) 16px);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+            <!-- Tactical Guidelines Section -->
+            <section class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-3xl p-6 md:p-10 shadow-sm relative overflow-hidden mt-12">
+                <div class="absolute inset-0 bg-pattern-main opacity-50"></div>
+                <div class="absolute top-0 left-0 w-64 h-64 bg-brand-teal/5 dark:bg-brand-slate/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+                
+                <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+                    <div class="space-y-6">
+                        <h2 class="font-heading text-2xl md:text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+                            <iconify-icon icon="lucide:lightbulb" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
+                            التكتيكات المتقدمة
+                        </h2>
+                        <div class="space-y-5 font-body font-medium text-gray-600 dark:text-gray-300">
+                            <div class="flex gap-4 items-start group">
+                                <div class="w-12 h-12 bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate flex items-center justify-center rounded-xl flex-shrink-0 group-hover:scale-110 smooth-transition mt-1">
+                                    <iconify-icon icon="lucide:shield-check" class="text-2xl"></iconify-icon>
+                                </div>
+                                <p class="text-sm md:text-base leading-relaxed pt-1">استخدم <span class="text-brand-teal dark:text-brand-slate font-bold">درع الحماية</span> دائماً قبل تسجيل الخروج لفترات طويلة لضمان عدم سرقة نقاطك من قبل الخصوم.</p>
+                            </div>
+                            <div class="flex gap-4 items-start group">
+                                <div class="w-12 h-12 bg-orange-50 dark:bg-orange-900/20 text-brand-orange flex items-center justify-center rounded-xl flex-shrink-0 group-hover:scale-110 smooth-transition mt-1">
+                                    <iconify-icon icon="lucide:zap" class="text-2xl"></iconify-icon>
+                                </div>
+                                <p class="text-sm md:text-base leading-relaxed pt-1">احتفظ بـ <span class="text-brand-orange font-bold">سيف البطل</span> للمواجهات الحاسمة مع المتصدرين لقلب الطاولة وتدمير دفاعاتهم بالكامل.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 dark:bg-gray-800/30 border-2 border-dashed border-gray-200 dark:border-gray-700 p-8 rounded-3xl flex flex-col sm:flex-row items-center gap-6 text-center sm:text-right smooth-transition hover:border-brand-teal/50 dark:hover:border-brand-slate/50">
+                        <div class="w-20 h-20 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm flex-shrink-0 border border-gray-100 dark:border-gray-700">
+                            <iconify-icon icon="lucide:gift" class="text-4xl text-brand-teal dark:text-brand-slate animate-bounce"></iconify-icon>
+                        </div>
+                        <div class="flex-1 space-y-3">
+                            <h4 class="font-heading font-black text-xl text-gray-900 dark:text-white">صندوق الدعم اليومي!</h4>
+                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">احصل على 50 نقطة مجانية الآن لتعزيز رصيدك.</p>
+                            <button class="btn-press w-full sm:w-auto bg-brand-teal hover:bg-brand-teal-hover dark:bg-brand-slate/80 dark:hover:bg-brand-slate text-white font-heading font-bold px-6 py-2.5 rounded-xl text-sm smooth-transition shadow-sm">
+                                استلم المكافأة
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer Component -->
+        <!-- component: RefinedGameFooter (9b147155-a6d3-40aa-8b7d-1ffadce7a840) -->
+<div v-scope="{ ...{&quot;logoHref&quot;:&quot;#&quot;,&quot;termsHref&quot;:&quot;#terms&quot;,&quot;privacyHref&quot;:&quot;#privacy&quot;,&quot;copyrightText&quot;:&quot;جميع الحقوق محفوظة © 2024 حرب الأسماء&quot;}, $emit() {} }" style="view-transition-name: footer">
+<footer class="bg-[#1F2937] dark:bg-[#0f141f] py-12 px-6 mt-8" style="background-image: repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(255, 255, 255, 0.02) 15px, rgba(255, 255, 255, 0.02) 30px)">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
+        <a :href="logoHref" id="footer-logo-link" class="transition-all duration-200 ease-in-out hover:opacity-80 block">
+            <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[110px] object-contain opacity-80">
+        </a>
+        <div class="flex flex-col items-center md:items-start gap-4">
+            <div class="flex gap-6 font-medium text-sm text-gray-400">
+                <a :href="termsHref" id="link-terms-ftr" class="hover:text-white transition-all duration-200 ease-in-out">شروط الاستخدام</a>
+                <a :href="privacyHref" id="link-privacy-ftr" class="hover:text-white transition-all duration-200 ease-in-out">سياسة الخصوصية</a>
+            </div>
+            <div class="text-sm text-gray-500">
+                {{ copyrightText }}
+            </div>
+        </div>
+    </div>
+</footer>
+</div>
+<!-- /component: RefinedGameFooter (9b147155-a6d3-40aa-8b7d-1ffadce7a840) -->
+
+        <!-- Mobile Bottom Nav Component -->
+        <!-- component: RefinedMobileBottomNav (6bb6619c-4198-468a-8a5b-31c428020656) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;leaderboard&quot;,&quot;homeHref&quot;:&quot;#home&quot;,&quot;leaderboardHref&quot;:&quot;#leaderboard&quot;,&quot;shopHref&quot;:&quot;#shop&quot;,&quot;profileHref&quot;:&quot;#profile&quot;}, $emit() {} }" style="view-transition-name: mobile-nav">
+<nav class="md:hidden fixed bottom-0 w-full bg-white dark:bg-brand-card-dark border-t border-gray-100 dark:border-gray-800 flex justify-around items-center py-2 px-2 z-50 transition-colors duration-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.2)]">
+    <a :href="homeHref" id="mobile-nav-home" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'home', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'home' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:home" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">الرئيسية</span>
+    </a>
+    <a :href="leaderboardHref" id="mobile-nav-leaderboard-btn" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'leaderboard', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'leaderboard' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:trophy" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">المتصدرين</span>
+    </a>
+    <button @click="$emit('attack')" id="mobile-nav-attack" class="flex flex-col items-center justify-center w-12 h-12 bg-brand-teal text-white dark:bg-brand-orange/80 rounded-full -mt-6 border-[3px] border-brand-light-bg dark:border-brand-dark-bg shadow-sm smooth-transition active:scale-95">
+        <iconify-icon icon="lucide:swords" class="text-2xl"></iconify-icon>
+    </button>
+    <a :href="shopHref" id="mobile-nav-shop-btn" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'shop', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'shop' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:shopping-bag" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">المتجر</span>
+    </a>
+    <a :href="profileHref" id="mobile-nav-profile" :class="{ 'text-brand-teal dark:text-brand-slate': activeItem === 'profile', 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate': activeItem !== 'profile' }" class="flex flex-col items-center gap-1 smooth-transition">
+        <iconify-icon icon="lucide:user" class="text-[1.3rem]"></iconify-icon>
+        <span class="text-[9px] font-bold">حسابي</span>
+    </a>
+</nav>
+</div>
+<!-- /component: RefinedMobileBottomNav (6bb6619c-4198-468a-8a5b-31c428020656) -->
+
+        <!-- Toast Notification (Hidden by default) -->
+        <div id="toast-buy-success" class="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[100] hidden items-center transform transition-all duration-300 translate-y-10 opacity-0">
+            <div class="bg-white dark:bg-brand-card-dark border-l-4 border-brand-success rounded-xl shadow-lg p-4 flex items-center gap-4 min-w-[280px]">
+                <div class="w-10 h-10 rounded-full bg-brand-success/10 text-brand-success flex items-center justify-center flex-shrink-0">
+                    <iconify-icon icon="lucide:check" class="text-xl"></iconify-icon>
+                </div>
+                <div>
+                    <div class="font-heading font-black text-gray-900 dark:text-white">تم الشراء بنجاح!</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">تمت إضافة العنصر إلى جردك.</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Dark Mode Logic
+        const toggleBtn = document.getElementById('dark-mode-toggle');
+        const htmlElement = document.documentElement;
+
+        if (localStorage.getItem('theme') === 'dark') {
+            htmlElement.classList.add('dark');
+        }
+
+        if(toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                htmlElement.classList.toggle('dark');
+                localStorage.setItem('theme', htmlElement.classList.contains('dark') ? 'dark' : 'light');
+            });
+        }
+
+        // Toast Notification Simulation for Buy Buttons
+        document.querySelectorAll('.btn-press').forEach(btn => {
+            if(btn.textContent.trim() === 'شراء' || btn.textContent.includes('15,000')) {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const toast = document.getElementById('toast-buy-success');
+                    toast.classList.remove('hidden');
+                    // Trigger reflow
+                    void toast.offsetWidth;
+                    toast.classList.remove('translate-y-10', 'opacity-0');
+                    
+                    setTimeout(() => {
+                        toast.classList.add('translate-y-10', 'opacity-0');
+                        setTimeout(() => toast.classList.add('hidden'), 300);
+                    }, 3000);
+                });
+            }
+        });
+    </script>
+
+</body></html>

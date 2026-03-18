@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نتيجة الهجوم | حرب الأسماء</title>
+    <meta name="view-transition" content="same-origin">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Changa:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/8f303612-97e0-4d9e-8293-06fd3e273daf" as="document">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-hover': '#067a79',
+                        'brand-teal-light': '#17a2b8',
+                        'brand-slate': '#64748B',
+                        'brand-orange': '#D84315',
+                        'brand-dark': '#1F2937',
+                        'brand-light-bg': '#F8F9FA',
+                        'brand-dark-bg': '#111827',
+                        'brand-card-dark': '#1F2937',
+                        'brand-success': '#10B981',
+                        'brand-danger': '#EF4444',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html { background-color: #F8F9FA; }
+        .dark html { background-color: #111827; }
+        
+        @view-transition { navigation: auto; }
+        
+        ::view-transition-old(main-nav), ::view-transition-new(main-nav),
+        ::view-transition-old(footer), ::view-transition-new(footer),
+        ::view-transition-old(mobile-nav), ::view-transition-new(mobile-nav) {
+            animation: none;
+            mix-blend-mode: normal;
+        }
+
+        ::view-transition-old(main-content) {
+            animation: 0.25s ease-out both fade-out;
+        }
+        ::view-transition-new(main-content) {
+            animation: 0.25s ease-in 0.1s both fade-in;
+        }
+
+        @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+        .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(31, 41, 55, 0.015) 0, rgba(31, 41, 55, 0.015) 2px, transparent 2px, transparent 12px);
+        }
+        .dark .bg-pattern-main {
+            background-image: repeating-linear-gradient(45deg, rgba(229, 231, 235, 0.02) 0, rgba(229, 231, 235, 0.02) 2px, transparent 2px, transparent 12px);
+        }
+
+        .victory-glow {
+            filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.2));
+        }
+        .dark .victory-glow {
+            filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.15));
+        }
+
+        .smooth-transition {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .btn-press:active {
+            transform: scale(0.98) translateY(2px);
+        }
+
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        @keyframes floating {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen flex flex-col relative bg-brand-light-bg dark:bg-brand-dark-bg bg-pattern-main transition-colors duration-300">
+        
+        <header style="view-transition-name: main-nav" class="sticky top-0 z-50 bg-white dark:bg-brand-card-dark border-b border-gray-200 dark:border-gray-800 p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm">
+            <div class="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
+                <div class="flex items-center gap-4">
+                    <a href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" id="nav-logo-link" class="block smooth-transition hover:opacity-80">
+                        <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[130px] md:w-[150px] object-contain">
+                    </a>
+                </div>
+                <nav class="hidden md:flex items-center gap-1">
+                    <a href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" id="nav-home" class="px-5 py-2.5 font-bold text-sm text-gray-600 dark:text-gray-300 hover:text-brand-teal hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg smooth-transition">الرئيسية</a>
+                    <a href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" id="nav-leaderboard" class="px-5 py-2.5 font-bold text-sm text-gray-600 dark:text-gray-300 hover:text-brand-teal hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg smooth-transition">المتصدرين</a>
+                    <a href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" id="nav-shop" class="px-5 py-2.5 font-bold text-sm text-gray-600 dark:text-gray-300 hover:text-brand-teal hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg smooth-transition">المتجر</a>
+                </nav>
+                <div class="flex items-center gap-4 flex-row-reverse">
+                    <button id="dark-mode-toggle" class="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition">
+                        <iconify-icon icon="lucide:moon" class="dark:hidden"></iconify-icon>
+                        <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
+                    </button>
+                    <a href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" id="nav-profile-btn" class="w-11 h-11 bg-brand-teal/10 dark:bg-brand-slate/20 border border-brand-teal/20 dark:border-brand-slate/30 rounded-xl flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-xl shadow-sm">
+                        م
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main style="view-transition-name: main-content" class="flex-1 w-full max-w-4xl mx-auto px-4 py-12 md:py-20 flex flex-col items-center">
+            
+            <div class="w-full flex flex-col items-center text-center space-y-12">
+                
+                <div class="relative">
+                    <div class="absolute inset-0 bg-brand-danger/15 dark:bg-brand-danger/10 blur-3xl rounded-full"></div>
+                    <div class="relative floating">
+                        <div class="bg-gradient-to-br from-brand-danger to-red-600 text-white w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center shadow-xl shadow-brand-danger/20 border-4 border-white dark:border-brand-card-dark mx-auto z-10 relative">
+                            <iconify-icon icon="lucide:x-circle" class="text-4xl md:text-5xl drop-shadow-md"></iconify-icon>
+                        </div>
+                    </div>
+                    <h1 class="font-display text-5xl md:text-7xl font-black text-brand-danger mt-8 tracking-tight drop-shadow-sm uppercase">
+                        هزيمة!
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400 font-medium text-lg md:text-xl mt-4 max-w-md mx-auto">
+                        للأسف خسرت هذه المعركة، حاول مرة أخرى وتحسّن من مستواك.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                    
+                    <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl p-8 shadow-sm hover:shadow-md dark:hover:shadow-black/20 flex flex-col items-center gap-4 transition-all hover:-translate-y-1 smooth-transition group">
+                        <span class="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest group-hover:text-brand-danger transition-colors">النقاط المفقودة</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-2xl bg-red-50 dark:bg-brand-danger/10 flex items-center justify-center text-brand-danger">
+                                <iconify-icon icon="lucide:zap" class="text-3xl"></iconify-icon>
+                            </div>
+                            <span class="font-display text-5xl md:text-6xl font-black text-gray-900 dark:text-white drop-shadow-sm">-280</span>
+                        </div>
+                        <div class="h-px w-full bg-gray-100 dark:bg-gray-800 my-2"></div>
+                        <div class="flex justify-between w-full text-sm font-bold">
+                            <span class="text-gray-500 dark:text-gray-400">مضاعف الخسارة:</span>
+                            <span class="text-brand-danger font-black px-2 py-0.5 bg-red-50 dark:bg-brand-danger/10 rounded-md">x1.0</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl p-8 shadow-sm hover:shadow-md dark:hover:shadow-black/20 flex flex-col items-center gap-4 transition-all hover:-translate-y-1 smooth-transition group">
+                        <span class="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest group-hover:text-brand-danger transition-colors">تراجعت إلى المركز</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-2xl bg-red-50 dark:bg-brand-danger/10 flex items-center justify-center text-brand-danger">
+                                <iconify-icon icon="lucide:trending-down" class="text-3xl"></iconify-icon>
+                            </div>
+                            <span class="font-display text-5xl md:text-6xl font-black text-gray-900 dark:text-white drop-shadow-sm">#28</span>
+                        </div>
+                        <div class="h-px w-full bg-gray-100 dark:bg-gray-800 my-2"></div>
+                        <div class="flex justify-between w-full text-sm font-bold">
+                            <span class="text-gray-500 dark:text-gray-400">التراجع:</span>
+                            <span class="text-brand-danger font-black px-2 py-0.5 bg-brand-danger/10 rounded-md">-3 مركز</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl p-6 md:p-8 shadow-sm hover:shadow-md dark:hover:shadow-black/20 smooth-transition relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-48 h-48 bg-brand-orange/5 dark:bg-brand-orange/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:bg-brand-orange/10 dark:group-hover:bg-brand-orange/20 transition-colors"></div>
+                    <div class="flex flex-col md:flex-row items-center gap-6 md:gap-8 relative z-10">
+                        <div class="w-16 h-16 md:w-20 md:h-20 bg-orange-50 dark:bg-brand-orange/20 rounded-2xl flex items-center justify-center shrink-0 border border-orange-100 dark:border-brand-orange/30 shadow-sm group-hover:scale-105 smooth-transition">
+                            <span class="text-3xl md:text-4xl font-black text-brand-orange drop-shadow-sm">ب</span>
+                        </div>
+                        <div class="flex-1 text-center md:text-right">
+                            <div class="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">رد فعل الخصم المنتصر (برنس الصحراء)</div>
+                            <div class="bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 p-4 md:p-5 rounded-2xl md:rounded-tr-none text-gray-700 dark:text-gray-300 font-bold text-sm md:text-base italic shadow-inner">
+                                "لقد كنت خصماً سهلاً! يبدو أنك تحتاج إلى المزيد من التدريب لتهزمني."
+                            </div>
+                        </div>
+                        <div class="flex flex-row md:flex-col items-center md:items-end gap-3 md:gap-1 bg-red-50 dark:bg-red-900/10 px-5 py-3 md:px-6 md:py-4 rounded-2xl border border-red-100 dark:border-red-900/30 w-full md:w-auto justify-center">
+                            <span class="text-[10px] md:text-xs font-black text-brand-danger uppercase tracking-widest">الضرر المتلقى</span>
+                            <span class="text-3xl md:text-4xl font-black text-brand-danger font-display drop-shadow-sm">-320</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4 w-full pt-6">
+                    <a id="cta-continue" href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" class="flex-1 btn-press bg-brand-teal hover:bg-brand-teal-hover text-white py-4 md:py-5 rounded-2xl font-heading font-black text-lg shadow-lg shadow-brand-teal/20 smooth-transition text-center flex items-center justify-center gap-3">
+                        العودة للرئيسية
+                        <iconify-icon icon="lucide:arrow-left" class="text-xl"></iconify-icon>
+                    </a>
+                    <a id="cta-revenge-list" href="https://p.superdesign.dev/draft/8f303612-97e0-4d9e-8293-06fd3e273daf" class="flex-1 btn-press bg-white dark:bg-brand-card-dark border-2 border-gray-200 hover:border-brand-teal dark:border-gray-700 dark:hover:border-brand-teal text-gray-700 hover:text-brand-teal dark:text-gray-300 dark:hover:text-brand-teal py-4 md:py-5 rounded-2xl font-heading font-black text-lg shadow-sm hover:shadow-md smooth-transition text-center flex items-center justify-center gap-3">
+                        هجوم آخر
+                        <iconify-icon icon="lucide:swords" class="text-xl"></iconify-icon>
+                    </a>
+                </div>
+            </div>
+
+        </main>
+
+        <footer style="view-transition-name: footer" class="bg-gray-50 dark:bg-[#0f141f] border-t border-gray-200 dark:border-gray-800 py-12 px-6 mt-auto">
+            <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
+                <a href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" id="footer-logo-link" class="smooth-transition hover:opacity-80 block">
+                    <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[110px] object-contain opacity-80 dark:brightness-200 dark:grayscale">
+                </a>
+                <div class="text-sm font-bold text-gray-500 dark:text-gray-500">
+                    جميع الحقوق محفوظة © 2024 حرب الأسماء
+                </div>
+            </div>
+        </footer>
+
+        <nav style="view-transition-name: mobile-nav" class="md:hidden fixed bottom-0 w-full bg-white dark:bg-brand-card-dark border-t border-gray-200 dark:border-gray-800 flex justify-around items-center py-2 px-2 z-50 transition-colors duration-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-none">
+            <a id="mobile-nav-home" href="https://p.superdesign.dev/draft/14359f67-bc4c-44e7-bf46-347e1e5ddcdf" class="flex flex-col items-center gap-1 text-gray-400 hover:text-brand-teal smooth-transition">
+                <iconify-icon icon="lucide:home" class="text-[1.3rem]"></iconify-icon>
+                <span class="text-[9px] font-bold">الرئيسية</span>
+            </a>
+            <a id="mobile-nav-leaderboard" href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" class="flex flex-col items-center gap-1 text-gray-400 hover:text-brand-teal smooth-transition">
+                <iconify-icon icon="lucide:trophy" class="text-[1.3rem]"></iconify-icon>
+                <span class="text-[9px] font-bold">المتصدرين</span>
+            </a>
+            <a id="mobile-nav-attack" href="https://p.superdesign.dev/draft/8f303612-97e0-4d9e-8293-06fd3e273daf" class="flex flex-col items-center justify-center w-12 h-12 bg-brand-teal text-white rounded-full -mt-6 border-[3px] border-brand-light-bg dark:border-brand-dark-bg shadow-sm active:scale-95 transition-transform">
+                <iconify-icon icon="lucide:swords" class="text-2xl"></iconify-icon>
+            </a>
+            <a id="mobile-nav-shop" href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" class="flex flex-col items-center gap-1 text-gray-400 hover:text-brand-teal smooth-transition">
+                <iconify-icon icon="lucide:shopping-bag" class="text-[1.3rem]"></iconify-icon>
+                <span class="text-[9px] font-bold">المتجر</span>
+            </a>
+            <a id="mobile-nav-profile" href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" class="flex flex-col items-center gap-1 text-gray-400 hover:text-brand-teal smooth-transition">
+                <iconify-icon icon="lucide:user" class="text-[1.3rem]"></iconify-icon>
+                <span class="text-[9px] font-bold">حسابي</span>
+            </a>
+        </nav>
+
+    </div>
+
+    <script>
+        const toggleBtn = document.getElementById('dark-mode-toggle');
+        const htmlElement = document.documentElement;
+
+        if (localStorage.getItem('theme') === 'dark') {
+            htmlElement.classList.add('dark');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            localStorage.setItem('theme', htmlElement.classList.contains('dark') ? 'dark' : 'light');
+        });
+    </script>
+</body>
+</html>
