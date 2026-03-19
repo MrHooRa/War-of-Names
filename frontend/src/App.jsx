@@ -1,132 +1,187 @@
-import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
 import AppLayout from './components/AppLayout'
+import AdminLayout from './components/AdminLayout'
+import AuthLayout from './components/AuthLayout'
+import useGameInfo from './hooks/useGameInfo'
 
-export default function App() {
-  const [gameInfo, setGameInfo] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+import MainPage from './pages/MainPage'
+import LoginPage from './pages/LoginPage'
+import DashboardPage from './pages/DashboardPage'
+import LeaderboardPage from './pages/LeaderboardPage'
+import StorePage from './pages/StorePage'
+import QuizPage from './pages/QuizPage'
+import LobbyPage from './pages/LobbyPage'
+import RegisterPage from './pages/RegisterPage'
+import JoinPage from './pages/JoinPage'
+import VictoryPage from './pages/VictoryPage'
+import DefeatPage from './pages/DefeatPage'
+import NotificationsPage from './pages/NotificationsPage'
+import PlayerProfilePage from './pages/PlayerProfilePage'
 
-  useEffect(() => {
-    fetch('/api/game-info')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((data) => {
-        setGameInfo(data.data)
-        setLoading(false)
-      })
-      .catch((err) => {
-        setError(err.message)
-        setLoading(false)
-      })
-  }, [])
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import AdminCompetitionPage from './pages/admin/AdminCompetitionPage'
+import AdminPlayersPage from './pages/admin/AdminPlayersPage'
+import AdminPlayerDetailPage from './pages/admin/AdminPlayerDetailPage'
+import AdminAttacksPage from './pages/admin/AdminAttacksPage'
+import AdminQuizPage from './pages/admin/AdminQuizPage'
+import AdminStorePage from './pages/admin/AdminStorePage'
+import AdminLedgerPage from './pages/admin/AdminLedgerPage'
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage'
+import AdminSettingsPage from './pages/admin/AdminSettingsPage'
+
+function EntryRoute() {
+  const alreadySeen = sessionStorage.getItem('mainPageSeen') === '1'
+  if (alreadySeen) return <Navigate to="/lobby" replace />
+  return <MainPage />
+}
+
+function GameRoutes() {
+  const { gameInfo, loading, error } = useGameInfo()
+  const seasonText = gameInfo?.current_season
 
   return (
-    <AppLayout
-      activeItem="home"
-      seasonText={gameInfo?.current_season}
-    >
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
-        {/* Loading state */}
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-10 h-10 border-4 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-500 dark:text-gray-400 font-bold text-sm">جاري التحميل...</p>
-            </div>
-          </div>
-        )}
+    <Routes>
+      {/* ── Entry / Main Page ── */}
+      <Route path="/" element={<EntryRoute />} />
 
-        {/* Error state */}
-        {error && (
-          <div className="max-w-md mx-auto mt-12 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 text-center">
-            <iconify-icon icon="lucide:alert-triangle" class="text-3xl text-brand-danger mb-3"></iconify-icon>
-            <p className="font-bold text-brand-danger mb-1">فشل الاتصال بالخادم</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{error}</p>
-          </div>
-        )}
+      {/* ── Auth pages (no protection) ── */}
+      <Route
+        path="/login"
+        element={
+          <AuthLayout>
+            <LoginPage />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <AuthLayout>
+            <RegisterPage />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/join"
+        element={
+          <AuthLayout showLogo={false}>
+            <JoinPage />
+          </AuthLayout>
+        }
+      />
 
-        {/* Success — Dashboard hero section matching template style */}
-        {gameInfo && (
-          <>
-            {/* Announcement banner — from template pattern */}
-            {gameInfo.announcement && (
-              <div className="bg-brand-teal/5 dark:bg-brand-slate/10 border border-brand-teal/10 dark:border-brand-slate/20 rounded-2xl p-4 mb-6 flex items-center gap-3">
-                <div className="w-9 h-9 bg-brand-teal/10 dark:bg-brand-slate/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <iconify-icon icon="lucide:megaphone" class="text-brand-teal dark:text-brand-slate text-lg"></iconify-icon>
-                </div>
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                  {gameInfo.announcement}
-                </p>
-              </div>
-            )}
+      {/* ── Protected game pages ── */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="home" seasonText={seasonText}>
+              <DashboardPage gameInfo={gameInfo} loading={loading} error={error} />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="leaderboard" seasonText={seasonText}>
+              <LeaderboardPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/store"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="shop" seasonText={seasonText}>
+              <StorePage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/quiz"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="battle" seasonText="جلسة الأسئلة المباشرة">
+              <QuizPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/battle/victory"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="" seasonText={seasonText}>
+              <VictoryPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/battle/defeat"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="" seasonText={seasonText}>
+              <DefeatPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="" seasonText={seasonText}>
+              <NotificationsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/players/:membershipId"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="leaderboard" seasonText={seasonText}>
+              <PlayerProfilePage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
-            {/* Hero card — matches template dashboard hero structure */}
-            <div className="bg-white dark:bg-brand-card-dark rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 md:p-8 mb-6">
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                {/* Player avatar area — from template */}
-                <div className="w-20 h-20 bg-brand-teal/10 dark:bg-brand-slate/20 border-2 border-brand-teal/20 dark:border-brand-slate/30 rounded-2xl flex items-center justify-center">
-                  <iconify-icon icon="lucide:swords" class="text-4xl text-brand-teal dark:text-brand-slate"></iconify-icon>
-                </div>
+      {/* ── Admin Panel ── */}
+      <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="competition" element={<AdminCompetitionPage />} />
+        <Route path="players" element={<AdminPlayersPage />} />
+        <Route path="players/:membershipId" element={<AdminPlayerDetailPage />} />
+        <Route path="attacks" element={<AdminAttacksPage />} />
+        <Route path="quiz" element={<AdminQuizPage />} />
+        <Route path="store" element={<AdminStorePage />} />
+        <Route path="ledger" element={<AdminLedgerPage />} />
+        <Route path="notifications" element={<AdminNotificationsPage />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
+      </Route>
 
-                <div className="text-center md:text-right flex-1">
-                  <h1 className="font-display text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-1">
-                    {gameInfo.title}
-                  </h1>
-                  {gameInfo.subtitle && (
-                    <p className="text-gray-500 dark:text-gray-400 font-bold text-sm md:text-base">
-                      {gameInfo.subtitle}
-                    </p>
-                  )}
-                </div>
+      {/* ── Lobby — standalone dark immersive page ── */}
+      <Route path="/lobby" element={<LobbyPage />} />
+    </Routes>
+  )
+}
 
-                {/* Status badge — from template pattern */}
-                <div className="flex items-center gap-3">
-                  {gameInfo.current_season && (
-                    <span className="bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate px-4 py-2 rounded-xl text-sm font-black">
-                      {gameInfo.current_season}
-                    </span>
-                  )}
-                  <span
-                    className={`px-4 py-2 rounded-xl text-sm font-black text-white ${
-                      gameInfo.status === 'active'
-                        ? 'bg-brand-success'
-                        : 'bg-brand-danger'
-                    }`}
-                  >
-                    {gameInfo.status === 'active' ? 'نشط' : 'متوقف'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats grid — matching template dashboard pattern */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-brand-card-dark rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 text-center smooth-transition hover:shadow-md hover:-translate-y-0.5">
-                <iconify-icon icon="lucide:database" class="text-2xl text-brand-teal dark:text-brand-slate mb-2"></iconify-icon>
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">قاعدة البيانات</p>
-                <p className="font-heading text-lg font-black text-brand-success">متصلة</p>
-              </div>
-              <div className="bg-white dark:bg-brand-card-dark rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 text-center smooth-transition hover:shadow-md hover:-translate-y-0.5">
-                <iconify-icon icon="lucide:server" class="text-2xl text-brand-teal dark:text-brand-slate mb-2"></iconify-icon>
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">الخادم</p>
-                <p className="font-heading text-lg font-black text-brand-success">يعمل</p>
-              </div>
-              <div className="bg-white dark:bg-brand-card-dark rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 text-center smooth-transition hover:shadow-md hover:-translate-y-0.5">
-                <iconify-icon icon="lucide:layout-dashboard" class="text-2xl text-brand-teal dark:text-brand-slate mb-2"></iconify-icon>
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">الواجهة</p>
-                <p className="font-heading text-lg font-black text-brand-success">متصلة</p>
-              </div>
-              <div className="bg-white dark:bg-brand-card-dark rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 text-center smooth-transition hover:shadow-md hover:-translate-y-0.5">
-                <iconify-icon icon="lucide:container" class="text-2xl text-brand-teal dark:text-brand-slate mb-2"></iconify-icon>
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Docker</p>
-                <p className="font-heading text-lg font-black text-brand-success">يعمل</p>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </AppLayout>
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <GameRoutes />
+      </BrowserRouter>
+    </AuthProvider>
   )
 }

@@ -8,6 +8,16 @@ from sqlalchemy import select
 from app.config import settings
 from app.core.database import async_session, check_db_connection, engine
 from app.core.models import Base, GameInfo
+from app.core.seed import seed
+from app.modules.auth.router import router as auth_router
+from app.modules.competitions.router import router as competitions_router
+from app.modules.dashboard.router import router as dashboard_router
+from app.modules.attacks.router import router as attacks_router
+from app.modules.leaderboard.router import router as leaderboard_router
+from app.modules.store.router import router as store_router
+from app.modules.quiz.router import router as quiz_router
+from app.modules.admin.router import router as admin_router
+from app.modules.notifications.router import router as notifications_router
 
 
 @asynccontextmanager
@@ -31,6 +41,10 @@ async def lifespan(app: FastAPI):
             )
             await session.commit()
 
+    # Run seeder (idempotent)
+    async with async_session() as session:
+        await seed(session)
+
     yield
     await engine.dispose()
 
@@ -45,9 +59,20 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.cors_origin],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
+app.include_router(competitions_router)
+app.include_router(dashboard_router)
+app.include_router(attacks_router)
+app.include_router(leaderboard_router)
+app.include_router(store_router)
+app.include_router(quiz_router)
+app.include_router(notifications_router)
+app.include_router(admin_router)
 
 
 # --- Health ---

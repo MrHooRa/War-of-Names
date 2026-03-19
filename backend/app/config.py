@@ -15,6 +15,9 @@ class Settings(BaseSettings):
 
     cors_origin: str = "http://localhost:5173"
 
+    jwt_secret: str = "change-me-in-production-please"
+    jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+
     @property
     def database_url(self) -> str:
         return (
