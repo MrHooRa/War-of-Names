@@ -6,8 +6,7 @@
 
 import { Link } from 'react-router-dom'
 
-const LOGO_URL =
-  'https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/cfa1195b-8ce6-48f1-a984-5f575cd05ec4/generated-images/generated-53871963-6c6a-4c03-9b04-9e8a3124af47.png'
+const LOGO_URL = '/main-logo-v1.png'
 
 function toggleDarkMode() {
   const html = document.documentElement

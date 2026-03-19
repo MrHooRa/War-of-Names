@@ -20,7 +20,7 @@ from app.modules.auth.models import Account
 from app.modules.competitions.models import Membership
 from app.modules.scoring.models import LedgerEntry
 from app.modules.notifications.service import create_notification
-from app.modules.store.models import ItemDefinition, OwnedItem, StoreListing
+from app.modules.store.models import ItemActivation, ItemDefinition, ItemEffect, OwnedItem, StoreListing
 
 router = APIRouter(tags=["store"])
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
@@ -234,3 +234,111 @@ async def get_inventory(account: CurrentAccount):
         })
 
     return {"success": True, "data": items}
+
+
+@router.post("/api/me/inventory/{owned_item_id}/use")
+async def use_item(owned_item_id: uuid.UUID, account: CurrentAccount):
+    """Use/activate an item from inventory. Applies its effects and updates status."""
+    from datetime import datetime, timedelta
+
+    async with async_session() as session:
+        # Get membership
+        mem_result = await session.execute(
+            select(Membership).where(
+                Membership.account_id == account.id,
+                Membership.status == MembershipStatus.ACTIVE,
+            ).limit(1)
+        )
+        membership = mem_result.scalars().first()
+        if not membership:
+            raise HTTPException(status_code=403, detail="أنت لست عضواً في أي منافسة")
+
+        # Get owned item
+        owned = await session.get(OwnedItem, owned_item_id)
+        if not owned or str(owned.membership_id) != str(membership.id):
+            raise HTTPException(status_code=404, detail="العنصر غير موجود في مخزونك")
+
+        if owned.status != OwnedItemStatus.AVAILABLE:
+            raise HTTPException(status_code=400, detail="هذا العنصر غير متاح للاستخدام")
+
+        if membership.is_bankrupt:
+            raise HTTPException(status_code=400, detail="لا يمكن استخدام العناصر أثناء الإفلاس")
+
+        # Get item definition and its effects
+        item_def = await session.get(ItemDefinition, owned.item_definition_id)
+        if not item_def:
+            raise HTTPException(status_code=404, detail="تعريف العنصر غير موجود")
+
+        effects_result = await session.execute(
+            select(ItemEffect)
+            .where(ItemEffect.item_definition_id == item_def.id)
+            .order_by(ItemEffect.order_index)
+        )
+        effects = effects_result.scalars().all()
+
+        # Build effect summary
+        effect_summary = {
+            "item_name": item_def.name,
+            "effects_applied": [],
+        }
+
+        for eff in effects:
+            effect_summary["effects_applied"].append({
+                "type": eff.effect_type,
+                "parameters": eff.parameters,
+                "target_scope": eff.target_scope,
+            })
+
+        # Update item status
+        now = datetime.utcnow()
+        owned.activated_at = now
+
+        if item_def.usage_type in ("consumable",):
+            # Consumable: decrement uses or consume fully
+            if owned.uses_remaining is not None and owned.uses_remaining > 1:
+                owned.uses_remaining -= 1
+            else:
+                owned.status = OwnedItemStatus.CONSUMED
+                owned.consumed_at = now
+        elif item_def.usage_type in ("time_limited",):
+            # Time-limited: set expiry
+            owned.status = OwnedItemStatus.ACTIVATED
+            if item_def.expires_after_minutes:
+                owned.expires_at = now + timedelta(minutes=item_def.expires_after_minutes)
+        else:
+            # Non-consumable / persistent: just activate
+            owned.status = OwnedItemStatus.ACTIVATED
+
+        # Record activation
+        activation = ItemActivation(
+            owned_item_id=owned.id,
+            membership_id=membership.id,
+            result_state="success",
+            effect_summary=effect_summary,
+        )
+        session.add(activation)
+
+        # Send notification
+        await create_notification(
+            session,
+            recipient_id=account.id,
+            notification_type=NotificationType.ITEM_RECEIVED,
+            title="تم تفعيل العنصر",
+            message=f"تم استخدام {item_def.name} بنجاح",
+            membership_id=membership.id,
+            reference_type="item_activation",
+            deep_link="/dashboard",
+        )
+
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {
+            "owned_item_id": str(owned.id),
+            "item_name": item_def.name,
+            "new_status": owned.status,
+            "effects": effect_summary,
+        },
+        "message": f"تم استخدام {item_def.name} بنجاح!",
+    }

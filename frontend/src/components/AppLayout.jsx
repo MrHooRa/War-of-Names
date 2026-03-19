@@ -8,8 +8,10 @@
  *  - children: page content
  */
 
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../context/AuthContext'
+import { apiFetch } from '../lib/api'
 
 const LOGO_URL =
   'https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png'
@@ -41,6 +43,15 @@ export default function AppLayout({ activeItem = 'home', seasonText, children })
   const { currentUser, logout } = useAuthContext()
   const displayName = currentUser?.username || '?'
   const avatarLetter = displayName[0] || '?'
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    apiFetch('/api/me/notifications')
+      .then(r => {
+        if (r.data) setUnreadCount(r.data.filter(n => !n.is_read).length)
+      })
+      .catch(() => {})
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-brand-light-bg dark:bg-brand-dark-bg transition-colors duration-300">
@@ -95,10 +106,15 @@ export default function AppLayout({ activeItem = 'home', seasonText, children })
             {/* Notifications */}
             <Link to="/notifications" className="relative w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm">
               <iconify-icon icon="lucide:bell"></iconify-icon>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-brand-danger text-white text-[10px] font-black rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
 
             {/* User Mini Profile */}
-            <Link to="/dashboard" id="nav-profile-btn" className="flex items-center gap-3 group smooth-transition hover:-translate-y-0.5">
+            <Link to="/account" id="nav-profile-btn" className="flex items-center gap-3 group smooth-transition hover:-translate-y-0.5">
               <div className="hidden md:flex flex-col text-left">
                 <span className="font-heading text-xs text-gray-500 dark:text-gray-400">{displayName}</span>
               </div>
@@ -205,7 +221,7 @@ export default function AppLayout({ activeItem = 'home', seasonText, children })
         </Link>
 
         <Link
-          to="/"
+          to="/account"
           id="mobile-nav-profile"
           className={`flex flex-col items-center gap-1 smooth-transition ${
             activeItem === 'profile'

@@ -7,6 +7,7 @@ Creates minimal real DB records for the game to function:
   - 1 active Season + Cycle
   - 1 CompetitionInvite (code: "WAR2026")
   - 4 store items with listings
+  - Game settings (attack, quiz, store, scoring defaults)
 """
 
 import uuid
@@ -30,12 +31,15 @@ from app.core.enums import (
     QuestionStatus,
     QuestionType,
     SeasonStatus,
+    SettingDataType,
+    SettingScope,
     SessionStatus,
     SessionType,
 )
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Competition, CompetitionInvite, Cycle, Season
 from app.modules.quiz.models import Question, QuestionGroup, QuizSession, SessionQuestion
+from app.modules.settings.models import SettingDefinition, SettingValue
 from app.modules.store.models import ItemDefinition, StoreListing
 
 # Stable UUIDs for idempotent re-runs
@@ -70,6 +74,7 @@ async def seed(session: AsyncSession) -> None:
     await _seed_competition(session)
     await _seed_store_items(session)
     await _seed_quiz(session)
+    await _seed_settings(session)
 
 
 async def _seed_system_account(session: AsyncSession) -> None:
@@ -355,5 +360,118 @@ async def _seed_quiz(session: AsyncSession) -> None:
             effective_options_snapshot=qd["options"],
         )
         session.add(sq)
+
+    await session.commit()
+
+
+# Stable UUIDs for settings
+SETTING_IDS = {
+    "attack_base_reward": uuid.UUID("00000000-0000-0000-0000-000000000040"),
+    "attack_decay_factor": uuid.UUID("00000000-0000-0000-0000-000000000041"),
+    "attack_base_penalty": uuid.UUID("00000000-0000-0000-0000-000000000042"),
+    "attack_max_per_cycle": uuid.UUID("00000000-0000-0000-0000-000000000043"),
+    "score_initial_balance": uuid.UUID("00000000-0000-0000-0000-000000000044"),
+    "score_bankruptcy_threshold": uuid.UUID("00000000-0000-0000-0000-000000000045"),
+    "quiz_default_duration": uuid.UUID("00000000-0000-0000-0000-000000000046"),
+    "store_max_inventory": uuid.UUID("00000000-0000-0000-0000-000000000047"),
+    "protection_full_attack_count": uuid.UUID("00000000-0000-0000-0000-000000000048"),
+}
+
+
+async def _seed_settings(session: AsyncSession) -> None:
+    """Seed game setting definitions with default values."""
+    existing = await session.get(SettingDefinition, SETTING_IDS["attack_base_reward"])
+    if existing:
+        return
+
+    settings_data = [
+        {
+            "id": SETTING_IDS["attack_base_reward"],
+            "key": "attack_base_reward",
+            "category": "attack",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 500},
+            "description": "المكافأة الأساسية للهجوم الناجح",
+        },
+        {
+            "id": SETTING_IDS["attack_decay_factor"],
+            "key": "attack_decay_factor",
+            "category": "attack",
+            "data_type": SettingDataType.DECIMAL,
+            "default_value": {"v": 0.8},
+            "description": "معامل الانحلال للمكافأة (0-1)",
+        },
+        {
+            "id": SETTING_IDS["attack_base_penalty"],
+            "key": "attack_base_penalty",
+            "category": "attack",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 100},
+            "description": "الخصم الأساسي عند فشل الهجوم",
+        },
+        {
+            "id": SETTING_IDS["attack_max_per_cycle"],
+            "key": "attack_max_per_cycle",
+            "category": "attack",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 3},
+            "description": "أقصى عدد هجمات ناجحة على لاعب في الدورة الواحدة",
+        },
+        {
+            "id": SETTING_IDS["score_initial_balance"],
+            "key": "score_initial_balance",
+            "category": "score",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 1000},
+            "description": "الرصيد الأولي لكل لاعب عند الانضمام",
+        },
+        {
+            "id": SETTING_IDS["score_bankruptcy_threshold"],
+            "key": "score_bankruptcy_threshold",
+            "category": "score",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 0},
+            "description": "حد الإفلاس (إذا انخفض الرصيد لهذا المبلغ أو أقل)",
+        },
+        {
+            "id": SETTING_IDS["quiz_default_duration"],
+            "key": "quiz_default_duration",
+            "category": "quiz",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 30},
+            "description": "المدة الافتراضية للإجابة على السؤال (ثواني)",
+        },
+        {
+            "id": SETTING_IDS["store_max_inventory"],
+            "key": "store_max_inventory",
+            "category": "store",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 10},
+            "description": "الحد الأقصى لعدد العناصر في مخزن اللاعب",
+        },
+        {
+            "id": SETTING_IDS["protection_full_attack_count"],
+            "key": "protection_full_attack_count",
+            "category": "protection",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 3},
+            "description": "عدد الهجمات الناجحة المطلوبة للحماية الكاملة",
+        },
+    ]
+
+    for sd in settings_data:
+        defn = SettingDefinition(**sd)
+        session.add(defn)
+
+    await session.flush()
+
+    # Seed global values matching defaults
+    for sd in settings_data:
+        sv = SettingValue(
+            setting_definition_id=sd["id"],
+            scope=SettingScope.GLOBAL,
+            value=sd["default_value"],
+        )
+        session.add(sv)
 
     await session.commit()

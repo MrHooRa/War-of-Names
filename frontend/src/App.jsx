@@ -21,6 +21,8 @@ import VictoryPage from './pages/VictoryPage'
 import DefeatPage from './pages/DefeatPage'
 import NotificationsPage from './pages/NotificationsPage'
 import PlayerProfilePage from './pages/PlayerProfilePage'
+import AccountSettingsPage from './pages/AccountSettingsPage'
+import RulesPage from './pages/RulesPage'
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminCompetitionPage from './pages/admin/AdminCompetitionPage'
@@ -151,6 +153,26 @@ function GameRoutes() {
           <ProtectedRoute>
             <AppLayout activeItem="leaderboard" seasonText={seasonText}>
               <PlayerProfilePage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/account"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="profile" seasonText={seasonText}>
+              <AccountSettingsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rules"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="rules" seasonText={seasonText}>
+              <RulesPage />
             </AppLayout>
           </ProtectedRoute>
         }

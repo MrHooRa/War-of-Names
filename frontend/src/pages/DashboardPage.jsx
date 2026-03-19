@@ -1,8 +1,46 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import useDashboard from '../hooks/useDashboard'
+import { apiFetch } from '../lib/api'
+
+const RARITY_COLORS = {
+  common: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+  rare: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',
+  epic: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  legendary: 'bg-orange-50 text-brand-orange dark:bg-orange-900/20 dark:text-orange-400',
+  mythic: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400',
+}
 
 export default function DashboardPage() {
   const { data, loading, error } = useDashboard()
+  const [attacks, setAttacks] = useState([])
+  const [inventory, setInventory] = useState([])
+  const [usingItemId, setUsingItemId] = useState(null)
+  const [itemMessage, setItemMessage] = useState(null)
+
+  useEffect(() => {
+    if (data) {
+      apiFetch('/api/me/attacks').then(r => { if (r.data) setAttacks(r.data) }).catch(() => {})
+      apiFetch('/api/me/inventory-details').then(r => { if (r.data) setInventory(r.data) }).catch(() => {})
+    }
+  }, [data])
+
+  async function handleUseItem(ownedItemId) {
+    setUsingItemId(ownedItemId)
+    setItemMessage(null)
+    try {
+      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use`, { method: 'POST' })
+      setItemMessage({ type: 'success', text: res.message || 'تم استخدام العنصر بنجاح' })
+      // Refresh inventory
+      const inv = await apiFetch('/api/me/inventory-details')
+      if (inv.data) setInventory(inv.data)
+    } catch (err) {
+      setItemMessage({ type: 'error', text: err.message })
+    } finally {
+      setUsingItemId(null)
+      setTimeout(() => setItemMessage(null), 3000)
+    }
+  }
 
   if (loading) {
     return (
@@ -115,13 +153,51 @@ export default function DashboardPage() {
                 <h3 className="font-heading font-black text-xl text-gray-900 dark:text-white">سجل المعارك الأخيرة</h3>
               </div>
             </div>
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400 font-bold">
-              {data.attacks_sent === 0 ? (
+            {attacks.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400 font-bold">
                 <p>لم تقم بأي هجوم بعد. ابدأ أولى معاركك!</p>
-              ) : (
-                <p>سجل المعارك سيتوفر قريباً</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {attacks.slice(0, 8).map(atk => {
+                  const isAttacker = atk.role === 'attacker'
+                  const won = (isAttacker && atk.outcome === 'succeeded') || (!isAttacker && atk.outcome === 'failed')
+                  return (
+                    <div key={atk.id} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 smooth-transition">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${won ? 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-500' : 'bg-red-50 dark:bg-red-900/10 text-red-500'}`}>
+                          <iconify-icon icon={won ? 'lucide:shield-check' : 'lucide:shield-x'}></iconify-icon>
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-gray-900 dark:text-white">
+                            {isAttacker ? `هجوم على ${atk.opponent_alias}` : `هجوم من ${atk.opponent_alias}`}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {atk.created_at ? new Date(atk.created_at).toLocaleDateString('ar-SA') : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isAttacker ? (
+                          atk.outcome === 'succeeded' ? (
+                            <span className="font-heading font-black text-brand-success text-sm">+{atk.reward_amount}</span>
+                          ) : (
+                            <span className="font-heading font-black text-brand-danger text-sm">-{atk.penalty_amount}</span>
+                          )
+                        ) : (
+                          atk.outcome === 'succeeded' ? (
+                            <span className="font-heading font-black text-brand-danger text-sm">-{atk.reward_amount}</span>
+                          ) : (
+                            <span className="font-heading font-black text-brand-success text-sm">دفاع ناجح</span>
+                          )
+                        )}
+                        <Link to={`/players/${atk.opponent_membership_id}`} className="text-xs text-brand-teal dark:text-brand-slate hover:underline">عرض</Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Quick Items / Collection */}
@@ -134,14 +210,50 @@ export default function DashboardPage() {
               </div>
               <Link to="/store" className="text-sm font-bold text-brand-teal dark:text-brand-slate hover:underline">فتح المتجر</Link>
             </div>
-            {data.inventory_count === 0 ? (
+            {itemMessage && (
+              <div className={`px-4 py-2 rounded-xl text-sm font-bold mb-4 ${itemMessage.type === 'success' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-danger/10 text-brand-danger'}`}>
+                {itemMessage.text}
+              </div>
+            )}
+            {inventory.length === 0 ? (
               <div className="text-center py-6 text-gray-500 dark:text-gray-400 font-bold">
                 <iconify-icon icon="lucide:package-open" class="text-4xl text-gray-300 dark:text-gray-600 mb-2"></iconify-icon>
                 <p>المخزن فارغ — زُر المتجر واشترِ أدوات القتال!</p>
               </div>
             ) : (
-              <div className="text-center py-6 text-gray-500 dark:text-gray-400 font-bold">
-                <p>لديك {data.inventory_count} عناصر في المخزن</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {inventory.slice(0, 6).map(item => (
+                  <div key={item.id} className="flex flex-col gap-2 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black ${RARITY_COLORS[item.rarity] || RARITY_COLORS.common}`}>
+                        {item.rarity}
+                      </span>
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{item.name}</span>
+                    </div>
+                    {item.status === 'available' && (
+                      <button
+                        onClick={() => handleUseItem(item.owned_item_id || item.id)}
+                        disabled={usingItemId === (item.owned_item_id || item.id)}
+                        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate hover:bg-brand-teal/20 dark:hover:bg-brand-slate/20 smooth-transition disabled:opacity-50"
+                      >
+                        {usingItemId === (item.owned_item_id || item.id) ? (
+                          <iconify-icon icon="lucide:loader-2" class="text-xs animate-spin"></iconify-icon>
+                        ) : (
+                          <iconify-icon icon="lucide:zap" class="text-xs"></iconify-icon>
+                        )}
+                        استخدام
+                      </button>
+                    )}
+                    {item.status === 'activated' && (
+                      <span className="w-full text-center text-[10px] font-black text-brand-success">مُفعّل</span>
+                    )}
+                  </div>
+                ))}
+                {inventory.length > 6 && (
+                  <Link to="/store" className="flex items-center justify-center p-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-bold text-brand-teal dark:text-brand-slate hover:bg-brand-teal/5 smooth-transition">
+                    +{inventory.length - 6} عنصر آخر
+                  </Link>
+                )}
               </div>
             )}
           </div>

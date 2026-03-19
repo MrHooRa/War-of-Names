@@ -15,6 +15,8 @@ function StatusBadge({ status }) {
 
 export default function AdminPlayersPage() {
   const { data: players, loading, error, refetch } = useAdminData('/api/admin/players')
+  const { data: accounts, loading: accLoading, refetch: refetchAccounts } = useAdminData('/api/admin/accounts')
+  const [activeTab, setActiveTab] = useState('memberships')
   const [search, setSearch] = useState('')
   const [adjustModal, setAdjustModal] = useState(null) // { membershipId, alias }
   const [adjustAmount, setAdjustAmount] = useState('')
@@ -24,6 +26,24 @@ export default function AdminPlayersPage() {
   const filtered = players?.filter(p =>
     !search || p.alias?.includes(search) || p.real_name?.includes(search) || p.username?.includes(search)
   ) || []
+
+  const filteredAccounts = accounts?.filter(a =>
+    !search || a.username?.includes(search) || a.real_name?.includes(search)
+  ) || []
+
+  async function handleAccountStatus(accountId, newStatus) {
+    try {
+      await apiFetch(`/api/admin/accounts/${accountId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      })
+      setActionMsg('تم تحديث حالة الحساب')
+      refetchAccounts()
+      setTimeout(() => setActionMsg(null), 2000)
+    } catch (err) {
+      setActionMsg(`خطأ: ${err.message}`)
+    }
+  }
 
   async function handleAdjust() {
     if (!adjustAmount || !adjustReason) return
@@ -65,14 +85,44 @@ export default function AdminPlayersPage() {
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">إدارة اللاعبين</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{players?.length || 0} لاعب</p>
+          <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">إدارة اللاعبين والحسابات</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {activeTab === 'memberships' ? `${players?.length || 0} عضوية` : `${accounts?.length || 0} حساب`}
+          </p>
         </div>
       </div>
 
       {actionMsg && (
-        <div className="bg-brand-success/10 text-brand-success px-4 py-2 rounded-xl text-sm font-bold">{actionMsg}</div>
+        <div className={`px-4 py-2 rounded-xl text-sm font-bold ${
+          actionMsg.startsWith('خطأ') ? 'bg-brand-danger/10 text-brand-danger' : 'bg-brand-success/10 text-brand-success'
+        }`}>{actionMsg}</div>
       )}
+
+      {/* Tabs: Memberships vs Accounts */}
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+        <button
+          onClick={() => setActiveTab('memberships')}
+          className={`px-4 py-2 rounded-lg text-sm font-heading font-black smooth-transition ${
+            activeTab === 'memberships'
+              ? 'bg-white dark:bg-brand-card-dark text-brand-teal dark:text-brand-slate shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <iconify-icon icon="lucide:users" class="ml-1.5"></iconify-icon>
+          العضويات
+        </button>
+        <button
+          onClick={() => setActiveTab('accounts')}
+          className={`px-4 py-2 rounded-lg text-sm font-heading font-black smooth-transition ${
+            activeTab === 'accounts'
+              ? 'bg-white dark:bg-brand-card-dark text-brand-teal dark:text-brand-slate shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <iconify-icon icon="lucide:user-cog" class="ml-1.5"></iconify-icon>
+          الحسابات
+        </button>
+      </div>
 
       {/* Search */}
       <div className="relative">
@@ -86,8 +136,71 @@ export default function AdminPlayersPage() {
         />
       </div>
 
-      {/* Players Table */}
-      <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+      {/* Accounts Tab */}
+      {activeTab === 'accounts' && (
+        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+                  <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">الحساب</th>
+                  <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">الحالة</th>
+                  <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">العضويات</th>
+                  <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">تاريخ الإنشاء</th>
+                  <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAccounts.map(a => (
+                  <tr key={a.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 smooth-transition">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-brand-teal/10 dark:bg-brand-slate/20 rounded-lg flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-sm">
+                          {a.username?.[0] || '?'}
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white">{a.username}</div>
+                          <div className="text-[11px] text-gray-400">{a.real_name}{a.is_admin ? ' (مشرف)' : ''}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3"><StatusBadge status={a.status} /></td>
+                    <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{a.membership_count}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 font-bold">{a.created_at ? new Date(a.created_at).toLocaleDateString('ar-SA') : '—'}</td>
+                    <td className="px-4 py-3">
+                      {!a.is_admin && (
+                        <div className="flex items-center gap-1">
+                          {a.status === 'active' && (
+                            <button onClick={() => handleAccountStatus(a.id, 'suspended')} className="px-2 py-1 rounded-lg text-[11px] font-bold text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 smooth-transition" title="تعليق الحساب">
+                              <iconify-icon icon="lucide:pause-circle"></iconify-icon>
+                            </button>
+                          )}
+                          {a.status === 'suspended' && (
+                            <button onClick={() => handleAccountStatus(a.id, 'active')} className="px-2 py-1 rounded-lg text-[11px] font-bold text-brand-success hover:bg-brand-success/10 smooth-transition" title="إعادة تفعيل">
+                              <iconify-icon icon="lucide:play-circle"></iconify-icon>
+                            </button>
+                          )}
+                          {a.status !== 'disabled' && (
+                            <button onClick={() => handleAccountStatus(a.id, 'disabled')} className="px-2 py-1 rounded-lg text-[11px] font-bold text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="تعطيل الحساب">
+                              <iconify-icon icon="lucide:x-circle"></iconify-icon>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredAccounts.length === 0 && (
+            <div className="text-center py-12 text-gray-400 font-bold">لا توجد حسابات</div>
+          )}
+        </div>
+      )}
+
+      {/* Players Table (Memberships tab) */}
+      {activeTab === 'memberships' && <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -168,6 +281,8 @@ export default function AdminPlayersPage() {
           <div className="text-center py-12 text-gray-400 font-bold">لا يوجد لاعبون</div>
         )}
       </div>
+
+      }
 
       {/* Adjust Balance Modal */}
       {adjustModal && (

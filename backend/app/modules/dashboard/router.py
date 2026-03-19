@@ -12,7 +12,7 @@ from app.modules.attacks.models import AttackAttempt
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Competition, Membership
 from app.modules.notifications.models import Notification
-from app.modules.store.models import OwnedItem
+from app.modules.store.models import ItemDefinition, OwnedItem
 
 router = APIRouter(tags=["dashboard"])
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
@@ -128,3 +128,93 @@ async def get_dashboard(account: CurrentAccount):
             "unread_notifications": unread_notif,
         },
     }
+
+
+@router.get("/api/me/attacks")
+async def get_my_attacks(account: CurrentAccount):
+    """Get current player's recent battle history (as attacker or target)."""
+    async with async_session() as session:
+        mem_result = await session.execute(
+            select(Membership)
+            .join(Competition, Membership.competition_id == Competition.id)
+            .where(
+                Membership.account_id == account.id,
+                Membership.status == MembershipStatus.ACTIVE,
+                Competition.status == "active",
+            )
+            .limit(1)
+        )
+        membership = mem_result.scalars().first()
+        if not membership:
+            return {"success": True, "data": []}
+
+        attacks_result = await session.execute(
+            select(AttackAttempt).where(
+                (AttackAttempt.attacker_id == membership.id) | (AttackAttempt.target_id == membership.id)
+            ).order_by(AttackAttempt.created_at.desc()).limit(20)
+        )
+        attacks = attacks_result.scalars().all()
+
+        data = []
+        for a in attacks:
+            is_attacker = str(a.attacker_id) == str(membership.id)
+            opponent_id = a.target_id if is_attacker else a.attacker_id
+            opponent_mem = await session.get(Membership, opponent_id)
+
+            data.append({
+                "id": str(a.id),
+                "role": "attacker" if is_attacker else "target",
+                "opponent_alias": opponent_mem.current_alias if opponent_mem else "?",
+                "opponent_membership_id": str(opponent_id),
+                "outcome": a.outcome,
+                "reward_amount": a.reward_amount,
+                "penalty_amount": a.penalty_amount,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            })
+
+    return {"success": True, "data": data}
+
+
+@router.get("/api/me/inventory-details")
+async def get_my_inventory_details(account: CurrentAccount):
+    """Get player's inventory with item details (name, rarity, description)."""
+    async with async_session() as session:
+        mem_result = await session.execute(
+            select(Membership)
+            .join(Competition, Membership.competition_id == Competition.id)
+            .where(
+                Membership.account_id == account.id,
+                Membership.status == MembershipStatus.ACTIVE,
+                Competition.status == "active",
+            )
+            .limit(1)
+        )
+        membership = mem_result.scalars().first()
+        if not membership:
+            return {"success": True, "data": []}
+
+        result = await session.execute(
+            select(OwnedItem, ItemDefinition)
+            .join(ItemDefinition, OwnedItem.item_definition_id == ItemDefinition.id)
+            .where(
+                OwnedItem.membership_id == membership.id,
+                OwnedItem.status == OwnedItemStatus.AVAILABLE,
+            )
+            .order_by(OwnedItem.acquired_at.desc())
+        )
+        rows = result.all()
+
+        data = [{
+            "id": str(oi.id),
+            "item_definition_id": str(item.id),
+            "name": item.name,
+            "description": item.description,
+            "rarity": item.rarity,
+            "category": item.category,
+            "usage_type": item.usage_type,
+            "status": oi.status,
+            "uses_remaining": oi.uses_remaining,
+            "acquired_at": oi.acquired_at.isoformat() if oi.acquired_at else None,
+        } for oi, item in rows]
+
+    return {"success": True, "data": data}

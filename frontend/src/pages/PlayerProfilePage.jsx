@@ -121,6 +121,22 @@ export default function PlayerProfilePage() {
           </div>
         </div>
 
+        {/* Self profile indicator */}
+        {isSelf && (
+          <div className="flex flex-col items-center gap-2">
+            <span className="px-4 py-2 rounded-xl bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate text-sm font-black flex items-center gap-2">
+              <iconify-icon icon="lucide:user-check" class="text-base"></iconify-icon>
+              ملفي الشخصي
+            </span>
+            <Link
+              to="/settings"
+              className="text-xs font-bold text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate smooth-transition flex items-center gap-1"
+            >
+              <iconify-icon icon="lucide:settings" class="text-xs"></iconify-icon>
+              إعدادات الحساب
+            </Link>
+          </div>
+        )}
         {/* Attack button */}
         {!isSelf && (
           <button

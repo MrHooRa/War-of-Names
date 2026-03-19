@@ -244,7 +244,7 @@ export default function LobbyPage() {
           {/* Button 4: Rules (Far Right on Desktop - Slightly Raised) */}
           <div className="magnetic-wrapper w-full md:w-1/4 md:-translate-y-4 transition-transform duration-700 delay-400" data-glow-color="blue">
             <a
-              href="#rules"
+              href="/rules"
               id="arc-btn-rules"
               className="magnetic-inner block w-full trans-fast rounded-[24px] focus:outline-none focus:ring-4 focus:ring-brand-blue/50"
             >
