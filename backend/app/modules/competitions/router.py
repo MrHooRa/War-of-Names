@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from app.core.auth import get_current_account
 from app.core.database import async_session
 from app.core.enums import (
+    CompetitionStatus,
     InviteStatus,
     LedgerDirection,
     LedgerEntryType,
@@ -27,11 +28,12 @@ from app.modules.competitions.models import (
 )
 from app.modules.competitions.schemas import JoinRequest
 from app.modules.scoring.models import LedgerEntry
+from app.modules.settings.service import get_setting
 
 router = APIRouter(tags=["competitions"])
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
 
-INITIAL_BALANCE = 1000
+_FALLBACK_INITIAL_BALANCE = 1000
 
 
 @router.get("/api/competitions/active")
@@ -66,6 +68,15 @@ async def join_competition(
     account: CurrentAccount,
 ):
     async with async_session() as session:
+        # Validate competition is active and accepting registrations
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+        if comp.status != CompetitionStatus.ACTIVE and comp.status != CompetitionStatus.REGISTRATION_OPEN:
+            raise HTTPException(status_code=400, detail="المنافسة غير مفتوحة للتسجيل حالياً")
+        if not comp.registration_open:
+            raise HTTPException(status_code=400, detail="التسجيل مغلق في هذه المنافسة")
+
         # Validate invite code
         invite_result = await session.execute(
             select(CompetitionInvite).where(
@@ -101,13 +112,21 @@ async def join_competition(
         if alias_conflict.scalars().first():
             raise HTTPException(status_code=400, detail="هذا اللقب مستخدم بالفعل في المنافسة")
 
+        # Read initial balance from settings
+        initial_balance = await get_setting(
+            session, "score_initial_balance", competition_id=competition_id
+        )
+        if initial_balance is None:
+            initial_balance = _FALLBACK_INITIAL_BALANCE
+        initial_balance = int(initial_balance)
+
         # Create membership
         membership = Membership(
             account_id=account.id,
             competition_id=competition_id,
             status=MembershipStatus.ACTIVE,
             current_alias=body.alias,
-            current_balance=INITIAL_BALANCE,
+            current_balance=initial_balance,
         )
         session.add(membership)
         await session.flush()
@@ -136,10 +155,10 @@ async def join_competition(
             season_id=season.id if season else None,
             cycle_id=cycle.id if cycle else None,
             entry_type=LedgerEntryType.INITIAL_BALANCE,
-            amount=INITIAL_BALANCE,
+            amount=initial_balance,
             direction=LedgerDirection.CREDIT,
             balance_before=0,
-            balance_after=INITIAL_BALANCE,
+            balance_after=initial_balance,
             reason="رصيد ابتدائي عند الانضمام",
         )
         session.add(ledger_entry)
@@ -166,7 +185,38 @@ async def join_competition(
             "alias": membership.current_alias,
             "balance": membership.current_balance,
         },
-        "message": f"أهلاً بك في المنافسة يا {body.alias}! رصيدك الابتدائي: {INITIAL_BALANCE} نقطة",
+        "message": f"أهلاً بك في المنافسة يا {body.alias}! رصيدك الابتدائي: {initial_balance} نقطة",
+    }
+
+
+@router.get("/api/me/memberships")
+async def list_my_memberships(account: CurrentAccount):
+    """Returns all memberships for the current user with competition info."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(Membership, Competition)
+            .join(Competition, Membership.competition_id == Competition.id)
+            .where(Membership.account_id == account.id)
+            .order_by(Membership.joined_at.desc())
+        )
+        rows = result.all()
+
+    return {
+        "success": True,
+        "data": [
+            {
+                "membership_id": str(mem.id),
+                "competition_id": str(comp.id),
+                "competition_name": comp.name,
+                "competition_status": comp.status.value if hasattr(comp.status, 'value') else str(comp.status),
+                "alias": mem.current_alias,
+                "balance": mem.current_balance,
+                "status": mem.status.value if hasattr(mem.status, 'value') else str(mem.status),
+                "is_bankrupt": mem.is_bankrupt,
+                "joined_at": mem.joined_at.isoformat() if mem.joined_at else None,
+            }
+            for mem, comp in rows
+        ],
     }
 
 
@@ -207,6 +257,18 @@ async def get_competition_context(account: CurrentAccount):
                 ).limit(1)
             )).scalars().first()
 
+        # Next cycle (upcoming after the current one)
+        next_cycle = None
+        if season and cycle:
+            next_cycle_result = await session.execute(
+                select(Cycle).where(
+                    Cycle.season_id == season.id,
+                    Cycle.status.in_([CycleStatus.DRAFT, CycleStatus.PAUSED]),
+                    Cycle.order_index > cycle.order_index,
+                ).order_by(Cycle.order_index).limit(1)
+            )
+            next_cycle = next_cycle_result.scalars().first()
+
         # Compute rank
         rank_result = await session.execute(
             select(func.count()).where(
@@ -223,7 +285,13 @@ async def get_competition_context(account: CurrentAccount):
             "competition_id": str(competition.id),
             "competition_name": competition.name,
             "season_id": str(season.id) if season else None,
+            "season_name": season.name if season else None,
             "cycle_id": str(cycle.id) if cycle else None,
+            "cycle_label": cycle.label if cycle else None,
+            "cycle_starts_at": cycle.starts_at.isoformat() if cycle and cycle.starts_at else None,
+            "cycle_ends_at": cycle.ends_at.isoformat() if cycle and cycle.ends_at else None,
+            "next_cycle_label": next_cycle.label if next_cycle else None,
+            "next_cycle_starts_at": next_cycle.starts_at.isoformat() if next_cycle and next_cycle.starts_at else None,
             "membership_id": str(membership.id),
             "alias": membership.current_alias or account.username,
             "balance": membership.current_balance,

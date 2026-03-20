@@ -159,6 +159,7 @@ class ListingStatus(StrEnum):
 class OwnedItemStatus(StrEnum):
     AVAILABLE = "available"
     ACTIVATED = "activated"
+    PENDING = "pending"
     CONSUMED = "consumed"
     EXPIRED = "expired"
 

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select, update, case, literal
 from sqlalchemy.orm import selectinload
 
@@ -42,6 +42,8 @@ from app.modules.quiz.models import AnswerSubmission, Question, QuestionGroup, Q
 from app.modules.scoring.models import LedgerEntry
 from app.modules.settings.models import SettingDefinition, SettingValue
 from app.modules.store.models import ItemDefinition, ItemEffect, OwnedItem, StoreListing
+from app.modules.audit.service import write_audit
+from app.modules.store.effect_config import validate_effect, generate_effect_summary, get_effect_types_schema
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 AdminAccount = Annotated[Account, Depends(get_admin_account)]
@@ -362,6 +364,8 @@ async def update_competition(competition_id: uuid.UUID, body: CompetitionUpdateR
         if not comp:
             raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
 
+        before = {"status": str(comp.status), "registration_open": comp.registration_open, "name": comp.name}
+
         if body.name is not None:
             comp.name = body.name
         if body.description is not None:
@@ -373,6 +377,16 @@ async def update_competition(competition_id: uuid.UUID, body: CompetitionUpdateR
         if body.visibility is not None:
             comp.visibility = body.visibility
 
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=comp.id,
+            event_type="competition_updated",
+            summary=f"تحديث المنافسة: {comp.name}",
+            before_state=before,
+            after_state={"status": str(comp.status), "registration_open": comp.registration_open, "name": comp.name},
+        )
         await session.commit()
 
     return {"success": True, "message": "تم تحديث المنافسة بنجاح"}
@@ -443,6 +457,11 @@ class CreateInviteRequest(BaseModel):
     code: str
     max_uses: int | None = None
 
+    @field_validator("code")
+    @classmethod
+    def code_clean(cls, v: str) -> str:
+        return v.strip().upper()
+
 
 @router.post("/invites", status_code=201)
 async def create_invite(body: CreateInviteRequest, admin: AdminAccount):
@@ -489,6 +508,11 @@ class UpdateCycleRequest(BaseModel):
 class UpdateInviteRequest(BaseModel):
     status: str | None = None
     max_uses: int | None = None
+
+
+class BroadcastBody(BaseModel):
+    title: str
+    message: str
 
 
 @router.patch("/seasons/{season_id}")
@@ -730,6 +754,20 @@ async def adjust_balance(membership_id: uuid.UUID, body: AdminAdjustBalanceReque
         )
         session.add(ledger)
         membership.current_balance = balance_after
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership.id,
+            event_type="balance_adjusted",
+            summary=f"تعديل رصيد: {balance_before} → {balance_after}",
+            reason=body.reason,
+            before_state={"balance": balance_before},
+            after_state={"balance": balance_after},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
         await session.commit()
 
     return {
@@ -751,10 +789,61 @@ async def update_player_status(membership_id: uuid.UUID, body: AdminPlayerStatus
         if not membership:
             raise HTTPException(status_code=404, detail="اللاعب غير موجود")
 
+        old_status = membership.status
         membership.status = body.status
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership.id,
+            event_type="status_changed",
+            summary=f"تغيير حالة اللاعب: {old_status} → {body.status}",
+            before_state={"status": str(old_status)},
+            after_state={"status": body.status},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
         await session.commit()
 
     return {"success": True, "message": f"تم تحديث حالة اللاعب إلى {body.status}"}
+
+
+class AdminPlayerProtectionRequest(BaseModel):
+    protection: str  # "none", "partial", "full"
+
+
+@router.patch("/players/{membership_id}/protection")
+async def update_player_protection(membership_id: uuid.UUID, body: AdminPlayerProtectionRequest, admin: AdminAccount):
+    """Set or clear protection on a player."""
+    valid = {"none", "partial", "full"}
+    if body.protection not in valid:
+        raise HTTPException(status_code=400, detail=f"الحماية يجب أن تكون: {', '.join(valid)}")
+
+    async with async_session() as session:
+        membership = await session.get(Membership, membership_id)
+        if not membership:
+            raise HTTPException(status_code=404, detail="اللاعب غير موجود")
+
+        old_protection = membership.protection
+        membership.protection = body.protection
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership.id,
+            event_type="protection_changed",
+            summary=f"تغيير الحماية: {old_protection} → {body.protection}",
+            before_state={"protection": str(old_protection)},
+            after_state={"protection": body.protection},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
+        await session.commit()
+
+    labels = {"none": "بدون حماية", "partial": "حماية جزئية", "full": "حماية كاملة"}
+    return {"success": True, "message": f"تم تحديث الحماية إلى: {labels.get(body.protection, body.protection)}"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1335,6 +1424,7 @@ async def delete_store_listing(listing_id: uuid.UUID, admin: AdminAccount):
 async def list_ledger(
     admin: AdminAccount,
     membership_id: uuid.UUID | None = None,
+    competition_id: uuid.UUID | None = None,
     entry_type: str | None = None,
     limit: int = 50,
 ):
@@ -1342,6 +1432,8 @@ async def list_ledger(
     async with async_session() as session:
         query = select(LedgerEntry).order_by(LedgerEntry.created_at.desc()).limit(limit)
 
+        if competition_id:
+            query = query.where(LedgerEntry.competition_id == competition_id)
         if membership_id:
             query = query.where(LedgerEntry.membership_id == membership_id)
         if entry_type:
@@ -1376,15 +1468,19 @@ async def list_ledger(
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/notifications")
-async def list_all_notifications(admin: AdminAccount, limit: int = 50):
-    """List all notifications system-wide, newest first."""
+async def list_all_notifications(admin: AdminAccount, competition_id: uuid.UUID | None = None, limit: int = 50):
+    """List all notifications, optionally filtered by competition (via membership)."""
     async with async_session() as session:
-        result = await session.execute(
+        query = (
             select(Notification, Account)
             .join(Account, Notification.recipient_id == Account.id)
             .order_by(Notification.created_at.desc())
             .limit(limit)
         )
+        if competition_id:
+            query = query.join(Membership, Notification.membership_id == Membership.id).where(Membership.competition_id == competition_id)
+
+        result = await session.execute(query)
         rows = result.all()
 
         data = [{
@@ -1422,6 +1518,15 @@ async def get_game_settings(admin: AdminAccount):
             select(func.count()).select_from(Competition)
         )).scalar() or 0
 
+    # Read attack config from settings (DB with cascade)
+    from app.modules.settings.service import get_settings_batch
+    async with async_session() as settings_session:
+        cfg = await get_settings_batch(
+            settings_session,
+            ["attack_base_reward", "attack_decay_factor", "attack_base_penalty",
+             "attack_max_per_cycle", "score_bankruptcy_threshold", "score_initial_balance"],
+        )
+
     data = {
         "game_info": {
             "title": info.title if info else None,
@@ -1435,12 +1540,12 @@ async def get_game_settings(admin: AdminAccount):
             "total_competitions": total_competitions,
         },
         "attack_config": {
-            "base_reward": 500,
-            "decay_factor": 0.8,
-            "base_penalty": 100,
-            "max_attacks_per_cycle": 3,
-            "bankruptcy_threshold": 0,
-            "initial_balance": 1000,
+            "base_reward": cfg.get("attack_base_reward", 500),
+            "decay_factor": cfg.get("attack_decay_factor", 0.8),
+            "base_penalty": cfg.get("attack_base_penalty", 100),
+            "max_attacks_per_cycle": cfg.get("attack_max_per_cycle", 3),
+            "bankruptcy_threshold": cfg.get("score_bankruptcy_threshold", 0),
+            "initial_balance": cfg.get("score_initial_balance", 1000),
         },
     }
     return {"success": True, "data": data}
@@ -1657,7 +1762,20 @@ async def update_account_status(account_id: uuid.UUID, body: UpdateAccountStatus
             raise HTTPException(status_code=404, detail="الحساب غير موجود")
         if acct.is_admin:
             raise HTTPException(status_code=400, detail="لا يمكن تغيير حالة حساب المشرف")
+
+        old_status = acct.status
         acct.status = body.status
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="account",
+            subject_id=acct.id,
+            event_type="account_status_changed",
+            summary=f"تغيير حالة الحساب: {old_status} → {body.status}",
+            before_state={"status": str(old_status)},
+            after_state={"status": body.status},
+        )
         await session.commit()
     return {"success": True, "message": f"تم تحديث حالة الحساب إلى {body.status}"}
 
@@ -1744,6 +1862,12 @@ async def delete_question_group(group_id: uuid.UUID, admin: AdminAccount):
 # ITEM EFFECTS MANAGEMENT (Group D closure — critical gap)
 # ═══════════════════════════════════════════════════════════════════════════
 
+@router.get("/store/effect-types")
+async def list_effect_types(admin: AdminAccount):
+    """Return the full schema for all supported effect types (for frontend form generation)."""
+    return {"success": True, "data": get_effect_types_schema()}
+
+
 @router.get("/store/items/{item_id}")
 async def get_item_detail(item_id: uuid.UUID, admin: AdminAccount):
     """Get full item definition with all its effects."""
@@ -1769,6 +1893,7 @@ async def get_item_detail(item_id: uuid.UUID, admin: AdminAccount):
             "is_stackable": e.is_stackable,
             "trigger_on": e.trigger_on,
             "order_index": e.order_index,
+            "summary": generate_effect_summary(e.effect_type, e.parameters or {}, e.duration_minutes, e.target_scope or "self", e.trigger_on or "activation"),
         } for e in effects]
 
     return {
@@ -1803,6 +1928,11 @@ class CreateItemEffectRequest(BaseModel):
 @router.post("/store/items/{item_id}/effects", status_code=201)
 async def create_item_effect(item_id: uuid.UUID, body: CreateItemEffectRequest, admin: AdminAccount):
     """Add an effect to an item definition."""
+    # Validate effect configuration
+    errors = validate_effect(body.effect_type, body.parameters, body.target_scope, body.duration_minutes, body.trigger_on)
+    if errors:
+        raise HTTPException(status_code=422, detail={"errors": errors})
+
     async with async_session() as session:
         item = await session.get(ItemDefinition, item_id)
         if not item:
@@ -1822,7 +1952,12 @@ async def create_item_effect(item_id: uuid.UUID, body: CreateItemEffectRequest, 
         await session.commit()
         await session.refresh(effect)
 
-    return {"success": True, "data": {"id": str(effect.id)}, "message": "تم إضافة التأثير بنجاح"}
+    summary = generate_effect_summary(body.effect_type, body.parameters, body.duration_minutes, body.target_scope, body.trigger_on)
+    return {
+        "success": True,
+        "data": {"id": str(effect.id), "summary": summary},
+        "message": "تم إضافة التأثير بنجاح",
+    }
 
 
 class UpdateItemEffectRequest(BaseModel):
@@ -1844,6 +1979,18 @@ async def update_item_effect(
         effect = await session.get(ItemEffect, effect_id)
         if not effect or str(effect.item_definition_id) != str(item_id):
             raise HTTPException(status_code=404, detail="التأثير غير موجود")
+
+        # Merge current values with updates for validation
+        final_type = body.effect_type if body.effect_type is not None else effect.effect_type
+        final_params = body.parameters if body.parameters is not None else effect.parameters
+        final_scope = body.target_scope if body.target_scope is not None else effect.target_scope
+        final_duration = body.duration_minutes if body.duration_minutes is not None else effect.duration_minutes
+        final_trigger = body.trigger_on if body.trigger_on is not None else effect.trigger_on
+
+        errors = validate_effect(final_type, final_params, final_scope, final_duration, final_trigger)
+        if errors:
+            raise HTTPException(status_code=422, detail={"errors": errors})
+
         if body.effect_type is not None:
             effect.effect_type = body.effect_type
         if body.parameters is not None:
@@ -1859,7 +2006,9 @@ async def update_item_effect(
         if body.order_index is not None:
             effect.order_index = body.order_index
         await session.commit()
-    return {"success": True, "message": "تم تحديث التأثير بنجاح"}
+
+    summary = generate_effect_summary(final_type, final_params, final_duration, final_scope, final_trigger)
+    return {"success": True, "data": {"summary": summary}, "message": "تم تحديث التأثير بنجاح"}
 
 
 @router.delete("/store/items/{item_id}/effects/{effect_id}")
@@ -1872,3 +2021,474 @@ async def delete_item_effect(item_id: uuid.UUID, effect_id: uuid.UUID, admin: Ad
         await session.delete(effect)
         await session.commit()
     return {"success": True, "message": "تم حذف التأثير"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SEASON DETAIL
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/seasons/{season_id}")
+async def get_season_detail(season_id: uuid.UUID, admin: AdminAccount):
+    """Get season detail with cycles, member stats, and competition info."""
+    async with async_session() as session:
+        season = await session.get(Season, season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        # Cycles
+        cycles_result = await session.execute(
+            select(Cycle).where(Cycle.season_id == season_id).order_by(Cycle.order_index)
+        )
+        cycles = cycles_result.scalars().all()
+
+        # Active members in this competition
+        member_count = (await session.execute(
+            select(func.count()).where(
+                Membership.competition_id == season.competition_id,
+                Membership.status == MembershipStatus.ACTIVE,
+            )
+        )).scalar() or 0
+
+        # Attacks in this season
+        attack_count = (await session.execute(
+            select(func.count()).where(AttackAttempt.season_id == season_id)
+        )).scalar() or 0
+
+    return {
+        "success": True,
+        "data": {
+            "id": str(season.id),
+            "competition_id": str(season.competition_id),
+            "name": season.name,
+            "order_index": season.order_index,
+            "status": season.status,
+            "starts_at": season.starts_at.isoformat() if season.starts_at else None,
+            "ends_at": season.ends_at.isoformat() if season.ends_at else None,
+            "member_count": member_count,
+            "attack_count": attack_count,
+            "cycles": [{
+                "id": str(c.id),
+                "label": c.label,
+                "order_index": c.order_index,
+                "status": c.status,
+                "starts_at": c.starts_at.isoformat() if c.starts_at else None,
+                "ends_at": c.ends_at.isoformat() if c.ends_at else None,
+            } for c in cycles],
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CYCLE LIFECYCLE
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.post("/cycles/{cycle_id}/start")
+async def start_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
+    """Start a cycle with full lifecycle events — clears protections, resets bankruptcy, notifies members."""
+    from app.modules.competitions.cycle_service import start_cycle as do_start_cycle
+
+    async with async_session() as session:
+        cycle = await session.get(Cycle, cycle_id)
+        if not cycle:
+            raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+        if cycle.status not in (CycleStatus.DRAFT, CycleStatus.PAUSED):
+            raise HTTPException(status_code=400, detail="يمكن بدء الدورات ذات الحالة مسودة أو متوقفة فقط")
+
+        season = await session.get(Season, cycle.season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        result = await do_start_cycle(session, cycle, season)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="cycle",
+            subject_id=cycle.id,
+            event_type="cycle_started",
+            summary=f"بدء الدورة: {cycle.label}",
+            after_state={"status": str(cycle.status), "label": cycle.label},
+            related_type="season",
+            related_id=season.id,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result.to_dict(),
+        "message": f"تم بدء {cycle.label} بنجاح",
+    }
+
+
+@router.post("/cycles/{cycle_id}/end")
+async def end_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
+    """End a cycle with full lifecycle events — clears protections, resets bankruptcy, notifies members."""
+    from app.modules.competitions.cycle_service import end_cycle as do_end_cycle
+
+    async with async_session() as session:
+        cycle = await session.get(Cycle, cycle_id)
+        if not cycle:
+            raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+        if cycle.status != CycleStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="الدورة ليست نشطة حالياً")
+
+        season = await session.get(Season, cycle.season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        result = await do_end_cycle(session, cycle, season)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="cycle",
+            subject_id=cycle.id,
+            event_type="cycle_ended",
+            summary=f"إنهاء الدورة: {cycle.label}",
+            after_state={"status": str(cycle.status), "label": cycle.label},
+            related_type="season",
+            related_id=season.id,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result.to_dict(),
+        "message": f"تم إنهاء {cycle.label} بنجاح",
+    }
+
+
+@router.post("/cycles/{cycle_id}/pause")
+async def pause_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
+    """Pause an active cycle — preserves state, stops gameplay progression."""
+    async with async_session() as session:
+        cycle = await session.get(Cycle, cycle_id)
+        if not cycle:
+            raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+        if cycle.status != CycleStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="يمكن إيقاف الدورات النشطة فقط")
+
+        cycle.status = CycleStatus.PAUSED
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="cycle",
+            subject_id=cycle.id,
+            event_type="cycle_paused",
+            summary=f"إيقاف الدورة مؤقتاً: {cycle.label}",
+            before_state={"status": "active"},
+            after_state={"status": "paused"},
+        )
+        await session.commit()
+
+    return {"success": True, "message": f"تم إيقاف {cycle.label} مؤقتاً"}
+
+
+@router.post("/cycles/{cycle_id}/activate")
+async def activate_cycle(cycle_id: uuid.UUID, admin: AdminAccount):
+    """Activate a draft cycle (simple status change, no lifecycle events). Use /start for full events."""
+    async with async_session() as session:
+        cycle = await session.get(Cycle, cycle_id)
+        if not cycle:
+            raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+
+        # Deactivate other active cycles in the same season
+        await session.execute(
+            update(Cycle).where(
+                Cycle.season_id == cycle.season_id,
+                Cycle.status == CycleStatus.ACTIVE,
+                Cycle.id != cycle_id,
+            ).values(status=CycleStatus.COMPLETED, ends_at=datetime.utcnow())
+        )
+
+        cycle.status = CycleStatus.ACTIVE
+        cycle.starts_at = datetime.utcnow()
+        await session.commit()
+
+    return {"success": True, "message": f"تم تفعيل {cycle.label}"}
+
+
+@router.post("/cycles/{cycle_id}/advance")
+async def advance_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
+    """End the currently active cycle in the same season and start this one. Full lifecycle events for both."""
+    from app.modules.competitions.cycle_service import advance_to_next_cycle
+
+    async with async_session() as session:
+        next_cycle = await session.get(Cycle, cycle_id)
+        if not next_cycle:
+            raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+        if next_cycle.status not in (CycleStatus.DRAFT, CycleStatus.PAUSED):
+            raise HTTPException(status_code=400, detail="الدورة التالية يجب أن تكون مسودة أو متوقفة")
+
+        season = await session.get(Season, next_cycle.season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        # Find the currently active cycle in this season
+        active_result = await session.execute(
+            select(Cycle).where(
+                Cycle.season_id == season.id,
+                Cycle.status == CycleStatus.ACTIVE,
+            ).limit(1)
+        )
+        current_cycle = active_result.scalars().first()
+        if not current_cycle:
+            raise HTTPException(status_code=400, detail="لا توجد دورة نشطة حالياً للانتقال منها")
+
+        result = await advance_to_next_cycle(session, current_cycle, next_cycle, season)
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result,
+        "message": f"تم الانتقال من {current_cycle.label} إلى {next_cycle.label}",
+    }
+
+
+@router.post("/competitions/{competition_id}/broadcast")
+async def broadcast_to_competition_endpoint(
+    competition_id: uuid.UUID, body: BroadcastBody, admin: AdminAccount
+):
+    """Send an announcement notification to all active members of a competition."""
+    from app.modules.competitions.cycle_service import broadcast_to_competition
+
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        count = await broadcast_to_competition(
+            session,
+            competition_id=competition_id,
+            title=body.title,
+            message=body.message,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"members_notified": count},
+        "message": f"تم إرسال الإعلان إلى {count} عضو",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PER-COMPETITION SETTINGS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/competitions/{competition_id}/settings")
+async def get_competition_settings(competition_id: uuid.UUID, admin: AdminAccount):
+    """Get settings for a specific competition — shows effective values (competition override or global default)."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        result = await session.execute(
+            select(SettingDefinition).order_by(SettingDefinition.category, SettingDefinition.key)
+        )
+        definitions = result.scalars().all()
+
+        data = []
+        for d in definitions:
+            # Check competition-level override first
+            comp_val_result = await session.execute(
+                select(SettingValue).where(
+                    SettingValue.setting_definition_id == d.id,
+                    SettingValue.scope == SettingScope.COMPETITION,
+                    SettingValue.scope_id == competition_id,
+                )
+            )
+            comp_sv = comp_val_result.scalars().first()
+
+            # Global value fallback
+            global_val_result = await session.execute(
+                select(SettingValue).where(
+                    SettingValue.setting_definition_id == d.id,
+                    SettingValue.scope == SettingScope.GLOBAL,
+                )
+            )
+            global_sv = global_val_result.scalars().first()
+
+            effective_value = d.default_value
+            source = "default"
+            if global_sv:
+                effective_value = global_sv.value
+                source = "global"
+            if comp_sv:
+                effective_value = comp_sv.value
+                source = "competition"
+
+            data.append({
+                "id": str(d.id),
+                "key": d.key,
+                "category": d.category,
+                "data_type": d.data_type,
+                "default_value": d.default_value,
+                "global_value": global_sv.value if global_sv else d.default_value,
+                "competition_value": comp_sv.value if comp_sv else None,
+                "effective_value": effective_value,
+                "source": source,
+                "description": d.description,
+                "is_per_competition": d.is_per_competition,
+            })
+
+    return {"success": True, "data": data}
+
+
+@router.patch("/competitions/{competition_id}/settings/{setting_key}")
+async def update_competition_setting(
+    competition_id: uuid.UUID, setting_key: str, body: UpdateSettingRequest, admin: AdminAccount
+):
+    """Update a setting at competition scope."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        defn_result = await session.execute(
+            select(SettingDefinition).where(SettingDefinition.key == setting_key)
+        )
+        defn = defn_result.scalars().first()
+        if not defn:
+            raise HTTPException(status_code=404, detail="الإعداد غير موجود")
+
+        # Upsert competition-scoped value
+        val_result = await session.execute(
+            select(SettingValue).where(
+                SettingValue.setting_definition_id == defn.id,
+                SettingValue.scope == SettingScope.COMPETITION,
+                SettingValue.scope_id == competition_id,
+            )
+        )
+        sv = val_result.scalars().first()
+
+        old_value = sv.value if sv else None
+        if sv:
+            sv.value = body.value
+            sv.updated_by = admin.id
+        else:
+            sv = SettingValue(
+                setting_definition_id=defn.id,
+                scope=SettingScope.COMPETITION,
+                scope_id=competition_id,
+                value=body.value,
+                updated_by=admin.id,
+            )
+            session.add(sv)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="setting",
+            subject_id=defn.id,
+            event_type="setting_updated",
+            summary=f"تحديث إعداد: {setting_key}",
+            before_state={"value": old_value},
+            after_state={"value": body.value},
+            related_type="competition",
+            related_id=competition_id,
+        )
+        await session.commit()
+    return {"success": True, "message": f"تم تحديث الإعداد: {setting_key} للمنافسة"}
+
+
+@router.delete("/competitions/{competition_id}/settings/{setting_key}")
+async def reset_competition_setting(
+    competition_id: uuid.UUID, setting_key: str, admin: AdminAccount
+):
+    """Remove competition-level override — setting falls back to global/default."""
+    async with async_session() as session:
+        defn_result = await session.execute(
+            select(SettingDefinition).where(SettingDefinition.key == setting_key)
+        )
+        defn = defn_result.scalars().first()
+        if not defn:
+            raise HTTPException(status_code=404, detail="الإعداد غير موجود")
+
+        val_result = await session.execute(
+            select(SettingValue).where(
+                SettingValue.setting_definition_id == defn.id,
+                SettingValue.scope == SettingScope.COMPETITION,
+                SettingValue.scope_id == competition_id,
+            )
+        )
+        sv = val_result.scalars().first()
+        if sv:
+            await write_audit(
+                session,
+                actor_id=admin.id,
+                subject_type="setting",
+                subject_id=defn.id,
+                event_type="setting_reset",
+                summary=f"إعادة تعيين إعداد: {setting_key} للافتراضي",
+                before_state={"value": sv.value},
+                after_state={"value": None},
+                related_type="competition",
+                related_id=competition_id,
+            )
+            await session.delete(sv)
+            await session.commit()
+
+    return {"success": True, "message": f"تم إعادة تعيين الإعداد: {setting_key} للافتراضي"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AUDIT TRAIL
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/audit")
+async def list_audit_events(
+    admin: AdminAccount,
+    subject_type: str | None = None,
+    subject_id: uuid.UUID | None = None,
+    event_type: str | None = None,
+    limit: int = 50,
+):
+    """List audit events with optional filters."""
+    from app.modules.audit.models import AuditEvent
+
+    async with async_session() as session:
+        query = select(AuditEvent).order_by(AuditEvent.created_at.desc())
+
+        if subject_type:
+            query = query.where(AuditEvent.subject_type == subject_type)
+        if subject_id:
+            query = query.where(AuditEvent.subject_id == subject_id)
+        if event_type:
+            query = query.where(AuditEvent.event_type == event_type)
+
+        query = query.limit(limit)
+        result = await session.execute(query)
+        events = result.scalars().all()
+
+        # Resolve actor usernames
+        actor_ids = {e.actor_id for e in events if e.actor_id}
+        actors = {}
+        if actor_ids:
+            actors_result = await session.execute(
+                select(Account.id, Account.username).where(Account.id.in_(actor_ids))
+            )
+            actors = {row[0]: row[1] for row in actors_result.all()}
+
+    data = []
+    for e in events:
+        data.append({
+            "id": str(e.id),
+            "actor_id": str(e.actor_id) if e.actor_id else None,
+            "actor_username": actors.get(e.actor_id, "نظام"),
+            "actor_type": e.actor_type,
+            "subject_type": e.subject_type,
+            "subject_id": str(e.subject_id) if e.subject_id else None,
+            "event_type": e.event_type,
+            "summary": e.summary,
+            "reason": e.reason,
+            "before_state": e.before_state,
+            "after_state": e.after_state,
+            "related_type": e.related_type,
+            "related_id": str(e.related_id) if e.related_id else None,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        })
+
+    return {"success": True, "data": data}

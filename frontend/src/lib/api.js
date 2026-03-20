@@ -16,11 +16,19 @@ export async function apiFetch(path, options = {}) {
 
   if (!res.ok) {
     let detail = `HTTP ${res.status}`
+    let data = null
     try {
       const err = await res.json()
-      detail = err.detail || err.message || detail
+      if (typeof err.detail === 'object' && err.detail !== null) {
+        data = err.detail
+        detail = err.detail.errors?.join('، ') || JSON.stringify(err.detail)
+      } else {
+        detail = err.detail || err.message || detail
+      }
     } catch {}
-    throw new Error(detail)
+    const error = new Error(detail)
+    if (data) error.data = data
+    throw error
   }
 
   return res.json()

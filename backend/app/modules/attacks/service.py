@@ -6,43 +6,81 @@ All authoritative attack logic lives here:
   - preview calculation (reward decay staging)
   - execute (ledger writes, exposure tracking, bankruptcy check)
 
-Settings are hardcoded defaults for MVP; replace with DB settings lookup later.
+Settings are read from the DB via the settings resolver with cascade logic.
+Item effects are checked before calculations:
+  - Timed active effects (ACTIVATED items with duration)
+  - Pending one-time effects (PENDING items waiting for trigger)
+Pending effects are consumed after the matching action fires.
+BankruptcyRecord is created when bankruptcy is triggered.
 """
 
 import uuid
-import math
 from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.utils import jsonb_safe
 from app.core.enums import (
     AttackOutcome,
+    BankruptcyState,
+    EffectType,
     LedgerDirection,
     LedgerEntryType,
     NotificationPriority,
     NotificationType,
     ProtectionType,
 )
-from app.modules.attacks.models import AttackAttempt, AttackExposure
+from app.modules.attacks.models import AttackAttempt, AttackExposure, BankruptcyRecord
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Membership
 from app.modules.notifications.service import create_notification
 from app.modules.scoring.models import LedgerEntry
+from app.modules.settings.service import get_settings_batch
+from app.modules.store.service import (
+    get_active_item_effects,
+    get_pending_item_effects,
+    consume_pending_effects,
+)
 
-# ── MVP hardcoded settings ────────────────────────────────────────────────
-BASE_REWARD = 500          # points attacker gains on first successful attack on a target
-DECAY_FACTOR = 0.8         # reward multiplier per subsequent successful attack on same target
-BASE_PENALTY = 100         # points attacker loses on a failed attack
-MAX_ATTACKS_PER_CYCLE = 3  # max times a target can be successfully attacked in a cycle
-BANKRUPTCY_THRESHOLD = 0   # balance at or below this triggers bankruptcy
+# ── Fallback defaults (used only if DB settings are missing) ─────────────
+_FALLBACK_BASE_REWARD = 500
+_FALLBACK_DECAY_FACTOR = 0.8
+_FALLBACK_BASE_PENALTY = 100
+_FALLBACK_MAX_ATTACKS_PER_CYCLE = 3
+_FALLBACK_BANKRUPTCY_THRESHOLD = 0
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────
 
-def _calc_reward(stage: int) -> int:
+def _calc_reward(base_reward: int, decay_factor: float, stage: int) -> int:
     """Reward decays geometrically with each successful attack stage."""
-    return max(1, round(BASE_REWARD * (DECAY_FACTOR ** stage)))
+    return max(1, round(base_reward * (decay_factor ** stage)))
+
+
+async def _load_attack_settings(
+    session: AsyncSession,
+    competition_id: uuid.UUID,
+) -> dict:
+    """Load all attack-related settings from DB with cascade."""
+    settings = await get_settings_batch(
+        session,
+        [
+            "attack_base_reward",
+            "attack_decay_factor",
+            "attack_base_penalty",
+            "attack_max_per_cycle",
+            "score_bankruptcy_threshold",
+        ],
+        competition_id=competition_id,
+    )
+    return {
+        "base_reward": int(settings.get("attack_base_reward") or _FALLBACK_BASE_REWARD),
+        "decay_factor": float(settings.get("attack_decay_factor") or _FALLBACK_DECAY_FACTOR),
+        "base_penalty": int(settings.get("attack_base_penalty") or _FALLBACK_BASE_PENALTY),
+        "max_attacks_per_cycle": int(settings.get("attack_max_per_cycle") or _FALLBACK_MAX_ATTACKS_PER_CYCLE),
+        "bankruptcy_threshold": int(settings.get("score_bankruptcy_threshold") if settings.get("score_bankruptcy_threshold") is not None else _FALLBACK_BANKRUPTCY_THRESHOLD),
+    }
 
 
 async def _get_or_create_exposure(
@@ -106,6 +144,147 @@ async def _write_ledger(
     return balance_after
 
 
+async def _create_bankruptcy_record(
+    session: AsyncSession,
+    membership_id: uuid.UUID,
+    cycle_id: uuid.UUID,
+    trigger_source_id: uuid.UUID,
+    reason: str,
+) -> BankruptcyRecord:
+    """Create a BankruptcyRecord when a player goes bankrupt."""
+    record = BankruptcyRecord(
+        membership_id=membership_id,
+        cycle_id=cycle_id,
+        status=BankruptcyState.ACTIVE,
+        trigger_reason=reason,
+        trigger_source_id=trigger_source_id,
+    )
+    session.add(record)
+    return record
+
+
+# ── Modifier resolution ──────────────────────────────────────────────────
+
+async def _get_attack_modifiers(
+    session: AsyncSession,
+    attacker_membership_id: uuid.UUID,
+    target_membership_id: uuid.UUID,
+) -> dict:
+    """
+    Check active AND pending item effects that modify attack calculations.
+
+    Returns a structured dict:
+      - reward_multiplier / penalty_multiplier: always-active (timed) modifiers
+      - on_success: pending modifiers applied only on successful attack
+      - on_failure: pending modifiers applied only on failed attack
+      - on_defense: defender's pending modifiers applied to their loss on attack success
+      - sources: audit trail of all modifier sources
+    """
+    modifiers = {
+        "reward_multiplier": 1.0,
+        "penalty_multiplier": 1.0,
+        "on_success": {
+            "reward_multiplier": 1.0,
+            "reward_bonus": 0,
+            "items_to_consume": [],
+        },
+        "on_failure": {
+            "penalty_multiplier": 1.0,
+            "penalty_reduction": 0,
+            "items_to_consume": [],
+        },
+        "on_defense": {
+            "loss_multiplier": 1.0,
+            "loss_reduction": 0,
+            "items_to_consume": [],
+        },
+        "sources": [],
+    }
+
+    # ── 1. Always-active timed effects (ACTIVATED items) ──────────────
+
+    # Attacker's reward multipliers
+    attacker_ratio = await get_active_item_effects(
+        session, attacker_membership_id, EffectType.RATIO_MODIFIER
+    )
+    for eff in attacker_ratio:
+        if eff.get("applies_to") == "attack_reward":
+            modifiers["reward_multiplier"] *= eff.get("modifier", 1.0)
+            modifiers["sources"].append({"type": "ratio_modifier", "mode": "timed", "from": "attacker"})
+
+    # Attacker's loss reduction
+    attacker_loss = await get_active_item_effects(
+        session, attacker_membership_id, EffectType.LOSS_REDUCTION
+    )
+    for eff in attacker_loss:
+        reduction = eff.get("reduction", 0)
+        modifiers["penalty_multiplier"] *= (1.0 - reduction)
+        modifiers["sources"].append({"type": "loss_reduction", "mode": "timed", "from": "attacker"})
+
+    # ── 2. Attacker's pending one-time effects (PENDING items) ────────
+
+    # On success triggers: next_success
+    success_pending = await get_pending_item_effects(
+        session, attacker_membership_id, trigger_on="next_success"
+    )
+    for peff in success_pending:
+        eff_type = peff.get("type", "")
+        params = peff.get("parameters", {})
+        oid = peff.get("owned_item_id")
+
+        if eff_type == str(EffectType.RATIO_MODIFIER):
+            if params.get("applies_to") == "attack_reward":
+                modifiers["on_success"]["reward_multiplier"] *= params.get("modifier", 1.0)
+        elif eff_type == str(EffectType.FIXED_BONUS):
+            modifiers["on_success"]["reward_bonus"] += params.get("amount", 0)
+
+        if oid:
+            modifiers["on_success"]["items_to_consume"].append(oid)
+        modifiers["sources"].append({"type": eff_type, "mode": "pending", "trigger": "next_success", "from": "attacker"})
+
+    # On failure triggers: next_failure
+    failure_pending = await get_pending_item_effects(
+        session, attacker_membership_id, trigger_on="next_failure"
+    )
+    for peff in failure_pending:
+        eff_type = peff.get("type", "")
+        params = peff.get("parameters", {})
+        oid = peff.get("owned_item_id")
+
+        if eff_type == str(EffectType.LOSS_REDUCTION):
+            modifiers["on_failure"]["penalty_multiplier"] *= (1.0 - params.get("reduction", 0))
+        elif eff_type == str(EffectType.RATIO_MODIFIER):
+            if params.get("applies_to") == "attack_penalty":
+                modifiers["on_failure"]["penalty_multiplier"] *= params.get("modifier", 1.0)
+        elif eff_type == str(EffectType.FIXED_BONUS):
+            modifiers["on_failure"]["penalty_reduction"] += params.get("amount", 0)
+
+        if oid:
+            modifiers["on_failure"]["items_to_consume"].append(oid)
+        modifiers["sources"].append({"type": eff_type, "mode": "pending", "trigger": "next_failure", "from": "attacker"})
+
+    # ── 3. Defender's pending effects (next_defense) ──────────────────
+
+    defense_pending = await get_pending_item_effects(
+        session, target_membership_id, trigger_on="next_defense"
+    )
+    for peff in defense_pending:
+        eff_type = peff.get("type", "")
+        params = peff.get("parameters", {})
+        oid = peff.get("owned_item_id")
+
+        if eff_type == str(EffectType.LOSS_REDUCTION):
+            modifiers["on_defense"]["loss_multiplier"] *= (1.0 - params.get("reduction", 0))
+        elif eff_type == str(EffectType.FIXED_BONUS):
+            modifiers["on_defense"]["loss_reduction"] += params.get("amount", 0)
+
+        if oid:
+            modifiers["on_defense"]["items_to_consume"].append(oid)
+        modifiers["sources"].append({"type": eff_type, "mode": "pending", "trigger": "next_defense", "from": "target"})
+
+    return modifiers
+
+
 # ── Public service functions ──────────────────────────────────────────────
 
 async def get_attack_preview(
@@ -118,6 +297,9 @@ async def get_attack_preview(
     Returns preview data: eligibility, estimated reward/penalty, current stage.
     Does NOT write anything to the database.
     """
+    cfg = await _load_attack_settings(session, competition_id)
+    base_penalty = cfg["base_penalty"]
+
     # Load attacker
     attacker = await session.get(Membership, attacker_membership_id)
     if not attacker or str(attacker.competition_id) != str(competition_id):
@@ -127,7 +309,7 @@ async def get_attack_preview(
             "target_alias": None,
             "target_protection": ProtectionType.NONE,
             "estimated_reward": 0,
-            "estimated_penalty": BASE_PENALTY,
+            "estimated_penalty": base_penalty,
             "target_current_stage": 0,
         }
 
@@ -138,7 +320,7 @@ async def get_attack_preview(
             "target_alias": None,
             "target_protection": ProtectionType.NONE,
             "estimated_reward": 0,
-            "estimated_penalty": BASE_PENALTY,
+            "estimated_penalty": base_penalty,
             "target_current_stage": 0,
         }
 
@@ -151,7 +333,7 @@ async def get_attack_preview(
             "target_alias": None,
             "target_protection": ProtectionType.NONE,
             "estimated_reward": 0,
-            "estimated_penalty": BASE_PENALTY,
+            "estimated_penalty": base_penalty,
             "target_current_stage": 0,
         }
 
@@ -162,7 +344,7 @@ async def get_attack_preview(
             "target_alias": target.current_alias,
             "target_protection": target.protection,
             "estimated_reward": 0,
-            "estimated_penalty": BASE_PENALTY,
+            "estimated_penalty": base_penalty,
             "target_current_stage": 0,
         }
 
@@ -173,7 +355,7 @@ async def get_attack_preview(
             "target_alias": target.current_alias,
             "target_protection": target.protection,
             "estimated_reward": 0,
-            "estimated_penalty": BASE_PENALTY,
+            "estimated_penalty": base_penalty,
             "target_current_stage": 0,
         }
 
@@ -184,12 +366,11 @@ async def get_attack_preview(
             "target_alias": None,
             "target_protection": ProtectionType.NONE,
             "estimated_reward": 0,
-            "estimated_penalty": BASE_PENALTY,
+            "estimated_penalty": base_penalty,
             "target_current_stage": 0,
         }
 
     # Get exposure to determine current reward stage
-    # Use dummy season/cycle for preview (exposure may not exist yet)
     result = await session.execute(
         select(AttackExposure).where(
             AttackExposure.membership_id == target_membership_id,
@@ -197,16 +378,72 @@ async def get_attack_preview(
     )
     exposure = result.scalars().first()
     current_stage = exposure.current_reward_stage if exposure else 0
-    estimated_reward = _calc_reward(current_stage)
+    base_reward = _calc_reward(cfg["base_reward"], cfg["decay_factor"], current_stage)
+
+    # Check for all modifiers (active + pending)
+    modifiers = await _get_attack_modifiers(session, attacker_membership_id, target_membership_id)
+
+    # Estimated reward: timed active * pending on-success
+    estimated_reward = base_reward
+    if modifiers["reward_multiplier"] != 1.0:
+        estimated_reward = max(1, round(estimated_reward * modifiers["reward_multiplier"]))
+    on_success_reward = estimated_reward
+    if modifiers["on_success"]["reward_multiplier"] != 1.0:
+        on_success_reward = max(1, round(on_success_reward * modifiers["on_success"]["reward_multiplier"]))
+    on_success_reward += modifiers["on_success"]["reward_bonus"]
+
+    # Estimated penalty: timed active * pending on-failure
+    estimated_penalty = max(0, round(base_penalty * modifiers["penalty_multiplier"]))
+    on_failure_penalty = estimated_penalty
+    if modifiers["on_failure"]["penalty_multiplier"] != 1.0:
+        on_failure_penalty = max(0, round(on_failure_penalty * modifiers["on_failure"]["penalty_multiplier"]))
+    on_failure_penalty = max(0, on_failure_penalty - modifiers["on_failure"]["penalty_reduction"])
+
+    # Build active modifiers info for the player
+    active_modifiers = []
+
+    # Always-active timed modifiers
+    if modifiers["reward_multiplier"] != 1.0:
+        pct = round((modifiers["reward_multiplier"] - 1) * 100)
+        direction = "زيادة" if pct > 0 else "تقليل"
+        active_modifiers.append(f"{direction} مكافأة الهجوم بنسبة {abs(pct)}٪")
+    if modifiers["penalty_multiplier"] != 1.0:
+        pct = round((1 - modifiers["penalty_multiplier"]) * 100)
+        active_modifiers.append(f"تقليل خسارة الفشل بنسبة {pct}٪")
+
+    # Pending on-success modifiers
+    if modifiers["on_success"]["reward_multiplier"] != 1.0 or modifiers["on_success"]["reward_bonus"] > 0:
+        parts = []
+        if modifiers["on_success"]["reward_multiplier"] != 1.0:
+            pct = round((modifiers["on_success"]["reward_multiplier"] - 1) * 100)
+            parts.append(f"+{pct}٪ مكافأة")
+        if modifiers["on_success"]["reward_bonus"] > 0:
+            parts.append(f"+{modifiers['on_success']['reward_bonus']} نقطة")
+        active_modifiers.append(f"عند النجاح: {' و'.join(parts)} (مرة واحدة)")
+
+    # Pending on-failure modifiers
+    if modifiers["on_failure"]["penalty_multiplier"] != 1.0 or modifiers["on_failure"]["penalty_reduction"] > 0:
+        parts = []
+        if modifiers["on_failure"]["penalty_multiplier"] != 1.0:
+            pct = round((1 - modifiers["on_failure"]["penalty_multiplier"]) * 100)
+            parts.append(f"-{pct}٪ خسارة")
+        if modifiers["on_failure"]["penalty_reduction"] > 0:
+            parts.append(f"-{modifiers['on_failure']['penalty_reduction']} نقطة")
+        active_modifiers.append(f"عند الفشل: {' و'.join(parts)} (مرة واحدة)")
+
+    # Defender's pending modifiers (shown if target has defense items)
+    if modifiers["on_defense"]["loss_multiplier"] != 1.0 or modifiers["on_defense"]["loss_reduction"] > 0:
+        active_modifiers.append("الهدف لديه درع دفاعي نشط")
 
     return {
         "can_attack": True,
         "blocking_reason": None,
         "target_alias": target.current_alias,
         "target_protection": target.protection,
-        "estimated_reward": estimated_reward,
-        "estimated_penalty": BASE_PENALTY,
+        "estimated_reward": on_success_reward,
+        "estimated_penalty": on_failure_penalty,
         "target_current_stage": current_stage,
+        "active_modifiers": active_modifiers,
     }
 
 
@@ -221,13 +458,18 @@ async def execute_attack(
 ) -> dict:
     """
     Execute the attack:
-    1. Re-check eligibility (idempotency guard)
-    2. Compare guess to target's real account_id
-    3. Write ledger entries for reward/penalty
-    4. Update AttackExposure, check max_attacks
-    5. Check bankruptcy for both parties
-    6. Persist AttackAttempt record
+    1. Load settings from DB
+    2. Re-check eligibility (idempotency guard)
+    3. Check active + pending item effect modifiers
+    4. Compare guess to target's real account_id
+    5. Write ledger entries for reward/penalty (with modifiers applied)
+    6. Consume pending items that matched the outcome
+    7. Update AttackExposure, check max_attacks
+    8. Check bankruptcy for both parties (create BankruptcyRecord)
+    9. Persist AttackAttempt record
     """
+    cfg = await _load_attack_settings(session, competition_id)
+
     # Load both memberships
     attacker = await session.get(Membership, attacker_membership_id)
     target = await session.get(Membership, target_membership_id)
@@ -269,6 +511,9 @@ async def execute_attack(
             "attempt_id": uuid.uuid4(),
         }
 
+    # Load active + pending item effect modifiers
+    modifiers = await _get_attack_modifiers(session, attacker_membership_id, target_membership_id)
+
     # Determine outcome
     correct = str(guessed_account_id) == str(target.account_id)
     outcome = AttackOutcome.SUCCEEDED if correct else AttackOutcome.FAILED
@@ -290,7 +535,7 @@ async def execute_attack(
         outcome=outcome,
         reward_amount=0,
         penalty_amount=0,
-        modifiers_applied={},
+        modifiers_applied=jsonb_safe(modifiers) if modifiers["sources"] else {},
     )
     session.add(attempt)
     await session.flush()  # get attempt.id
@@ -301,8 +546,18 @@ async def execute_attack(
             session, target_membership_id, season_id, cycle_id
         )
         stage = exposure.current_reward_stage
-        reward = _calc_reward(stage)
-        reward_amount = reward
+        reward = _calc_reward(cfg["base_reward"], cfg["decay_factor"], stage)
+
+        # Apply always-active reward modifier (timed)
+        if modifiers["reward_multiplier"] != 1.0:
+            reward = max(1, round(reward * modifiers["reward_multiplier"]))
+
+        # Apply pending on-success reward modifiers (one-time)
+        if modifiers["on_success"]["reward_multiplier"] != 1.0:
+            reward = max(1, round(reward * modifiers["on_success"]["reward_multiplier"]))
+        reward += modifiers["on_success"]["reward_bonus"]
+
+        reward_amount = max(1, reward)
 
         # Credit attacker
         attacker_balance_after = await _write_ledger(
@@ -313,12 +568,18 @@ async def execute_attack(
             cycle_id=cycle_id,
             entry_type=LedgerEntryType.ATTACK_REWARD,
             direction=LedgerDirection.CREDIT,
-            amount=reward,
+            amount=reward_amount,
             balance_before=attacker.current_balance,
             source_id=attempt.id,
             reason=f"هجوم ناجح على {target.current_alias or 'لاعب'}",
         )
         attacker.current_balance = attacker_balance_after
+
+        # Calculate target deduction (may be reduced by defender's pending effects)
+        target_deduction = reward_amount
+        if modifiers["on_defense"]["loss_multiplier"] != 1.0:
+            target_deduction = max(0, round(target_deduction * modifiers["on_defense"]["loss_multiplier"]))
+        target_deduction = max(0, target_deduction - modifiers["on_defense"]["loss_reduction"])
 
         # Debit target
         target_balance_after = await _write_ledger(
@@ -329,7 +590,7 @@ async def execute_attack(
             cycle_id=cycle_id,
             entry_type=LedgerEntryType.ATTACK_PENALTY,
             direction=LedgerDirection.DEBIT,
-            amount=reward,
+            amount=target_deduction,
             balance_before=target.current_balance,
             source_id=attempt.id,
             reason=f"تعرض للكشف من قِبل مهاجم",
@@ -339,7 +600,7 @@ async def execute_attack(
         # Advance exposure stage
         exposure.successful_attack_count += 1
         exposure.current_reward_stage += 1
-        if exposure.successful_attack_count >= MAX_ATTACKS_PER_CYCLE:
+        if exposure.successful_attack_count >= cfg["max_attacks_per_cycle"]:
             exposure.max_attacks_reached = True
             target.protection = ProtectionType.FULL
 
@@ -350,12 +611,37 @@ async def execute_attack(
         # Update attempt
         attempt.reward_amount = reward_amount
 
+        # Consume attacker's on-success pending items
+        if modifiers["on_success"]["items_to_consume"]:
+            await consume_pending_effects(session, modifiers["on_success"]["items_to_consume"])
+
+        # Consume defender's on-defense pending items
+        if modifiers["on_defense"]["items_to_consume"]:
+            await consume_pending_effects(session, modifiers["on_defense"]["items_to_consume"])
+
         # Check target bankruptcy
-        if target.current_balance <= BANKRUPTCY_THRESHOLD and not target.is_bankrupt:
+        if target.current_balance <= cfg["bankruptcy_threshold"] and not target.is_bankrupt:
             target.is_bankrupt = True
+            await _create_bankruptcy_record(
+                session,
+                membership_id=target_membership_id,
+                cycle_id=cycle_id,
+                trigger_source_id=attempt.id,
+                reason=f"إفلاس بسبب هجوم ناجح — الرصيد: {target.current_balance}",
+            )
 
     else:  # FAILED
-        penalty = BASE_PENALTY
+        penalty = cfg["base_penalty"]
+
+        # Apply always-active loss reduction (timed)
+        if modifiers["penalty_multiplier"] != 1.0:
+            penalty = max(0, round(penalty * modifiers["penalty_multiplier"]))
+
+        # Apply pending on-failure modifiers (one-time)
+        if modifiers["on_failure"]["penalty_multiplier"] != 1.0:
+            penalty = max(0, round(penalty * modifiers["on_failure"]["penalty_multiplier"]))
+        penalty = max(0, penalty - modifiers["on_failure"]["penalty_reduction"])
+
         penalty_amount = penalty
 
         # Debit attacker
@@ -375,9 +661,20 @@ async def execute_attack(
         attacker.current_balance = attacker_balance_after
         attempt.penalty_amount = penalty_amount
 
+        # Consume attacker's on-failure pending items
+        if modifiers["on_failure"]["items_to_consume"]:
+            await consume_pending_effects(session, modifiers["on_failure"]["items_to_consume"])
+
         # Check attacker bankruptcy
-        if attacker.current_balance <= BANKRUPTCY_THRESHOLD and not attacker.is_bankrupt:
+        if attacker.current_balance <= cfg["bankruptcy_threshold"] and not attacker.is_bankrupt:
             attacker.is_bankrupt = True
+            await _create_bankruptcy_record(
+                session,
+                membership_id=attacker_membership_id,
+                cycle_id=cycle_id,
+                trigger_source_id=attempt.id,
+                reason=f"إفلاس بسبب خسارة هجوم — الرصيد: {attacker.current_balance}",
+            )
 
     # ── Notifications ──────────────────────────────────────────────────────
     if outcome == AttackOutcome.SUCCEEDED:

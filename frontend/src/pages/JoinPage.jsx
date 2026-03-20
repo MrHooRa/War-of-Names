@@ -31,7 +31,7 @@ export default function JoinPage() {
         method: 'POST',
         body: JSON.stringify(form),
       })
-      navigate('/dashboard', { replace: true })
+      navigate('/lobby', { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {

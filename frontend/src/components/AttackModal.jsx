@@ -91,15 +91,29 @@ export default function AttackModal({
               <p className="font-bold text-sm">{preview.blocking_reason}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-brand-teal/5 dark:bg-brand-teal/10 border border-brand-teal/20 rounded-2xl p-4 text-center">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">مكافأة الفوز</div>
-                <div className="font-display text-2xl font-black text-brand-teal">+{estimatedReward}</div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-brand-teal/5 dark:bg-brand-teal/10 border border-brand-teal/20 rounded-2xl p-4 text-center">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">مكافأة الفوز</div>
+                  <div className="font-display text-2xl font-black text-brand-teal">+{estimatedReward}</div>
+                </div>
+                <div className="bg-brand-orange/5 dark:bg-brand-orange/10 border border-brand-orange/20 rounded-2xl p-4 text-center">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">خسارة الفشل</div>
+                  <div className="font-display text-2xl font-black text-brand-orange">-{estimatedPenalty}</div>
+                </div>
               </div>
-              <div className="bg-brand-orange/5 dark:bg-brand-orange/10 border border-brand-orange/20 rounded-2xl p-4 text-center">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">خسارة الفشل</div>
-                <div className="font-display text-2xl font-black text-brand-orange">-{estimatedPenalty}</div>
-              </div>
+              {/* Active modifiers from items */}
+              {preview?.active_modifiers?.length > 0 && (
+                <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800/40 rounded-xl p-3 space-y-1">
+                  <div className="text-[10px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-widest">تأثيرات نشطة</div>
+                  {preview.active_modifiers.map((mod, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-300">
+                      <iconify-icon icon="lucide:sparkles" class="text-xs"></iconify-icon>
+                      {mod}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

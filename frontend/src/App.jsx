@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -6,7 +6,6 @@ import AdminRoute from './components/AdminRoute'
 import AppLayout from './components/AppLayout'
 import AdminLayout from './components/AdminLayout'
 import AuthLayout from './components/AuthLayout'
-import useGameInfo from './hooks/useGameInfo'
 
 import MainPage from './pages/MainPage'
 import LoginPage from './pages/LoginPage'
@@ -24,31 +23,27 @@ import PlayerProfilePage from './pages/PlayerProfilePage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import RulesPage from './pages/RulesPage'
 
+import { AdminCompetitionProvider } from './context/AdminCompetitionContext'
+
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminCompetitionPage from './pages/admin/AdminCompetitionPage'
-import AdminPlayersPage from './pages/admin/AdminPlayersPage'
+import AdminAccountsPage from './pages/admin/AdminAccountsPage'
+import AdminMembersPage from './pages/admin/AdminMembersPage'
 import AdminPlayerDetailPage from './pages/admin/AdminPlayerDetailPage'
+import AdminSeasonsPage from './pages/admin/AdminSeasonsPage'
 import AdminAttacksPage from './pages/admin/AdminAttacksPage'
 import AdminQuizPage from './pages/admin/AdminQuizPage'
 import AdminStorePage from './pages/admin/AdminStorePage'
 import AdminLedgerPage from './pages/admin/AdminLedgerPage'
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage'
 import AdminSettingsPage from './pages/admin/AdminSettingsPage'
-
-function EntryRoute() {
-  const alreadySeen = sessionStorage.getItem('mainPageSeen') === '1'
-  if (alreadySeen) return <Navigate to="/lobby" replace />
-  return <MainPage />
-}
+import AdminPlatformSettingsPage from './pages/admin/AdminPlatformSettingsPage'
 
 function GameRoutes() {
-  const { gameInfo, loading, error } = useGameInfo()
-  const seasonText = gameInfo?.current_season
-
   return (
     <Routes>
-      {/* ── Entry / Main Page ── */}
-      <Route path="/" element={<EntryRoute />} />
+      {/* ── Entry / Main Page (auth-aware gateway) ── */}
+      <Route path="/" element={<MainPage />} />
 
       {/* ── Auth pages (no protection) ── */}
       <Route
@@ -81,8 +76,8 @@ function GameRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="home" seasonText={seasonText}>
-              <DashboardPage gameInfo={gameInfo} loading={loading} error={error} />
+            <AppLayout activeItem="home">
+              <DashboardPage />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -91,7 +86,7 @@ function GameRoutes() {
         path="/leaderboard"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="leaderboard" seasonText={seasonText}>
+            <AppLayout activeItem="leaderboard">
               <LeaderboardPage />
             </AppLayout>
           </ProtectedRoute>
@@ -101,7 +96,7 @@ function GameRoutes() {
         path="/store"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="shop" seasonText={seasonText}>
+            <AppLayout activeItem="shop">
               <StorePage />
             </AppLayout>
           </ProtectedRoute>
@@ -111,7 +106,7 @@ function GameRoutes() {
         path="/quiz"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="battle" seasonText="جلسة الأسئلة المباشرة">
+            <AppLayout activeItem="battle">
               <QuizPage />
             </AppLayout>
           </ProtectedRoute>
@@ -121,7 +116,7 @@ function GameRoutes() {
         path="/battle/victory"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="" seasonText={seasonText}>
+            <AppLayout activeItem="">
               <VictoryPage />
             </AppLayout>
           </ProtectedRoute>
@@ -131,7 +126,7 @@ function GameRoutes() {
         path="/battle/defeat"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="" seasonText={seasonText}>
+            <AppLayout activeItem="">
               <DefeatPage />
             </AppLayout>
           </ProtectedRoute>
@@ -141,7 +136,7 @@ function GameRoutes() {
         path="/notifications"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="" seasonText={seasonText}>
+            <AppLayout activeItem="">
               <NotificationsPage />
             </AppLayout>
           </ProtectedRoute>
@@ -151,7 +146,7 @@ function GameRoutes() {
         path="/players/:membershipId"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="leaderboard" seasonText={seasonText}>
+            <AppLayout activeItem="leaderboard">
               <PlayerProfilePage />
             </AppLayout>
           </ProtectedRoute>
@@ -161,7 +156,7 @@ function GameRoutes() {
         path="/account"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="profile" seasonText={seasonText}>
+            <AppLayout activeItem="profile">
               <AccountSettingsPage />
             </AppLayout>
           </ProtectedRoute>
@@ -171,7 +166,7 @@ function GameRoutes() {
         path="/rules"
         element={
           <ProtectedRoute>
-            <AppLayout activeItem="rules" seasonText={seasonText}>
+            <AppLayout activeItem="rules">
               <RulesPage />
             </AppLayout>
           </ProtectedRoute>
@@ -179,11 +174,16 @@ function GameRoutes() {
       />
 
       {/* ── Admin Panel ── */}
-      <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+      <Route path="/admin" element={<AdminRoute><AdminCompetitionProvider><AdminLayout /></AdminCompetitionProvider></AdminRoute>}>
+        {/* Platform level */}
         <Route index element={<AdminDashboardPage />} />
+        <Route path="accounts" element={<AdminAccountsPage />} />
+        <Route path="platform-settings" element={<AdminPlatformSettingsPage />} />
+        {/* Competition level */}
         <Route path="competition" element={<AdminCompetitionPage />} />
-        <Route path="players" element={<AdminPlayersPage />} />
-        <Route path="players/:membershipId" element={<AdminPlayerDetailPage />} />
+        <Route path="members" element={<AdminMembersPage />} />
+        <Route path="members/:membershipId" element={<AdminPlayerDetailPage />} />
+        <Route path="seasons" element={<AdminSeasonsPage />} />
         <Route path="attacks" element={<AdminAttacksPage />} />
         <Route path="quiz" element={<AdminQuizPage />} />
         <Route path="store" element={<AdminStorePage />} />

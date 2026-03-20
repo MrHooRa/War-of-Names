@@ -1,0 +1,511 @@
+/**
+ * AdminSeasonsPage — Season/cycle management with full lifecycle operations.
+ * Seasons belong to the selected competition.
+ * Cycles are nested under their season.
+ * Supports: create, edit, status transitions, start/end/advance cycles, broadcast.
+ */
+
+import { useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '../../lib/api'
+import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+
+const STATUS_COLORS = {
+  draft: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  active: 'bg-brand-success/10 text-brand-success',
+  paused: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400',
+  completed: 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400',
+  archived: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500',
+}
+
+const STATUS_LABELS = {
+  draft: 'مسودة', active: 'نشط',
+  paused: 'متوقف', completed: 'مكتمل', archived: 'مؤرشف',
+}
+
+function StatusBadge({ status }) {
+  return (
+    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${STATUS_COLORS[status] || STATUS_COLORS.draft}`}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  )
+}
+
+function ResultBanner({ result, onDismiss }) {
+  if (!result) return null
+  return (
+    <div className="bg-brand-success/10 border border-brand-success/20 rounded-xl p-4 flex items-start gap-3">
+      <iconify-icon icon="lucide:check-circle" class="text-xl text-brand-success mt-0.5"></iconify-icon>
+      <div className="flex-1">
+        <div className="font-bold text-brand-success mb-1">{result.title}</div>
+        <div className="text-sm font-bold text-gray-600 dark:text-gray-400 space-y-0.5">
+          {result.details.map((d, i) => <div key={i}>{d}</div>)}
+        </div>
+      </div>
+      <button onClick={onDismiss} className="mr-auto text-gray-400 hover:text-gray-600">
+        <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+      </button>
+    </div>
+  )
+}
+
+function formatResultDetails(data) {
+  const details = []
+  if (data.protections_cleared != null) details.push(`الحمايات المُلغاة: ${data.protections_cleared}`)
+  if (data.bankruptcies_cleared != null) details.push(`حالات الإفلاس المُلغاة: ${data.bankruptcies_cleared}`)
+  if (data.members_notified != null) details.push(`الأعضاء المُشعَرون: ${data.members_notified}`)
+  return details
+}
+
+export default function AdminSeasonsPage() {
+  const { selected, selectedId } = useAdminCompetition()
+  const [detail, setDetail] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [showSeasonForm, setShowSeasonForm] = useState(false)
+  const [showCycleForm, setShowCycleForm] = useState(null)
+  const [showBroadcastForm, setShowBroadcastForm] = useState(false)
+  const [newSeasonName, setNewSeasonName] = useState('')
+  const [newCycleLabel, setNewCycleLabel] = useState('')
+  const [broadcastTitle, setBroadcastTitle] = useState('')
+  const [broadcastMessage, setBroadcastMessage] = useState('')
+  const [operatingCycle, setOperatingCycle] = useState(null)
+  const [resultBanner, setResultBanner] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const loadDetail = useCallback(() => {
+    if (!selectedId) return
+    setLoading(true)
+    apiFetch(`/api/admin/competitions/${selectedId}`)
+      .then(json => setDetail(json.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [selectedId])
+
+  useEffect(() => { loadDetail() }, [loadDetail])
+
+  // ── Season CRUD ─────────────────────────────────────────────────────
+
+  async function createSeason(e) {
+    e.preventDefault()
+    if (!newSeasonName.trim()) return
+    setSaving(true)
+    try {
+      await apiFetch('/api/admin/seasons', {
+        method: 'POST',
+        body: JSON.stringify({ competition_id: selectedId, name: newSeasonName.trim() }),
+      })
+      setNewSeasonName('')
+      setShowSeasonForm(false)
+      loadDetail()
+    } catch {}
+    setSaving(false)
+  }
+
+  async function updateSeasonStatus(seasonId, status) {
+    try {
+      await apiFetch(`/api/admin/seasons/${seasonId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      })
+      loadDetail()
+    } catch {}
+  }
+
+  // ── Cycle CRUD ──────────────────────────────────────────────────────
+
+  async function createCycle(e, seasonId) {
+    e.preventDefault()
+    if (!newCycleLabel.trim()) return
+    setSaving(true)
+    try {
+      await apiFetch('/api/admin/cycles', {
+        method: 'POST',
+        body: JSON.stringify({ season_id: seasonId, label: newCycleLabel.trim() }),
+      })
+      setNewCycleLabel('')
+      setShowCycleForm(null)
+      loadDetail()
+    } catch {}
+    setSaving(false)
+  }
+
+  // ── Cycle Lifecycle Operations ──────────────────────────────────────
+
+  async function startCycle(cycleId) {
+    setOperatingCycle(cycleId)
+    try {
+      const json = await apiFetch(`/api/admin/cycles/${cycleId}/start`, { method: 'POST' })
+      setResultBanner({
+        title: json.message || 'تم بدء الدورة بنجاح',
+        details: formatResultDetails(json.data || {}),
+      })
+      loadDetail()
+    } catch {}
+    setOperatingCycle(null)
+  }
+
+  async function pauseCycle(cycleId) {
+    setOperatingCycle(cycleId)
+    try {
+      const json = await apiFetch(`/api/admin/cycles/${cycleId}/pause`, { method: 'POST' })
+      setResultBanner({
+        title: json.message || 'تم إيقاف الدورة مؤقتاً',
+        details: ['يمكنك استئنافها لاحقاً باستخدام زر "بدء الدورة"'],
+      })
+      loadDetail()
+    } catch {}
+    setOperatingCycle(null)
+  }
+
+  async function endCycle(cycleId) {
+    setOperatingCycle(cycleId)
+    try {
+      const json = await apiFetch(`/api/admin/cycles/${cycleId}/end`, { method: 'POST' })
+      setResultBanner({
+        title: json.message || 'تم إنهاء الدورة بنجاح',
+        details: formatResultDetails(json.data || {}),
+      })
+      loadDetail()
+    } catch {}
+    setOperatingCycle(null)
+  }
+
+  async function advanceCycle(cycleId) {
+    setOperatingCycle(cycleId)
+    try {
+      const json = await apiFetch(`/api/admin/cycles/${cycleId}/advance`, { method: 'POST' })
+      const data = json.data || {}
+      setResultBanner({
+        title: json.message || 'تم الانتقال للدورة التالية',
+        details: [
+          `انتهت: ${data.ended?.label || '?'} (${data.ended?.members_notified || 0} مُشعَر)`,
+          `بدأت: ${data.started?.label || '?'} (${data.started?.members_notified || 0} مُشعَر)`,
+          `الحمايات المُلغاة: ${(data.ended?.protections_cleared || 0) + (data.started?.protections_cleared || 0)}`,
+          `حالات الإفلاس المُلغاة: ${(data.ended?.bankruptcies_cleared || 0) + (data.started?.bankruptcies_cleared || 0)}`,
+        ],
+      })
+      loadDetail()
+    } catch {}
+    setOperatingCycle(null)
+  }
+
+  // ── Broadcast ───────────────────────────────────────────────────────
+
+  async function sendBroadcast(e) {
+    e.preventDefault()
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) return
+    setSaving(true)
+    try {
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/broadcast`, {
+        method: 'POST',
+        body: JSON.stringify({ title: broadcastTitle.trim(), message: broadcastMessage.trim() }),
+      })
+      setResultBanner({
+        title: json.message || 'تم إرسال الإعلان',
+        details: [`الأعضاء المُشعَرون: ${json.data?.members_notified || 0}`],
+      })
+      setBroadcastTitle('')
+      setBroadcastMessage('')
+      setShowBroadcastForm(false)
+    } catch {}
+    setSaving(false)
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────
+
+  function findActiveCycleInSeason(season) {
+    return (season.cycles || []).find(c => c.status === 'active')
+  }
+
+  function canAdvance(cycle, season) {
+    return (cycle.status === 'draft' || cycle.status === 'paused') && findActiveCycleInSeason(season)
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────
+
+  if (!selected) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <iconify-icon icon="lucide:calendar-range" class="text-4xl text-gray-300 dark:text-gray-600 mb-3"></iconify-icon>
+        <p className="font-bold text-gray-500 dark:text-gray-400">اختر منافسة لإدارة مواسمها ودوراتها</p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <iconify-icon icon="lucide:loader-2" class="text-3xl text-brand-teal animate-spin"></iconify-icon>
+      </div>
+    )
+  }
+
+  const seasons = detail?.seasons || []
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="font-heading font-black text-2xl text-gray-900 dark:text-white">المواسم والدورات</h1>
+          <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">
+            {selected.name} — الهيكل الزمني والعمليات التشغيلية
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBroadcastForm(v => !v)}
+            className="flex items-center gap-2 bg-brand-orange/10 hover:bg-brand-orange/20 text-brand-orange px-4 py-2.5 rounded-xl font-heading font-black text-sm smooth-transition"
+          >
+            <iconify-icon icon="lucide:megaphone" class="text-lg"></iconify-icon>
+            إعلان
+          </button>
+          <button
+            onClick={() => setShowSeasonForm(true)}
+            className="flex items-center gap-2 bg-brand-teal hover:bg-brand-teal-hover text-white px-4 py-2.5 rounded-xl font-heading font-black text-sm smooth-transition"
+          >
+            <iconify-icon icon="lucide:plus" class="text-lg"></iconify-icon>
+            موسم جديد
+          </button>
+        </div>
+      </div>
+
+      {/* Result banner */}
+      <ResultBanner result={resultBanner} onDismiss={() => setResultBanner(null)} />
+
+      {/* Broadcast form */}
+      {showBroadcastForm && (
+        <div className="bg-white dark:bg-brand-card-dark border border-brand-orange/20 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <iconify-icon icon="lucide:megaphone" class="text-xl text-brand-orange"></iconify-icon>
+            <span className="font-heading font-black text-gray-900 dark:text-white">إعلان لجميع الأعضاء</span>
+          </div>
+          <form onSubmit={sendBroadcast} className="space-y-3">
+            <input
+              type="text"
+              value={broadcastTitle}
+              onChange={e => setBroadcastTitle(e.target.value)}
+              placeholder="عنوان الإعلان"
+              required
+              className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-2.5 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/10 focus:border-brand-orange dark:text-white"
+            />
+            <textarea
+              value={broadcastMessage}
+              onChange={e => setBroadcastMessage(e.target.value)}
+              placeholder="نص الإعلان..."
+              required
+              rows={3}
+              className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-2.5 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/10 focus:border-brand-orange dark:text-white resize-none"
+            />
+            <div className="flex items-center gap-2 justify-end">
+              <button type="button" onClick={() => setShowBroadcastForm(false)} className="text-gray-400 hover:text-gray-600 px-3 py-2 text-sm font-bold">
+                إلغاء
+              </button>
+              <button type="submit" disabled={saving} className="bg-brand-orange hover:bg-brand-orange/90 text-white px-5 py-2.5 rounded-xl font-heading font-black text-sm smooth-transition disabled:opacity-60 flex items-center gap-2">
+                <iconify-icon icon="lucide:send" class="text-sm"></iconify-icon>
+                إرسال
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Create season form */}
+      {showSeasonForm && (
+        <div className="bg-white dark:bg-brand-card-dark border border-brand-teal/20 dark:border-brand-slate/20 rounded-2xl p-5">
+          <form onSubmit={createSeason} className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">اسم الموسم</label>
+              <input
+                type="text"
+                value={newSeasonName}
+                onChange={e => setNewSeasonName(e.target.value)}
+                placeholder="الموسم الثاني"
+                required
+                className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-2.5 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white"
+              />
+            </div>
+            <button type="submit" disabled={saving} className="bg-brand-teal hover:bg-brand-teal-hover text-white px-5 py-2.5 rounded-xl font-heading font-black text-sm smooth-transition disabled:opacity-60">
+              إنشاء
+            </button>
+            <button type="button" onClick={() => setShowSeasonForm(false)} className="text-gray-400 hover:text-gray-600 px-3 py-2.5">
+              إلغاء
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Seasons list */}
+      {seasons.length === 0 ? (
+        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-10 text-center">
+          <iconify-icon icon="lucide:calendar-plus" class="text-4xl text-gray-300 dark:text-gray-600 mb-3"></iconify-icon>
+          <p className="font-bold text-gray-500 dark:text-gray-400">لا توجد مواسم بعد. أنشئ موسماً جديداً للبدء.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {seasons.map(season => {
+            const activeCycle = findActiveCycleInSeason(season)
+            return (
+              <div key={season.id} className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+                {/* Season header */}
+                <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-brand-teal/10 dark:bg-brand-slate/20 rounded-xl flex items-center justify-center">
+                      <iconify-icon icon="lucide:calendar-range" class="text-xl text-brand-teal dark:text-brand-slate"></iconify-icon>
+                    </div>
+                    <div>
+                      <div className="font-heading font-black text-lg text-gray-900 dark:text-white">{season.name}</div>
+                      <div className="text-xs font-bold text-gray-400 dark:text-gray-500 flex items-center gap-2 flex-wrap">
+                        <StatusBadge status={season.status} />
+                        {season.starts_at && <span>بدأ: {new Date(season.starts_at).toLocaleDateString('ar')}</span>}
+                        <span>{season.cycles?.length || 0} دورة</span>
+                        {activeCycle && (
+                          <span className="text-brand-success flex items-center gap-1">
+                            <iconify-icon icon="lucide:radio" class="text-xs animate-pulse"></iconify-icon>
+                            {activeCycle.label}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {season.status === 'draft' && (
+                      <button
+                        onClick={() => updateSeasonStatus(season.id, 'active')}
+                        className="text-xs font-black bg-brand-success/10 text-brand-success hover:bg-brand-success/20 px-3 py-1.5 rounded-lg smooth-transition"
+                      >
+                        تفعيل
+                      </button>
+                    )}
+                    {season.status === 'active' && (
+                      <button
+                        onClick={() => updateSeasonStatus(season.id, 'completed')}
+                        className="text-xs font-black bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/30 px-3 py-1.5 rounded-lg smooth-transition"
+                      >
+                        إنهاء الموسم
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setShowCycleForm(season.id); setNewCycleLabel('') }}
+                      className="text-xs font-bold text-brand-teal dark:text-brand-slate hover:bg-brand-teal/10 dark:hover:bg-brand-slate/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1"
+                    >
+                      <iconify-icon icon="lucide:plus" class="text-sm"></iconify-icon>
+                      دورة
+                    </button>
+                  </div>
+                </div>
+
+                {/* Create cycle form (inline) */}
+                {showCycleForm === season.id && (
+                  <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
+                    <form onSubmit={e => createCycle(e, season.id)} className="flex items-center gap-3">
+                      <input
+                        type="text"
+                        value={newCycleLabel}
+                        onChange={e => setNewCycleLabel(e.target.value)}
+                        placeholder="اسم الدورة (مثل: الأسبوع الثاني)"
+                        required
+                        className="flex-1 bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-2 px-3 rounded-lg font-bold text-sm focus:outline-none focus:border-brand-teal dark:text-white"
+                      />
+                      <button type="submit" disabled={saving} className="bg-brand-teal text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-60">إنشاء</button>
+                      <button type="button" onClick={() => setShowCycleForm(null)} className="text-gray-400 hover:text-gray-600 text-sm font-bold">إلغاء</button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Cycles list */}
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {(!season.cycles || season.cycles.length === 0) ? (
+                    <div className="px-5 py-6 text-center text-sm font-bold text-gray-400">
+                      لا توجد دورات في هذا الموسم
+                    </div>
+                  ) : (
+                    season.cycles.map(cycle => {
+                      const isOperating = operatingCycle === cycle.id
+                      const isActive = cycle.status === 'active'
+                      const isDraft = cycle.status === 'draft'
+                      const isPaused = cycle.status === 'paused'
+                      const canStart = isDraft || isPaused
+                      const showAdvance = canStart && !!activeCycle && activeCycle.id !== cycle.id
+
+                      return (
+                        <div key={cycle.id} className={`px-5 py-3 flex items-center justify-between flex-wrap gap-2 smooth-transition ${isActive ? 'bg-brand-success/5 dark:bg-brand-success/5' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isActive ? 'bg-brand-success/10' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                              <iconify-icon icon={isActive ? 'lucide:radio' : 'lucide:repeat'} class={`text-sm ${isActive ? 'text-brand-success animate-pulse' : 'text-gray-500 dark:text-gray-400'}`}></iconify-icon>
+                            </div>
+                            <div>
+                              <div className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                                {cycle.label}
+                                {isActive && <span className="text-[10px] font-black text-brand-success">● نشطة الآن</span>}
+                              </div>
+                              <div className="text-xs font-bold text-gray-400 flex items-center gap-2 flex-wrap">
+                                <StatusBadge status={cycle.status} />
+                                {cycle.starts_at && <span>بدأ: {new Date(cycle.starts_at).toLocaleDateString('ar')}</span>}
+                                {cycle.ends_at && <span>انتهى: {new Date(cycle.ends_at).toLocaleDateString('ar')}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {/* Start: for draft/paused cycles when no active cycle exists */}
+                            {canStart && !activeCycle && (
+                              <button
+                                onClick={() => startCycle(cycle.id)}
+                                disabled={isOperating}
+                                className="text-xs font-black bg-brand-success/10 text-brand-success hover:bg-brand-success/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
+                              >
+                                <iconify-icon icon={isOperating ? 'lucide:loader-2' : 'lucide:play'} class={`text-xs ${isOperating ? 'animate-spin' : ''}`}></iconify-icon>
+                                {isOperating ? 'جارٍ البدء...' : 'بدء الدورة'}
+                              </button>
+                            )}
+
+                            {/* Advance: for draft/paused cycles when another cycle is active */}
+                            {showAdvance && (
+                              <button
+                                onClick={() => advanceCycle(cycle.id)}
+                                disabled={isOperating}
+                                className="text-xs font-black bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/30 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
+                              >
+                                <iconify-icon icon={isOperating ? 'lucide:loader-2' : 'lucide:skip-forward'} class={`text-xs ${isOperating ? 'animate-spin' : ''}`}></iconify-icon>
+                                {isOperating ? 'جارٍ الانتقال...' : 'انتقال لهذه الدورة'}
+                              </button>
+                            )}
+
+                            {/* Pause / End: for active cycles */}
+                            {isActive && (
+                              <>
+                                <button
+                                  onClick={() => pauseCycle(cycle.id)}
+                                  disabled={isOperating}
+                                  className="text-xs font-black bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/30 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
+                                >
+                                  <iconify-icon icon={isOperating ? 'lucide:loader-2' : 'lucide:pause'} class={`text-xs ${isOperating ? 'animate-spin' : ''}`}></iconify-icon>
+                                  إيقاف مؤقت
+                                </button>
+                                <button
+                                  onClick={() => endCycle(cycle.id)}
+                                  disabled={isOperating}
+                                  className="text-xs font-black bg-brand-orange/10 text-brand-orange hover:bg-brand-orange/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
+                                >
+                                  <iconify-icon icon={isOperating ? 'lucide:loader-2' : 'lucide:square'} class={`text-xs ${isOperating ? 'animate-spin' : ''}`}></iconify-icon>
+                                  {isOperating ? 'جارٍ الإنهاء...' : 'إنهاء الدورة'}
+                                </button>
+                              </>
+                            )}
+
+                            {cycle.status === 'completed' && (
+                              <span className="text-[10px] font-black text-gray-400 px-2 py-1">مكتملة</span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

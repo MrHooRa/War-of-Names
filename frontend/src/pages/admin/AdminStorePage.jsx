@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
+import { useAdminCompetition } from '../../context/AdminCompetitionContext'
 
 function StatusBadge({ status }) {
   const colors = {
@@ -48,29 +49,9 @@ const USAGE_TYPE_OPTIONS = [
   { value: 'persistent', label: 'دائم' },
 ]
 
-const EFFECT_TYPE_OPTIONS = [
-  { value: 'ratio_modifier', label: 'معدّل نسبي' },
-  { value: 'fixed_bonus', label: 'مكافأة ثابتة' },
-  { value: 'loss_reduction', label: 'تقليل الخسارة' },
-  { value: 'action_block', label: 'منع إجراء' },
-  { value: 'state_change', label: 'تغيير حالة' },
-  { value: 'alias_change', label: 'تغيير الاسم المستعار' },
-  { value: 'identity_reveal', label: 'كشف الهوية' },
-  { value: 'shield_grant', label: 'منح درع' },
-  { value: 'score_transfer', label: 'نقل نقاط' },
-  { value: 'cooldown_reset', label: 'إعادة تعيين المهلة' },
-  { value: 'visibility_toggle', label: 'تبديل الرؤية' },
-  { value: 'bonus_multiplier', label: 'مضاعف مكافأة' },
-  { value: 'immunity', label: 'حصانة' },
-]
+const SCOPE_LABELS = { self: 'الذات', target: 'الهدف', all: 'الجميع' }
 
-const TARGET_SCOPE_OPTIONS = [
-  { value: 'self', label: 'الذات' },
-  { value: 'target', label: 'الهدف' },
-  { value: 'all', label: 'الجميع' },
-]
-
-const COMPETITION_ID = '00000000-0000-0000-0000-000000000001'
+// Competition ID is now sourced from AdminCompetitionContext
 
 /* ────────── Modal Backdrop ────────── */
 function ModalBackdrop({ children, onClose }) {
@@ -287,7 +268,7 @@ function ItemFormModal({ item, onClose, onSaved }) {
 }
 
 /* ────────── Listing Form Modal ────────── */
-function ListingFormModal({ items, onClose, onSaved }) {
+function ListingFormModal({ items, competitionId, onClose, onSaved }) {
   const [form, setForm] = useState({
     item_definition_id: items?.[0]?.id || '',
     price: '',
@@ -310,7 +291,7 @@ function ListingFormModal({ items, onClose, onSaved }) {
 
     const body = {
       item_definition_id: form.item_definition_id,
-      competition_id: COMPETITION_ID,
+      competition_id: competitionId,
       price: Number(form.price),
     }
     if (form.total_stock !== '') body.total_stock = Number(form.total_stock)
@@ -429,70 +410,142 @@ function ListingFormModal({ items, onClose, onSaved }) {
   )
 }
 
-/* ────────── Effect Form Modal ────────── */
+/* ────────── Structured Effect Form Modal ────────── */
 function EffectFormModal({ itemId, effect, onClose, onSaved }) {
   const isEdit = !!effect
-  const [form, setForm] = useState({
-    effect_type: effect?.effect_type || 'ratio_modifier',
-    parameters: effect?.parameters ? JSON.stringify(effect.parameters, null, 2) : '{}',
-    target_scope: effect?.target_scope || 'self',
-    duration_minutes: effect?.duration_minutes ?? '',
-    is_stackable: effect?.is_stackable ?? false,
-    trigger_on: effect?.trigger_on || '',
-    order_index: effect?.order_index ?? 0,
-  })
+  const [effectTypes, setEffectTypes] = useState(null)
+  const [loadingTypes, setLoadingTypes] = useState(true)
+  const [selectedType, setSelectedType] = useState(effect?.effect_type || '')
+  const [params, setParams] = useState(effect?.parameters || {})
+  const [targetScope, setTargetScope] = useState(effect?.target_scope || 'self')
+  const [triggerOn, setTriggerOn] = useState(effect?.trigger_on || 'activation')
+  const [durationMinutes, setDurationMinutes] = useState(effect?.duration_minutes ?? '')
+  const [isStackable, setIsStackable] = useState(effect?.is_stackable ?? false)
+  const [orderIndex, setOrderIndex] = useState(effect?.order_index ?? 0)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [errors, setErrors] = useState([])
 
-  function updateField(field, value) {
-    setForm(f => ({ ...f, [field]: value }))
+  // Fetch effect types schema from backend
+  React.useEffect(() => {
+    apiFetch('/api/admin/store/effect-types')
+      .then(res => {
+        setEffectTypes(res.data)
+        if (!selectedType && res.data.length > 0) {
+          setSelectedType(res.data[0].value)
+        }
+      })
+      .catch(() => setErrors(['فشل في تحميل أنواع التأثيرات']))
+      .finally(() => setLoadingTypes(false))
+  }, [])
+
+  const currentType = effectTypes?.find(t => t.value === selectedType)
+
+  function handleTypeChange(newType) {
+    setSelectedType(newType)
+    const type = effectTypes?.find(t => t.value === newType)
+    if (type) {
+      // Reset params with defaults for new type
+      const defaults = {}
+      type.fields.forEach(f => { if (f.default !== undefined) defaults[f.key] = f.default })
+      setParams(defaults)
+      if (type.allowed_scopes?.length > 0 && !type.allowed_scopes.includes(targetScope)) {
+        setTargetScope(type.allowed_scopes[0])
+      }
+      // Reset trigger to first allowed, clear duration if not needed
+      const firstTrigger = type.allowed_triggers?.[0] || 'activation'
+      setTriggerOn(firstTrigger)
+      if (!type.requires_duration_for?.includes(firstTrigger)) setDurationMinutes('')
+    }
+  }
+
+  function shouldShowField(field) {
+    if (!field.show_when) return true
+    return Object.entries(field.show_when).every(([k, v]) => params[k] === v)
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setSaving(true)
-    setError(null)
+    setErrors([])
 
-    let parsedParams
-    try {
-      parsedParams = JSON.parse(form.parameters)
-    } catch {
-      setError('صيغة المعاملات غير صحيحة (يجب أن تكون JSON)')
-      setSaving(false)
-      return
-    }
+    // Coerce numeric params to numbers
+    const coercedParams = { ...params }
+    currentType?.fields?.forEach(f => {
+      if ((f.type === 'number' || f.type === 'decimal') && coercedParams[f.key] !== undefined && coercedParams[f.key] !== '') {
+        coercedParams[f.key] = Number(coercedParams[f.key])
+      }
+    })
 
     const body = {
-      effect_type: form.effect_type,
-      parameters: parsedParams,
-      target_scope: form.target_scope,
-      is_stackable: form.is_stackable,
-      order_index: Number(form.order_index),
+      effect_type: selectedType,
+      parameters: coercedParams,
+      target_scope: targetScope,
+      trigger_on: triggerOn,
+      is_stackable: isStackable,
+      order_index: Number(orderIndex),
     }
-    if (form.duration_minutes !== '') body.duration_minutes = Number(form.duration_minutes)
-    if (form.trigger_on) body.trigger_on = form.trigger_on
+    if (durationMinutes !== '') body.duration_minutes = Number(durationMinutes)
 
     try {
       if (isEdit) {
         await apiFetch(`/api/admin/store/items/${itemId}/effects/${effect.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(body),
+          method: 'PATCH', body: JSON.stringify(body),
         })
       } else {
         await apiFetch(`/api/admin/store/items/${itemId}/effects`, {
-          method: 'POST',
-          body: JSON.stringify(body),
+          method: 'POST', body: JSON.stringify(body),
         })
       }
       onSaved()
     } catch (err) {
-      setError(err.message)
+      if (err.data?.errors) {
+        setErrors(err.data.errors)
+      } else {
+        setErrors([err.message || 'حدث خطأ'])
+      }
     } finally {
       setSaving(false)
     }
   }
 
   const inputClass = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-gray-900 dark:text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/30 focus:border-brand-teal smooth-transition'
+
+  function renderField(field) {
+    if (!shouldShowField(field)) return null
+    const value = params[field.key] ?? field.default ?? ''
+
+    if (field.type === 'select' && field.options) {
+      return (
+        <div key={field.key}>
+          <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">
+            {field.label} {field.required && '*'}
+          </label>
+          <select value={value} onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))} className={inputClass}>
+            <option value="">— اختر —</option>
+            {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      )
+    }
+
+    return (
+      <div key={field.key}>
+        <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">
+          {field.label} {field.required && '*'}
+        </label>
+        <input
+          type="number"
+          value={value}
+          onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))}
+          min={field.min}
+          max={field.max}
+          step={field.type === 'decimal' ? '0.01' : '1'}
+          className={inputClass}
+          dir="ltr"
+        />
+      </div>
+    )
+  }
 
   return (
     <ModalBackdrop onClose={onClose}>
@@ -507,78 +560,114 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
         </div>
 
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-          {error && (
-            <div className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>
+          {errors.length > 0 && (
+            <div className="bg-brand-danger/10 text-brand-danger px-4 py-3 rounded-xl text-sm font-bold space-y-1">
+              {errors.map((err, i) => <div key={i}>{err}</div>)}
+            </div>
           )}
 
-          <div>
-            <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع التأثير *</label>
-            <select value={form.effect_type} onChange={e => updateField('effect_type', e.target.value)} className={inputClass}>
-              {EFFECT_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
+          {loadingTypes ? (
+            <div className="flex items-center justify-center py-8">
+              <iconify-icon icon="lucide:loader-2" class="text-2xl text-brand-teal animate-spin"></iconify-icon>
+            </div>
+          ) : (
+            <>
+              {/* Effect Type Selector */}
+              <div>
+                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع التأثير *</label>
+                <select value={selectedType} onChange={e => handleTypeChange(e.target.value)} className={inputClass}>
+                  {effectTypes?.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+                {currentType?.description && (
+                  <p className="text-[11px] text-gray-400 mt-1">{currentType.description}</p>
+                )}
+              </div>
 
-          <div>
-            <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">المعاملات (JSON) *</label>
-            <textarea
-              value={form.parameters}
-              onChange={e => updateField('parameters', e.target.value)}
-              rows={3}
-              className={inputClass + ' resize-none font-mono text-xs'}
-              placeholder='{"ratio": 1.5}'
-              dir="ltr"
-            />
-          </div>
+              {/* Dynamic Fields Per Effect Type */}
+              {currentType?.fields?.length > 0 && (
+                <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800/30 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">معاملات التأثير</div>
+                  {currentType.fields.map(renderField)}
+                </div>
+              )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نطاق الهدف</label>
-              <select value={form.target_scope} onChange={e => updateField('target_scope', e.target.value)} className={inputClass}>
-                {TARGET_SCOPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">المدة (دقائق)</label>
-              <input
-                type="number"
-                min="0"
-                value={form.duration_minutes}
-                onChange={e => updateField('duration_minutes', e.target.value)}
-                className={inputClass}
-                placeholder="دائم"
-              />
-            </div>
-          </div>
+              {/* Trigger Mode — filtered by allowed_triggers */}
+              {currentType?.trigger_options?.length > 1 && (
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">وضع التشغيل *</label>
+                  <select
+                    value={triggerOn}
+                    onChange={e => {
+                      setTriggerOn(e.target.value)
+                      if (!currentType?.requires_duration_for?.includes(e.target.value)) setDurationMinutes('')
+                    }}
+                    className={inputClass}
+                  >
+                    {currentType.trigger_options.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الترتيب</label>
-              <input
-                type="number"
-                min="0"
-                value={form.order_index}
-                onChange={e => updateField('order_index', e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.is_stackable}
-                  onChange={e => updateField('is_stackable', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-teal focus:ring-brand-teal/30"
-                />
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">قابل للتراكم</span>
-              </label>
-            </div>
-          </div>
+              {/* Target Scope + Duration */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نطاق الهدف</label>
+                  <select value={targetScope} onChange={e => setTargetScope(e.target.value)} className={inputClass}>
+                    {(currentType?.allowed_scopes || ['self', 'target', 'all']).map(s => (
+                      <option key={s} value={s}>{SCOPE_LABELS[s] || s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">
+                    المدة (دقائق) {currentType?.requires_duration_for?.includes(triggerOn) && '*'}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={durationMinutes}
+                    onChange={e => setDurationMinutes(e.target.value)}
+                    className={inputClass}
+                    placeholder={currentType?.requires_duration_for?.includes(triggerOn) ? 'مطلوب' : 'اختياري'}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الترتيب</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={orderIndex}
+                    onChange={e => setOrderIndex(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex items-end pb-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isStackable}
+                      onChange={e => setIsStackable(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-teal focus:ring-brand-teal/30"
+                    />
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">قابل للتراكم</span>
+                  </label>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || loadingTypes}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-bold hover:bg-brand-teal-hover smooth-transition disabled:opacity-50"
           >
             {saving ? (
@@ -606,6 +695,7 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
    Main Page
    ════════════════════════════════════════════════════ */
 export default function AdminStorePage() {
+  const { selected, selectedId } = useAdminCompetition()
   const [tab, setTab] = useState('listings')
   const { data: listings, loading: loadingListings, refetch: refetchListings } = useAdminData('/api/admin/store/listings')
   const { data: items, loading: loadingItems, refetch: refetchItems } = useAdminData('/api/admin/store/items')
@@ -730,6 +820,15 @@ export default function AdminStorePage() {
 
   const loading = tab === 'listings' ? loadingListings : loadingItems
 
+  if (!selected) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <iconify-icon icon="lucide:shopping-bag" class="text-4xl text-gray-300 dark:text-gray-600 mb-3"></iconify-icon>
+        <p className="font-bold text-gray-500 dark:text-gray-400">اختر منافسة من القائمة الجانبية لإدارة المتجر</p>
+      </div>
+    )
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><iconify-icon icon="lucide:loader-2" class="text-4xl text-brand-teal animate-spin"></iconify-icon></div>
   }
@@ -737,8 +836,8 @@ export default function AdminStorePage() {
   return (
     <div className="space-y-6 max-w-7xl">
       <div>
-        <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">إدارة المتجر</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">العناصر والعروض</p>
+        <h1 className="font-heading font-black text-2xl text-gray-900 dark:text-white">إدارة المتجر</h1>
+        <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">{selected.name} — العناصر والعروض</p>
       </div>
 
       {actionMsg && (
@@ -933,22 +1032,21 @@ export default function AdminStorePage() {
                             <div className="space-y-2">
                               {itemDetail.effects.map(eff => (
                                 <div key={eff.id} className="flex items-center justify-between p-3 bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-xl">
-                                  <div className="flex items-center gap-3">
-                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate">
-                                      {EFFECT_TYPE_OPTIONS.find(o => o.value === eff.effect_type)?.label || eff.effect_type}
+                                  <div className="flex items-center gap-3 flex-wrap min-w-0">
+                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate whitespace-nowrap">
+                                      {eff.effect_type}
                                     </span>
-                                    <span className="text-xs text-gray-500 font-mono" dir="ltr">{JSON.stringify(eff.parameters)}</span>
-                                    <span className="text-[10px] text-gray-400">
-                                      {TARGET_SCOPE_OPTIONS.find(o => o.value === eff.target_scope)?.label || eff.target_scope}
+                                    <span className="text-xs text-gray-700 dark:text-gray-300 font-bold truncate">
+                                      {eff.summary || JSON.stringify(eff.parameters)}
                                     </span>
-                                    {eff.duration_minutes && (
-                                      <span className="text-[10px] text-gray-400">{eff.duration_minutes} دقيقة</span>
-                                    )}
+                                    <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                      {SCOPE_LABELS[eff.target_scope] || eff.target_scope}
+                                    </span>
                                     {eff.is_stackable && (
-                                      <span className="text-[10px] text-brand-success font-bold">قابل للتراكم</span>
+                                      <span className="text-[10px] text-brand-success font-bold whitespace-nowrap">قابل للتراكم</span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 flex-shrink-0">
                                     <button
                                       onClick={() => { setEditingEffect(eff); setShowEffectForm(true) }}
                                       className="p-1 rounded text-gray-400 hover:text-brand-teal smooth-transition"
@@ -998,6 +1096,7 @@ export default function AdminStorePage() {
       {showListingForm && (
         <ListingFormModal
           items={items}
+          competitionId={selectedId}
           onClose={() => setShowListingForm(false)}
           onSaved={handleListingSaved}
         />

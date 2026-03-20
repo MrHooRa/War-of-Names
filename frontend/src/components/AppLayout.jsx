@@ -11,6 +11,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../context/AuthContext'
+import useCompetitionContext from '../hooks/useCompetitionContext'
 import { apiFetch } from '../lib/api'
 
 const LOGO_URL =
@@ -38,9 +39,10 @@ function NavLink({ to, id, label, active }) {
   )
 }
 
-export default function AppLayout({ activeItem = 'home', seasonText, children }) {
+export default function AppLayout({ activeItem = 'home', children }) {
   const navigate = useNavigate()
   const { currentUser, logout } = useAuthContext()
+  const { seasonName, cycleLabel } = useCompetitionContext()
   const displayName = currentUser?.username || '?'
   const avatarLetter = displayName[0] || '?'
   const [unreadCount, setUnreadCount] = useState(0)
@@ -63,7 +65,7 @@ export default function AppLayout({ activeItem = 'home', seasonText, children })
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
           {/* Logo & Branding */}
           <div className="flex items-center gap-4">
-            <Link to="/" id="nav-logo-link" className="block smooth-transition hover:opacity-80">
+            <Link to="/lobby" id="nav-logo-link" className="block smooth-transition hover:opacity-80">
               <img
                 src={LOGO_URL}
                 alt="شعار حرب الأسماء"
@@ -72,17 +74,19 @@ export default function AppLayout({ activeItem = 'home', seasonText, children })
             </Link>
             <div className="hidden lg:flex flex-col items-start border-r border-gray-200 dark:border-gray-700 pr-5">
               <div className="text-xs font-bold mt-1.5 text-gray-500 dark:text-gray-400">
-                {seasonText || 'الموسم التنافسي الأول'}
+                {seasonName || 'الموسم التنافسي'}
+                {cycleLabel && <span className="text-gray-400 dark:text-gray-500"> — {cycleLabel}</span>}
               </div>
             </div>
           </div>
 
           {/* Global Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            <NavLink to="/dashboard" id="nav-home" label="الرئيسية" active={activeItem === 'home'} />
+            <NavLink to="/lobby" id="nav-lobby" label="الساحة" active={activeItem === 'lobby'} />
+            <NavLink to="/dashboard" id="nav-home" label="صفحتي" active={activeItem === 'home'} />
             <NavLink to="/leaderboard" id="nav-leaderboard" label="المتصدرين" active={activeItem === 'leaderboard'} />
             <NavLink to="/store" id="nav-shop" label="المتجر" active={activeItem === 'shop'} />
-            <NavLink to="/rules" id="nav-rules" label="قواعد اللعبة" active={activeItem === 'rules'} />
+            <NavLink to="/rules" id="nav-rules" label="القواعد" active={activeItem === 'rules'} />
           </nav>
 
           {/* User Controls */}
@@ -149,7 +153,7 @@ export default function AppLayout({ activeItem = 'home', seasonText, children })
         style={{ viewTransitionName: 'footer' }}
       >
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
-          <Link to="/" id="footer-logo-link" className="smooth-transition hover:opacity-80 block">
+          <Link to="/lobby" id="footer-logo-link" className="smooth-transition hover:opacity-80 block">
             <img
               src={LOGO_URL}
               alt="شعار حرب الأسماء"
@@ -182,8 +186,8 @@ export default function AppLayout({ activeItem = 'home', seasonText, children })
               : 'text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate'
           }`}
         >
-          <iconify-icon icon="lucide:home" class="text-[1.3rem]"></iconify-icon>
-          <span className="text-[9px] font-bold">الرئيسية</span>
+          <iconify-icon icon="lucide:layout-dashboard" class="text-[1.3rem]"></iconify-icon>
+          <span className="text-[9px] font-bold">صفحتي</span>
         </Link>
 
         <Link
