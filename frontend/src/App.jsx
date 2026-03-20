@@ -16,6 +16,7 @@ import QuizPage from './pages/QuizPage'
 import LobbyPage from './pages/LobbyPage'
 import RegisterPage from './pages/RegisterPage'
 import JoinPage from './pages/JoinPage'
+import InviteLinkPage from './pages/InviteLinkPage'
 import VictoryPage from './pages/VictoryPage'
 import DefeatPage from './pages/DefeatPage'
 import NotificationsPage from './pages/NotificationsPage'
@@ -70,6 +71,9 @@ function GameRoutes() {
           </AuthLayout>
         }
       />
+
+      {/* ── Invite link (public, handles auth redirect internally) ── */}
+      <Route path="/invite/:token" element={<InviteLinkPage />} />
 
       {/* ── Protected game pages ── */}
       <Route

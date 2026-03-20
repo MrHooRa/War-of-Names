@@ -46,10 +46,8 @@ export default function AdminCompetitionPage() {
   const [editDesc, setEditDesc] = useState('')
   const [editVisibility, setEditVisibility] = useState('private')
 
-  // Invite modal
-  const [showInvite, setShowInvite] = useState(false)
-  const [inviteCode, setInviteCode] = useState('')
-  const [inviteMaxUses, setInviteMaxUses] = useState('')
+  // Invite state (from new endpoint)
+  const [inviteState, setInviteState] = useState(null)
 
   const [submitting, setSubmitting] = useState(false)
 
@@ -68,6 +66,14 @@ export default function AdminCompetitionPage() {
   }, [selectedId])
 
   useEffect(() => { loadDetail() }, [loadDetail])
+
+  // Load invite state separately
+  useEffect(() => {
+    if (!selectedId) return
+    apiFetch(`/api/admin/competitions/${selectedId}/invite-state`)
+      .then(json => setInviteState(json.data))
+      .catch(() => setInviteState(null))
+  }, [selectedId])
 
   async function handleStatusChange(newStatus) {
     try {
@@ -149,43 +155,31 @@ export default function AdminCompetitionPage() {
     setSubmitting(false)
   }
 
-  async function handleCreateInvite() {
-    if (!inviteCode.trim()) return
-    setSubmitting(true)
+  async function handleRegenerateCode() {
     try {
-      const body = { competition_id: selectedId, code: inviteCode.trim() }
-      if (inviteMaxUses && Number(inviteMaxUses) > 0) body.max_uses = Number(inviteMaxUses)
-      await apiFetch('/api/admin/invites', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
-      showMsg('تم إنشاء رمز الدعوة')
-      setShowInvite(false)
-      setInviteCode('')
-      setInviteMaxUses('')
-      loadDetail()
-    } catch (err) {
-      showMsg(`خطأ: ${err.message}`)
-    }
-    setSubmitting(false)
-  }
-
-  async function handleInviteAction(inviteId, action) {
-    try {
-      await apiFetch(`/api/admin/invites/${inviteId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: action }),
-      })
-      showMsg(action === 'disabled' ? 'تم تعطيل الدعوة' : 'تم تفعيل الدعوة')
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/invite/regenerate-code`, { method: 'POST' })
+      showMsg('تم تجديد رمز الدعوة')
+      setInviteState(prev => ({ ...prev, code: { code: json.data.code, invite_type: 'code', status: 'active', use_count: 0 } }))
       loadDetail()
     } catch (err) {
       showMsg(`خطأ: ${err.message}`)
     }
   }
 
-  function copyInviteCode(code) {
-    navigator.clipboard.writeText(code)
-    showMsg('تم نسخ رمز الدعوة')
+  async function handleRegenerateLink() {
+    try {
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/invite/regenerate-link`, { method: 'POST' })
+      showMsg('تم تجديد رابط الدعوة')
+      setInviteState(prev => ({ ...prev, link: { code: json.data.token, invite_type: 'link', status: 'active', use_count: 0 } }))
+      loadDetail()
+    } catch (err) {
+      showMsg(`خطأ: ${err.message}`)
+    }
+  }
+
+  function copyToClipboard(text, label) {
+    navigator.clipboard.writeText(text)
+    showMsg(`تم نسخ ${label}`)
   }
 
   // ── No competition selected ──
@@ -344,52 +338,103 @@ export default function AdminCompetitionPage() {
         ))}
       </div>
 
-      {/* ══ Invite Codes ══ */}
+      {/* ══ Invite Management ══ */}
       <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
-            <iconify-icon icon="lucide:ticket" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
-            رموز الدعوة
-          </h2>
-          <button
-            onClick={() => setShowInvite(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-teal/10 hover:bg-brand-teal/20 text-brand-teal dark:text-brand-slate rounded-xl text-xs font-heading font-black smooth-transition"
-          >
-            <iconify-icon icon="lucide:plus" class="text-sm"></iconify-icon>
-            رمز جديد
-          </button>
-        </div>
-        <div className="space-y-2">
-          {detail.invites?.length > 0 ? detail.invites.map(inv => {
-            const invSt = inv.status === 'active'
-              ? 'bg-brand-success/10 text-brand-success'
-              : inv.status === 'disabled' ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : 'bg-gray-100 text-gray-500'
-            return (
-              <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <code className="bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate px-3 py-1 rounded-lg font-bold text-sm">{inv.code}</code>
-                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${invSt}`}>{inv.status}</span>
-                  <span className="text-xs text-gray-400 font-bold">{inv.use_count} استخدام{inv.max_uses ? ` / ${inv.max_uses}` : ''}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => copyInviteCode(inv.code)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-brand-teal/10 text-brand-teal hover:bg-brand-teal/20 smooth-transition"
-                    title="نسخ"
-                  >
-                    <iconify-icon icon="lucide:copy" class="text-sm"></iconify-icon>
-                  </button>
-                  {inv.status === 'active' ? (
-                    <button onClick={() => handleInviteAction(inv.id, 'disabled')} className="px-2 py-1 rounded-lg text-[10px] font-black bg-brand-danger/10 text-brand-danger hover:bg-brand-danger/20 smooth-transition">تعطيل</button>
-                  ) : inv.status === 'disabled' ? (
-                    <button onClick={() => handleInviteAction(inv.id, 'active')} className="px-2 py-1 rounded-lg text-[10px] font-black bg-brand-success/10 text-brand-success hover:bg-brand-success/20 smooth-transition">تفعيل</button>
-                  ) : null}
-                </div>
+        <h2 className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+          <iconify-icon icon="lucide:ticket" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
+          إدارة الدعوات
+        </h2>
+
+        <div className="space-y-4">
+          {/* Active Join Code */}
+          <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-black text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                <iconify-icon icon="lucide:key" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
+                رمز الانضمام
+              </span>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-brand-success/10 text-brand-success">
+                {inviteState?.code ? 'نشط' : 'غير موجود'}
+              </span>
+            </div>
+            {inviteState?.code ? (
+              <div className="flex items-center gap-3">
+                <code className="bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate px-4 py-2 rounded-lg font-bold text-lg tracking-widest flex-1 text-center">
+                  {inviteState.code.code}
+                </code>
+                <button
+                  onClick={() => copyToClipboard(inviteState.code.code, 'رمز الدعوة')}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-brand-teal/10 text-brand-teal hover:bg-brand-teal/20 smooth-transition"
+                  title="نسخ"
+                >
+                  <iconify-icon icon="lucide:copy" class="text-base"></iconify-icon>
+                </button>
+                <button
+                  onClick={handleRegenerateCode}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-200 smooth-transition"
+                  title="تجديد الرمز"
+                >
+                  <iconify-icon icon="lucide:refresh-cw" class="text-base"></iconify-icon>
+                </button>
               </div>
-            )
-          }) : (
-            <p className="text-sm font-bold text-gray-400 text-center py-4">لا توجد رموز دعوة</p>
-          )}
+            ) : (
+              <button
+                onClick={handleRegenerateCode}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-teal/10 hover:bg-brand-teal/20 text-brand-teal rounded-xl text-sm font-bold smooth-transition"
+              >
+                <iconify-icon icon="lucide:plus"></iconify-icon>
+                إنشاء رمز دعوة
+              </button>
+            )}
+            {inviteState?.code && (
+              <p className="text-xs text-gray-400 font-bold mt-2">{inviteState.code.use_count} استخدام</p>
+            )}
+          </div>
+
+          {/* Active Invite Link */}
+          <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-black text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                <iconify-icon icon="lucide:link" class="text-blue-500"></iconify-icon>
+                رابط الدعوة
+              </span>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-brand-success/10 text-brand-success">
+                {inviteState?.link ? 'نشط' : 'غير موجود'}
+              </span>
+            </div>
+            {inviteState?.link ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <code className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg font-bold text-xs flex-1 truncate" dir="ltr">
+                    {window.location.origin}/invite/{inviteState.link.code}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(`${window.location.origin}/invite/${inviteState.link.code}`, 'رابط الدعوة')}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 hover:bg-blue-200 smooth-transition flex-shrink-0"
+                    title="نسخ الرابط"
+                  >
+                    <iconify-icon icon="lucide:copy" class="text-base"></iconify-icon>
+                  </button>
+                  <button
+                    onClick={handleRegenerateLink}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-200 smooth-transition flex-shrink-0"
+                    title="تجديد الرابط"
+                  >
+                    <iconify-icon icon="lucide:refresh-cw" class="text-base"></iconify-icon>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 font-bold mt-2">{inviteState.link.use_count} استخدام</p>
+              </>
+            ) : (
+              <button
+                onClick={handleRegenerateLink}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 text-blue-600 rounded-xl text-sm font-bold smooth-transition"
+              >
+                <iconify-icon icon="lucide:plus"></iconify-icon>
+                إنشاء رابط دعوة
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -422,7 +467,6 @@ export default function AdminCompetitionPage() {
       {/* ══ Modals ══ */}
       {renderCreateModal()}
       {renderEditModal()}
-      {renderInviteModal()}
     </div>
   )
 
@@ -494,30 +538,4 @@ export default function AdminCompetitionPage() {
     )
   }
 
-  function renderInviteModal() {
-    if (!showInvite) return null
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowInvite(false)}>
-        <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
-          <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white">إنشاء رمز دعوة</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">رمز الدعوة <span className="text-brand-danger">*</span></label>
-              <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)} placeholder="أدخل رمز الدعوة" className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الحد الأقصى للاستخدام</label>
-              <input type="number" value={inviteMaxUses} onChange={e => setInviteMaxUses(e.target.value)} placeholder="اختياري — اتركه فارغاً لغير محدود" className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
-            </div>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button onClick={handleCreateInvite} disabled={submitting} className="flex-1 bg-brand-teal hover:bg-brand-teal-hover text-white py-3 rounded-xl font-heading font-black smooth-transition disabled:opacity-60">
-              {submitting ? 'جارٍ الإنشاء...' : 'إنشاء'}
-            </button>
-            <button onClick={() => setShowInvite(false)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 }

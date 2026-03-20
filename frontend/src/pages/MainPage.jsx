@@ -4,7 +4,8 @@
  * Auth-aware entry point:
  *  - Not logged in → immersive splash with login/register CTAs
  *  - Logged in, no memberships → inline join-competition flow
- *  - Logged in, has membership(s) → auto-navigate to /lobby
+ *  - Logged in, 1 active membership → auto-navigate to /lobby
+ *  - Logged in, multiple memberships → server selection screen
  *
  * Always rendered at "/". No sessionStorage skip logic.
  */
@@ -43,7 +44,7 @@ function ImmersiveBackground({ centerGlowRef }) {
 }
 
 /* ── Header strip (status + icons) ── */
-function MinimalHeader({ isAuthenticated, onLogout }) {
+function MinimalHeader({ isAuthenticated, onLogout, username }) {
   return (
     <header
       className="relative z-30 w-full p-6 flex justify-between items-center pointer-events-none"
@@ -55,13 +56,19 @@ function MinimalHeader({ isAuthenticated, onLogout }) {
       </div>
       <div className="flex gap-4 pointer-events-auto">
         {isAuthenticated && (
-          <button
-            onClick={onLogout}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-danger/50 transition-colors backdrop-blur-md"
-            title="تسجيل الخروج"
-          >
-            <iconify-icon icon="lucide:log-out" class="text-xl"></iconify-icon>
-          </button>
+          <>
+            <span className="flex items-center gap-2 text-sm text-gray-400 font-bold">
+              <iconify-icon icon="lucide:user" class="text-lg text-brand-teal"></iconify-icon>
+              {username}
+            </span>
+            <button
+              onClick={onLogout}
+              className="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-danger/50 transition-colors backdrop-blur-md"
+              title="تسجيل الخروج"
+            >
+              <iconify-icon icon="lucide:log-out" class="text-xl"></iconify-icon>
+            </button>
+          </>
         )}
       </div>
     </header>
@@ -100,7 +107,7 @@ function GuestView({ ctaBtnRef, centerGlowRef }) {
         className="inline-flex items-center gap-2 bg-brand-orange/10 border border-brand-orange/30 text-brand-orange px-5 py-2 rounded-full text-sm font-bold mb-8 shadow-[0_0_15px_rgba(216,67,21,0.2)]"
         style={{ opacity: 0, animation: 'slideDownFade 0.5s ease 0.8s forwards' }}
       >
-        <span className="text-lg leading-none">أقوى لعبة تنافسية لعام 2026 🔥</span>
+        <span className="text-lg leading-none">أقوى لعبة تنافسية لعام 2026</span>
       </div>
 
       {/* Mega CTA — Login */}
@@ -148,38 +155,27 @@ function GuestView({ ctaBtnRef, centerGlowRef }) {
 function JoinView() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ invite_code: '', alias: '' })
-  const [competitionId, setCompetitionId] = useState(null)
-  const [competitionName, setCompetitionName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    apiFetch('/api/competitions/active')
-      .then(json => {
-        if (json.data) {
-          setCompetitionId(json.data.competition_id)
-          setCompetitionName(json.data.name || '')
-        }
-      })
-      .catch(() => {})
-  }, [])
-
   async function handleJoin(e) {
     e.preventDefault()
-    if (!competitionId) {
-      setError('لا توجد منافسة مفتوحة حالياً')
-      return
-    }
     setError('')
     setLoading(true)
     try {
-      await apiFetch(`/api/competitions/${competitionId}/join`, {
+      await apiFetch('/api/join', {
         method: 'POST',
         body: JSON.stringify(form),
       })
       navigate('/lobby', { replace: true })
     } catch (err) {
-      setError(err.message)
+      // Parse structured error if available
+      const detail = err.data
+      if (detail && detail.message) {
+        setError(detail.message)
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -196,11 +192,7 @@ function JoinView() {
             <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
           </div>
           <h2 className="font-heading font-black text-2xl text-white mb-2">انضم للمنافسة</h2>
-          <p className="text-gray-400 font-bold text-sm">
-            {competitionName
-              ? `أدخل كود الدعوة للانضمام إلى "${competitionName}"`
-              : 'أدخل كود الدعوة واختر لقبك القتالي'}
-          </p>
+          <p className="text-gray-400 font-bold text-sm">أدخل كود الدعوة واختر لقبك القتالي</p>
         </div>
 
         <form onSubmit={handleJoin} className="space-y-5">
@@ -270,6 +262,96 @@ function JoinView() {
   )
 }
 
+/* ── State: Multiple memberships — server selection ── */
+function ServerSelectView({ memberships, onJoinAnother }) {
+  const navigate = useNavigate()
+
+  const activeMemberships = memberships.filter(m => m.status === 'active')
+  const inactiveMemberships = memberships.filter(m => m.status !== 'active')
+
+  function enterCompetition(membership) {
+    // Store selected competition context then navigate
+    localStorage.setItem('won_active_competition', membership.competition_id)
+    navigate('/lobby', { replace: true })
+  }
+
+  return (
+    <div
+      className="w-full max-w-2xl"
+      style={{ opacity: 0, animation: 'fadeInScale 0.6s cubic-bezier(0.16,1,0.3,1) 0.6s forwards' }}
+    >
+      <div className="text-center mb-8">
+        <h2 className="font-heading font-black text-2xl text-white mb-2">اختر الخادم</h2>
+        <p className="text-gray-400 font-bold text-sm">اختر المنافسة التي تريد الدخول إليها</p>
+      </div>
+
+      <div className="space-y-4">
+        {activeMemberships.map(m => (
+          <button
+            key={m.membership_id}
+            onClick={() => enterCompetition(m)}
+            className="w-full bg-white/5 backdrop-blur-xl border border-white/10 hover:border-brand-teal/40 rounded-2xl p-6 text-right transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-heading font-black text-lg text-white group-hover:text-brand-teal transition-colors">
+                  {m.competition_name}
+                </h3>
+                <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <iconify-icon icon="lucide:user" class="text-brand-teal"></iconify-icon>
+                    {m.alias}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <iconify-icon icon="lucide:coins" class="text-amber-400"></iconify-icon>
+                    {m.balance?.toLocaleString()} نقطة
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-brand-emerald shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
+                <iconify-icon icon="lucide:chevron-left" class="text-2xl text-gray-500 group-hover:text-brand-teal transition-colors"></iconify-icon>
+              </div>
+            </div>
+          </button>
+        ))}
+
+        {inactiveMemberships.map(m => (
+          <div
+            key={m.membership_id}
+            className="w-full bg-white/5 backdrop-blur-xl border border-white/5 rounded-2xl p-6 text-right opacity-50"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-heading font-bold text-lg text-gray-400">
+                  {m.competition_name}
+                </h3>
+                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                  <span>{m.alias}</span>
+                  <span className="bg-gray-700 px-2 py-0.5 rounded text-xs font-bold">
+                    {m.status === 'suspended' ? 'معلّق' : m.status === 'removed' ? 'مُزال' : m.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Join another competition */}
+      <div className="mt-8 text-center">
+        <button
+          onClick={onJoinAnother}
+          className="inline-flex items-center gap-2 text-brand-teal font-bold text-sm hover:underline transition-colors"
+        >
+          <iconify-icon icon="lucide:plus" class="text-lg"></iconify-icon>
+          انضمام لمنافسة أخرى
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main Page Component ── */
 export default function MainPage() {
   const navigate = useNavigate()
@@ -279,6 +361,7 @@ export default function MainPage() {
 
   const [memberships, setMemberships] = useState(null) // null = loading, [] = none
   const [checkingMemberships, setCheckingMemberships] = useState(true)
+  const [showJoinForm, setShowJoinForm] = useState(false)
 
   // If logged in, check memberships
   useEffect(() => {
@@ -292,9 +375,10 @@ export default function MainPage() {
         const mems = json.data || []
         setMemberships(mems)
 
-        // Auto-navigate if user has active memberships
+        // Auto-navigate if user has exactly 1 active membership
         const activeMems = mems.filter(m => m.status === 'active')
-        if (activeMems.length > 0) {
+        if (activeMems.length === 1) {
+          localStorage.setItem('won_active_competition', activeMems[0].competition_id)
           navigate('/lobby', { replace: true })
         }
       })
@@ -305,6 +389,7 @@ export default function MainPage() {
   }, [isAuthenticated, navigate])
 
   function handleLogout() {
+    localStorage.removeItem('won_active_competition')
     logout()
     navigate('/', { replace: true })
   }
@@ -324,13 +409,22 @@ export default function MainPage() {
     )
   }
 
+  // Determine which view to show
+  const activeMems = (memberships || []).filter(m => m.status === 'active')
+  const hasMultiple = activeMems.length > 1
+  const hasNone = !memberships || memberships.length === 0 || showJoinForm
+
   return (
     <div
       className="min-h-screen flex flex-col relative"
       style={{ backgroundColor: '#0a0d14', color: '#FFFFFF', overflowX: 'hidden', WebkitFontSmoothing: 'antialiased' }}
     >
       <ImmersiveBackground centerGlowRef={centerGlowRef} />
-      <MinimalHeader isAuthenticated={isAuthenticated} onLogout={handleLogout} />
+      <MinimalHeader
+        isAuthenticated={isAuthenticated}
+        onLogout={handleLogout}
+        username={currentUser?.username}
+      />
 
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-4 py-12 md:py-8">
         {/* Central Logo — always shown */}
@@ -347,7 +441,13 @@ export default function MainPage() {
         <div className="relative w-full max-w-2xl flex flex-col items-center text-center">
           {!isAuthenticated ? (
             <GuestView ctaBtnRef={ctaBtnRef} centerGlowRef={centerGlowRef} />
-          ) : memberships && memberships.length > 0 && !memberships.some(m => m.status === 'active') ? (
+          ) : hasMultiple && !showJoinForm ? (
+            /* Multiple memberships — show server selection */
+            <ServerSelectView
+              memberships={memberships}
+              onJoinAnother={() => setShowJoinForm(true)}
+            />
+          ) : memberships && memberships.length > 0 && !activeMems.length && !showJoinForm ? (
             /* Logged in with memberships but none active (all suspended/archived) */
             <div className="w-full max-w-lg" style={{ opacity: 0, animation: 'fadeInScale 0.6s cubic-bezier(0.16,1,0.3,1) 0.6s forwards' }}>
               <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl text-center">
@@ -358,7 +458,7 @@ export default function MainPage() {
               </div>
             </div>
           ) : (
-            /* Logged in but no memberships — show join flow */
+            /* No memberships or "join another" clicked — show join flow */
             <JoinView />
           )}
         </div>

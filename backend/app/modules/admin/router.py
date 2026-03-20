@@ -43,6 +43,12 @@ from app.modules.scoring.models import LedgerEntry
 from app.modules.settings.models import SettingDefinition, SettingValue
 from app.modules.store.models import ItemDefinition, ItemEffect, OwnedItem, StoreListing
 from app.modules.audit.service import write_audit
+from app.modules.competitions.invite_service import (
+    create_invite as create_invite_svc,
+    get_active_invite,
+    get_invite_state,
+    regenerate_invite,
+)
 from app.modules.store.effect_config import validate_effect, generate_effect_summary, get_effect_types_schema
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -337,23 +343,94 @@ class CreateCompetitionRequest(BaseModel):
     name: str
     description: str | None = None
     visibility: str = "private"
+    auto_activate: bool = False
 
 
 @router.post("/competitions", status_code=201)
 async def create_competition(body: CreateCompetitionRequest, admin: AdminAccount):
-    """Create a new competition."""
+    """Create a new competition with full lifecycle initialization.
+
+    Auto-creates: initial season, initial cycle, join code, invite link.
+    If auto_activate=true, sets everything to ACTIVE + registration_open.
+    """
     async with async_session() as session:
+        initial_status = CompetitionStatus.ACTIVE if body.auto_activate else CompetitionStatus.DRAFT
+        season_status = SeasonStatus.ACTIVE if body.auto_activate else SeasonStatus.DRAFT
+        cycle_status = CycleStatus.ACTIVE if body.auto_activate else CycleStatus.DRAFT
+        now = datetime.utcnow()
+
+        # 1. Create competition
         comp = Competition(
             name=body.name,
             description=body.description,
             visibility=body.visibility,
-            status=CompetitionStatus.DRAFT,
+            status=initial_status,
+            registration_open=body.auto_activate,
             created_by=admin.id,
         )
         session.add(comp)
+        await session.flush()
+
+        # 2. Create initial season
+        season = Season(
+            competition_id=comp.id,
+            name="الموسم الأول",
+            order_index=1,
+            status=season_status,
+            starts_at=now if body.auto_activate else None,
+        )
+        session.add(season)
+        await session.flush()
+
+        # 3. Create initial cycle
+        cycle = Cycle(
+            season_id=season.id,
+            label="الدورة الأولى",
+            order_index=1,
+            status=cycle_status,
+            starts_at=now if body.auto_activate else None,
+        )
+        session.add(cycle)
+
+        # 4. Create join code + invite link
+        invite_code = await create_invite_svc(
+            session, comp.id, InviteType.CODE, created_by=admin.id,
+        )
+        invite_link = await create_invite_svc(
+            session, comp.id, InviteType.LINK, created_by=admin.id,
+        )
+
+        # 5. Audit trail
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=comp.id,
+            event_type="competition_created",
+            summary=f"إنشاء منافسة جديدة: {comp.name}",
+            after_state={
+                "name": comp.name,
+                "status": str(comp.status),
+                "registration_open": comp.registration_open,
+                "season_id": str(season.id),
+                "cycle_id": str(cycle.id),
+                "join_code": invite_code.code,
+            },
+        )
+
         await session.commit()
-        await session.refresh(comp)
-    return {"success": True, "data": {"id": str(comp.id)}, "message": "تم إنشاء المنافسة بنجاح"}
+
+    return {
+        "success": True,
+        "data": {
+            "id": str(comp.id),
+            "join_code": invite_code.code,
+            "invite_link_token": invite_link.code,
+            "season_id": str(season.id),
+            "cycle_id": str(cycle.id),
+        },
+        "message": "تم إنشاء المنافسة بنجاح مع الموسم والدورة ورمز الدعوة",
+    }
 
 
 @router.patch("/competitions/{competition_id}")
@@ -390,6 +467,97 @@ async def update_competition(competition_id: uuid.UUID, body: CompetitionUpdateR
         await session.commit()
 
     return {"success": True, "message": "تم تحديث المنافسة بنجاح"}
+
+
+# ── Invite Management ─────────────────────────────────────────────────────
+
+
+@router.get("/competitions/{competition_id}/invite-state")
+async def admin_invite_state(competition_id: uuid.UUID, admin: AdminAccount):
+    """Get the current active join code and invite link for a competition."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        state = await get_invite_state(session, competition_id)
+
+    return {
+        "success": True,
+        "data": {
+            "competition_id": str(competition_id),
+            "registration_open": comp.registration_open,
+            **state,
+        },
+    }
+
+
+@router.post("/competitions/{competition_id}/invite/regenerate-code")
+async def admin_regenerate_code(competition_id: uuid.UUID, admin: AdminAccount):
+    """Regenerate the active join code — disables the old one."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        old_invite = await get_active_invite(session, competition_id, InviteType.CODE)
+        old_code = old_invite.code if old_invite else None
+
+        new_invite = await regenerate_invite(
+            session, competition_id, InviteType.CODE, created_by=admin.id,
+        )
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition_invite",
+            subject_id=comp.id,
+            event_type="invite_code_regenerated",
+            summary=f"تجديد رمز الدعوة للمنافسة: {comp.name}",
+            before_state={"code": old_code},
+            after_state={"code": new_invite.code},
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"code": new_invite.code},
+        "message": "تم تجديد رمز الدعوة بنجاح",
+    }
+
+
+@router.post("/competitions/{competition_id}/invite/regenerate-link")
+async def admin_regenerate_link(competition_id: uuid.UUID, admin: AdminAccount):
+    """Regenerate the active invite link — disables the old one."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        old_invite = await get_active_invite(session, competition_id, InviteType.LINK)
+        old_token = old_invite.code if old_invite else None
+
+        new_invite = await regenerate_invite(
+            session, competition_id, InviteType.LINK, created_by=admin.id,
+        )
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition_invite",
+            subject_id=comp.id,
+            event_type="invite_link_regenerated",
+            summary=f"تجديد رابط الدعوة للمنافسة: {comp.name}",
+            before_state={"token": old_token},
+            after_state={"token": new_invite.code},
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"token": new_invite.code},
+        "message": "تم تجديد رابط الدعوة بنجاح",
+    }
 
 
 class CreateSeasonRequest(BaseModel):
