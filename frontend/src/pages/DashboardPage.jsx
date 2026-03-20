@@ -21,8 +21,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (data) {
-      apiFetch('/api/me/attacks').then(r => { if (r.data) setAttacks(r.data) }).catch(() => {})
-      apiFetch('/api/me/inventory-details').then(r => { if (r.data) setInventory(r.data) }).catch(() => {})
+      const cid = data.competition_id
+      const qs = cid ? `?competition_id=${cid}` : ''
+      apiFetch(`/api/me/attacks${qs}`).then(r => { if (r.data) setAttacks(r.data) }).catch(() => {})
+      apiFetch(`/api/me/inventory-details${qs}`).then(r => { if (r.data) setInventory(r.data) }).catch(() => {})
     }
   }, [data])
 
@@ -30,10 +32,12 @@ export default function DashboardPage() {
     setUsingItemId(ownedItemId)
     setItemMessage(null)
     try {
-      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use`, { method: 'POST' })
+      const cid = data?.competition_id
+      const qs = cid ? `?competition_id=${cid}` : ''
+      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use${qs}`, { method: 'POST' })
       setItemMessage({ type: 'success', text: res.message || 'تم استخدام العنصر بنجاح' })
       // Refresh inventory
-      const inv = await apiFetch('/api/me/inventory-details')
+      const inv = await apiFetch(`/api/me/inventory-details${qs}`)
       if (inv.data) setInventory(inv.data)
     } catch (err) {
       setItemMessage({ type: 'error', text: err.message })

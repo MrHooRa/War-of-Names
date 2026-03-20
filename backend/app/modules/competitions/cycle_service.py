@@ -1,11 +1,16 @@
 """
-Cycle lifecycle service — start, end, advance cycles with real operational events.
+Season & cycle lifecycle service — start, end, advance with real operational events.
 
 Every cycle transition triggers:
   - Protection resets (clear temporary protections at cycle rollover)
   - Bankruptcy recovery (clear is_bankrupt flags)
   - Member notifications (CYCLE_STARTED / CYCLE_ENDED)
   - Status cascading (deactivate previous active cycle in season)
+
+Season transitions trigger:
+  - Multi-active prevention (complete other active seasons)
+  - Cascade to child cycles (end active cycles when ending a season)
+  - Member notifications (GENERAL — no dedicated season enum value)
 """
 
 import uuid
@@ -21,6 +26,7 @@ from app.core.enums import (
     NotificationPriority,
     NotificationType,
     ProtectionType,
+    SeasonStatus,
 )
 from app.modules.attacks.models import BankruptcyRecord
 from app.modules.competitions.models import Cycle, Membership, Season
@@ -276,3 +282,148 @@ async def broadcast_to_competition(
         message=message,
         priority=priority,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SEASON LIFECYCLE
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def start_season(
+    session: AsyncSession,
+    season: Season,
+    competition_id: uuid.UUID,
+) -> dict:
+    """
+    Start a season — the full lifecycle event:
+      1. Complete any other active season in the same competition
+      2. Activate this season with starts_at = now
+      3. Notify all competition members
+    """
+    now = datetime.utcnow()
+
+    # 1. Complete other active seasons in the same competition
+    prev_result = await session.execute(
+        select(Season).where(
+            Season.competition_id == competition_id,
+            Season.status == SeasonStatus.ACTIVE,
+            Season.id != season.id,
+        )
+    )
+    prev_seasons = prev_result.scalars().all()
+    for s in prev_seasons:
+        s.status = SeasonStatus.COMPLETED
+        s.ends_at = now
+
+    # 2. Activate this season
+    season.status = SeasonStatus.ACTIVE
+    season.starts_at = now
+
+    # 3. Notify all active members
+    members = await _get_competition_members(session, competition_id)
+    notified = await _notify_members(
+        session,
+        members,
+        notification_type=NotificationType.GENERAL,
+        title="بداية موسم جديد",
+        message=f"بدأ الموسم: {season.name}! استعد للمنافسة.",
+        priority=NotificationPriority.HIGH,
+        reference_type="season",
+        reference_id=season.id,
+    )
+
+    return {
+        "previous_seasons_completed": len(prev_seasons),
+        "members_notified": notified,
+    }
+
+
+async def end_season(
+    session: AsyncSession,
+    season: Season,
+    competition_id: uuid.UUID,
+) -> dict:
+    """
+    End a season — the full lifecycle event:
+      1. End all active cycles in this season (with full cycle-end effects)
+      2. Mark season as COMPLETED with ends_at = now
+      3. Notify all competition members
+    """
+    now = datetime.utcnow()
+
+    # 1. End all active cycles in this season (with full lifecycle events)
+    active_cycles_result = await session.execute(
+        select(Cycle).where(
+            Cycle.season_id == season.id,
+            Cycle.status == CycleStatus.ACTIVE,
+        )
+    )
+    active_cycles = active_cycles_result.scalars().all()
+    cycle_results = []
+    for cycle in active_cycles:
+        cr = await end_cycle(session, cycle, season)
+        cycle_results.append({
+            "cycle_id": str(cycle.id),
+            "label": cycle.label,
+            **cr.to_dict(),
+        })
+
+    # 2. Complete the season
+    season.status = SeasonStatus.COMPLETED
+    season.ends_at = now
+
+    # 3. Notify all active members
+    members = await _get_competition_members(session, competition_id)
+    notified = await _notify_members(
+        session,
+        members,
+        notification_type=NotificationType.GENERAL,
+        title="انتهى الموسم",
+        message=f"انتهى الموسم: {season.name}. شكراً لمشاركتك!",
+        priority=NotificationPriority.NORMAL,
+        reference_type="season",
+        reference_id=season.id,
+    )
+
+    return {
+        "cycles_ended": cycle_results,
+        "members_notified": notified,
+    }
+
+
+async def close_expired_cycles(
+    session: AsyncSession,
+    competition_id: uuid.UUID,
+) -> list[dict]:
+    """
+    Find all cycles that are still ACTIVE but whose ends_at has passed,
+    and close them with full lifecycle events.
+
+    Returns a list of closure results (one per auto-closed cycle).
+    Call this at key operational points (cycle start, advance) as a
+    lazy auto-close mechanism.
+    """
+    now = datetime.utcnow()
+    expired_result = await session.execute(
+        select(Cycle, Season)
+        .join(Season, Cycle.season_id == Season.id)
+        .where(
+            Season.competition_id == competition_id,
+            Cycle.status == CycleStatus.ACTIVE,
+            Cycle.ends_at != None,  # noqa: E711
+            Cycle.ends_at < now,
+        )
+    )
+    expired_rows = expired_result.all()
+
+    results = []
+    for cycle, season in expired_rows:
+        cr = await end_cycle(session, cycle, season)
+        results.append({
+            "cycle_id": str(cycle.id),
+            "label": cycle.label,
+            "auto_closed": True,
+            **cr.to_dict(),
+        })
+
+    return results

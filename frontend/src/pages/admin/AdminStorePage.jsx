@@ -512,24 +512,45 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
 function ItemCatalogTab({ items, refetchItems, flashMessage }) {
   const [showItemForm, setShowItemForm] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
-  const [deletingItem, setDeletingItem] = useState(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [archivingItem, setArchivingItem] = useState(null)
+  const [archiveLoading, setArchiveLoading] = useState(false)
+  const [revokingItem, setRevokingItem] = useState(null)
+  const [revokeLoading, setRevokeLoading] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const [itemDetail, setItemDetail] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [showEffectForm, setShowEffectForm] = useState(false)
   const [editingEffect, setEditingEffect] = useState(null)
 
-  async function handleDeleteItem() {
-    if (!deletingItem) return
-    setDeleteLoading(true)
+  async function handleArchiveItem() {
+    if (!archivingItem) return
+    setArchiveLoading(true)
     try {
-      await apiFetch(`/api/admin/store/items/${deletingItem.id}`, { method: 'DELETE' })
-      flashMessage('تم أرشفة العنصر')
-      setDeletingItem(null)
+      const res = await apiFetch(`/api/admin/store/items/${archivingItem.id}`, { method: 'DELETE' })
+      const deactivated = res.data?.listings_deactivated || 0
+      const remaining = res.data?.owned_items_remaining || 0
+      let msg = `تم أرشفة «${archivingItem.name}»`
+      if (deactivated > 0) msg += ` — تم إخفاء ${deactivated} عرض`
+      if (remaining > 0) msg += ` — ${remaining} نسخة لا تزال مملوكة للاعبين`
+      flashMessage(msg)
+      setArchivingItem(null)
       refetchItems()
     } catch (err) { flashMessage(`خطأ: ${err.message}`) }
-    finally { setDeleteLoading(false) }
+    finally { setArchiveLoading(false) }
+  }
+
+  async function handleBulkRevoke() {
+    if (!revokingItem) return
+    setRevokeLoading(true)
+    try {
+      const res = await apiFetch(`/api/admin/store/items/${revokingItem.id}/revoke-all`, {
+        method: 'POST', body: JSON.stringify({ reason: 'مصادرة جماعية بعد أرشفة العنصر' }),
+      })
+      flashMessage(`تمت مصادرة ${res.data?.revoked_count || 0} نسخة من ${res.data?.players_affected || 0} لاعب`)
+      setRevokingItem(null)
+      refetchItems()
+    } catch (err) { flashMessage(`خطأ: ${err.message}`) }
+    finally { setRevokeLoading(false) }
   }
 
   function handleItemSaved() {
@@ -611,10 +632,17 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
                       className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل">
                       <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
                     </button>
-                    <button onClick={() => setDeletingItem(item)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="أرشفة">
-                      <iconify-icon icon="lucide:archive" class="text-sm"></iconify-icon>
-                    </button>
+                    {item.status !== 'archived' ? (
+                      <button onClick={() => setArchivingItem(item)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 smooth-transition" title="أرشفة — إيقاف البيع">
+                        <iconify-icon icon="lucide:archive" class="text-sm"></iconify-icon>
+                      </button>
+                    ) : item.owned_count > 0 ? (
+                      <button onClick={() => setRevokingItem(item)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="مصادرة من جميع اللاعبين">
+                        <iconify-icon icon="lucide:user-x" class="text-sm"></iconify-icon>
+                      </button>
+                    ) : null}
                   </div>
                 </div>
                 {item.description && (
@@ -713,7 +741,36 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
 
       {/* Modals */}
       {showItemForm && <ItemFormModal item={editingItem} onClose={() => { setShowItemForm(false); setEditingItem(null) }} onSaved={handleItemSaved} />}
-      {deletingItem && <ConfirmDialog title="أرشفة العنصر" message={`هل أنت متأكد من أرشفة "${deletingItem.name}"؟ لن يمكن استخدامه في عروض جديدة.`} onConfirm={handleDeleteItem} onCancel={() => setDeletingItem(null)} loading={deleteLoading} />}
+
+      {archivingItem && (
+        <ConfirmDialog
+          title="أرشفة العنصر"
+          message={
+            `هل أنت متأكد من أرشفة «${archivingItem.name}»؟` +
+            (archivingItem.listing_count > 0
+              ? `\n\nسيتم إخفاء ${archivingItem.listing_count} عرض نشط تلقائياً — لن يتمكن اللاعبون من شرائه بعد الآن.`
+              : '') +
+            (archivingItem.owned_count > 0
+              ? `\n\n${archivingItem.owned_count} نسخة مملوكة للاعبين ستبقى في مخزونهم. يمكنك مصادرتها لاحقاً إذا أردت.`
+              : '') +
+            '\n\nلا يمكن التراجع عن هذا الإجراء.'
+          }
+          onConfirm={handleArchiveItem}
+          onCancel={() => setArchivingItem(null)}
+          loading={archiveLoading}
+        />
+      )}
+
+      {revokingItem && (
+        <ConfirmDialog
+          title="مصادرة جماعية"
+          message={`هل أنت متأكد من مصادرة جميع نسخ «${revokingItem.name}» من مخزون اللاعبين؟\n\nسيتم إزالة ${revokingItem.owned_count} نسخة نشطة وإبلاغ كل لاعب متأثر.\n\nسجلات الشراء والاستخدام السابقة لن تتأثر.`}
+          onConfirm={handleBulkRevoke}
+          onCancel={() => setRevokingItem(null)}
+          loading={revokeLoading}
+        />
+      )}
+
       {showEffectForm && expandedId && <EffectFormModal itemId={expandedId} effect={editingEffect} onClose={() => { setShowEffectForm(false); setEditingEffect(null) }} onSaved={handleEffectSaved} />}
     </>
   )
@@ -851,7 +908,7 @@ function StoreListingsTab({ listings, items, competitionId, refetchListings, fla
 
       {/* Modals */}
       {showListingForm && <ListingFormModal items={items} listing={editingListing} competitionId={competitionId} onClose={() => { setShowListingForm(false); setEditingListing(null) }} onSaved={handleListingSaved} />}
-      {deletingListing && <ConfirmDialog title="حذف العرض" message={`هل أنت متأكد من إخفاء عرض "${deletingListing.item_name}"؟`} onConfirm={handleDeleteListing} onCancel={() => setDeletingListing(null)} loading={deleteLoading} />}
+      {deletingListing && <ConfirmDialog title="إخفاء العرض من المتجر" message={`هل أنت متأكد من إخفاء عرض «${deletingListing.item_name}»؟\n\nلن يظهر العرض في المتجر بعد الآن، لكن العناصر المباعة سابقاً ستبقى عند اللاعبين.`} onConfirm={handleDeleteListing} onCancel={() => setDeletingListing(null)} loading={deleteLoading} />}
     </>
   )
 }

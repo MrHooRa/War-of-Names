@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حرب الأسماء | هل تملك الجرأة؟</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Changa:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-bg': '#0a0d14',
+                        'brand-surface': '#151b29',
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-hover': '#067a79',
+                        'brand-teal-light': '#00D9E9',
+                        'brand-slate': '#64748B',
+                        'brand-orange': '#D84315',
+                        'brand-purple': '#9333EA',
+                        'brand-dark': '#1F2937',
+                        'brand-card-dark': '#1F2937',
+                        'brand-success': '#10B981',
+                        'brand-danger': '#EF4444',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    },
+                    animation: {
+                        'float-slow': 'floatUpDown 6s ease-in-out infinite',
+                        'float-medium': 'floatUpDown 5s ease-in-out infinite 1s',
+                        'shimmer': 'shimmerPass 3s infinite linear',
+                    },
+                    keyframes: {
+                        floatUpDown: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-15px)' },
+                        },
+                        shimmerPass: {
+                            '0%': { backgroundPosition: '200% 0' },
+                            '100%': { backgroundPosition: '-200% 0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base Theme */
+        html { scroll-behavior: smooth; }
+        body {
+            background-color: #0a0d14;
+            color: #FFFFFF;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Cinematic Backgrounds */
+        .hex-bg {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='103.92304845413264' viewBox='0 0 60 103.92304845413264' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpolygon points='30 103.92304845413264 0 86.60254037844386 0 51.96152422706632 30 34.64101615137754 60 51.96152422706632 60 86.60254037844386'/%3E%3Cpolygon points='30 51.96152422706632 0 34.64101615137754 0 0 30 -17.32050807568877 60 0 60 34.64101615137754'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            background-size: 100px 173.2px;
+        }
+
+        .bg-shape {
+            animation: rotateShape 45s linear infinite;
+        }
+        .bg-shape-reverse {
+            animation: rotateShapeReverse 55s linear infinite;
+        }
+        @keyframes rotateShape { to { transform: rotate(360deg); } }
+        @keyframes rotateShapeReverse { to { transform: rotate(-360deg); } }
+
+        /* Mega CTA Animations */
+        .glow-pulse {
+            box-shadow: 0 0 20px rgba(216, 67, 21, 0.5), 0 0 40px rgba(11, 138, 141, 0.4);
+            animation: pulseGlow 3s infinite alternate;
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 20px rgba(216, 67, 21, 0.4), 0 0 40px rgba(11, 138, 141, 0.3); }
+            100% { box-shadow: 0 0 50px rgba(216, 67, 21, 0.8), 0 0 70px rgba(11, 138, 141, 0.7); }
+        }
+
+        .btn-shimmer {
+            background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 60%, rgba(255,255,255,0) 100%);
+            background-size: 200% 100%;
+        }
+
+        /* Scroll Reveal Utility */
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-on-scroll.is-revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Custom Grid/Gradients for UI Mockups */
+        .mockup-grid { background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 20px 20px; }
+
+        /* Season Victory Crown Glow */
+        @keyframes crownGlow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.4)); }
+            50% { filter: drop-shadow(0 0 50px rgba(245, 158, 11, 0.8)) drop-shadow(0 0 80px rgba(245, 158, 11, 0.3)); }
+        }
+        .crown-glow { animation: crownGlow 4s ease-in-out infinite; }
+
+        /* Season timeline connector */
+        .season-connector {
+            background: linear-gradient(90deg, transparent 0%, rgba(11,138,141,0.5) 20%, rgba(216,67,21,0.5) 50%, rgba(147,51,234,0.5) 80%, rgba(245,158,11,0.8) 100%);
+        }
+
+        /* Battle Impact Scene */
+        @keyframes impactFlash {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.15); }
+        }
+        @keyframes scoreFloatUp {
+            0% { opacity: 0; transform: translateY(8px); }
+            30% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        .impact-flash { animation: impactFlash 2.5s ease-in-out infinite; }
+        .score-float-up { animation: scoreFloatUp 3s ease-out infinite; }
+        .score-float-down { animation: scoreFloatUp 3.5s ease-out infinite 0.8s; }
+
+        /* Hex clip path for alias badges */
+        .hex-clip { clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+
+        /* Arena entrance glow */
+        @keyframes arenaGlow {
+            0%, 100% { box-shadow: 0 0 40px rgba(11,138,141,0.15), 0 0 80px rgba(216,67,21,0.1), inset 0 0 40px rgba(11,138,141,0.08); }
+            50% { box-shadow: 0 0 80px rgba(11,138,141,0.35), 0 0 140px rgba(216,67,21,0.2), inset 0 0 80px rgba(11,138,141,0.15); }
+        }
+        .arena-glow { animation: arenaGlow 5s ease-in-out infinite; }
+
+        /* Victory rank pulse */
+        @keyframes rankPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+            50% { transform: scale(1.02); box-shadow: 0 0 30px rgba(245,158,11,0.15); }
+        }
+        .rank-pulse { animation: rankPulse 3s ease-in-out infinite; }
+    </style>
+  <style>sd-component { display: block; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/petite-vue@0.4.1/dist/petite-vue.iife.js" defer init></script>
+</head>
+<body class="dark relative">
+
+    <!-- Global Immersive Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(21,27,41,0.8)_0%,rgba(10,13,20,1)_80%)]"></div>
+        <div class="absolute inset-0 hex-bg opacity-20"></div>
+        <div class="absolute top-[-10%] -right-[10%] w-[800px] h-[800px] opacity-[0.07] bg-shape">
+            <svg viewBox="0 0 100 100" class="w-full h-full text-brand-teal fill-current drop-shadow-[0_0_80px_rgba(11,138,141,1)]">
+                <polygon points="50 1, 93.3 25, 93.3 75, 50 99, 6.7 75, 6.7 25"></polygon>
+            </svg>
+        </div>
+        <div class="absolute bottom-[10%] -left-[10%] w-[900px] h-[900px] opacity-[0.05] bg-shape-reverse">
+            <svg viewBox="0 0 100 100" class="w-full h-full text-brand-orange fill-current drop-shadow-[0_0_100px_rgba(216,67,21,1)]">
+                <polygon points="50 1, 93.3 25, 93.3 75, 50 99, 6.7 75, 6.7 25"></polygon>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Landing Header (Minimal — logo + CTA only) -->
+    <div class="relative z-50 w-full">
+        <header class="fixed top-0 w-full z-50 bg-brand-bg/80 backdrop-blur-xl border-b border-white/5 px-6 py-3 transition-colors duration-300">
+            <div class="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
+                <a href="#" class="block hover:opacity-80 transition-opacity">
+                    <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[120px] md:w-[140px] object-contain drop-shadow-sm">
+                </a>
+                <div class="flex items-center gap-4 flex-row-reverse">
+                    <a href="#how-to-play" class="hidden md:inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-gray-300 hover:text-white rounded-lg transition-colors">
+                        كيف تلعب؟
+                    </a>
+                    <a href="#final-cta" class="inline-flex items-center gap-2 bg-brand-teal hover:bg-brand-teal-hover text-white px-6 py-2.5 rounded-xl font-heading font-bold text-sm transition-all duration-300 hover:scale-105">
+                        <iconify-icon icon="mdi:rocket-launch" class="text-lg"></iconify-icon>
+                        ابدأ الآن
+                    </a>
+                </div>
+            </div>
+        </header>
+    </div>
+
+    <main class="relative z-10">
+
+        <!-- ==========================================
+             SECTION 1: HERO
+             ========================================== -->
+        <section class="min-h-[90vh] flex flex-col items-center justify-center relative px-4 pt-20 pb-32 overflow-hidden">
+            <!-- Center Glow -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-teal/15 blur-[100px] rounded-full pointer-events-none"></div>
+            
+            <div class="flex flex-col items-center text-center max-w-4xl mx-auto space-y-8 reveal-on-scroll">
+                <!-- Animated Logo -->
+                <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[280px] md:w-[380px] object-contain drop-shadow-[0_0_40px_rgba(11,138,141,0.4)] animate-float-slow mb-4">
+
+                <h1 class="text-5xl md:text-7xl lg:text-8xl font-heading font-black text-white tracking-tight drop-shadow-lg leading-tight">
+                    هل تملك <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-teal to-brand-teal-light">الجرأة؟</span>
+                </h1>
+                
+                <p class="text-xl md:text-2xl text-gray-300 font-body font-medium max-w-2xl leading-relaxed drop-shadow-md">
+                    منافسة موسمية بين مجموعة حقيقية. تخفّى خلف لقب، اكسب النقاط، هاجم خصومك، وأنهِ الموسم في القمة.
+                </p>
+
+                <!-- Hero CTAs -->
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6 w-full pt-8">
+                    <!-- Mega CTA -->
+                    <div class="relative group">
+                        <div class="absolute -top-6 left-1/2 -translate-x-1/2 w-max bg-brand-orange/20 border border-brand-orange/40 text-brand-orange px-4 py-1 rounded-full text-xs font-black tracking-wider backdrop-blur-md animate-bounce">
+                            ⚔️ الموسم الأول مفتوح
+                        </div>
+                        <a href="#final-cta" class="relative flex items-center justify-center gap-3 bg-gradient-to-r from-brand-teal to-brand-orange hover:from-[#09a0a4] hover:to-[#f04c18] text-white px-12 py-5 md:px-16 md:py-6 rounded-3xl font-heading font-black transition-all duration-300 transform hover:scale-105 active:scale-95 glow-pulse overflow-hidden">
+                            <div class="btn-shimmer animate-shimmer absolute inset-0 pointer-events-none"></div>
+                            <iconify-icon icon="mdi:rocket-launch" class="text-3xl md:text-4xl drop-shadow-md relative z-10"></iconify-icon>
+                            <span class="text-2xl md:text-3xl tracking-wide relative z-10">ادخل المنافسة</span>
+                        </a>
+                    </div>
+
+                    <!-- Secondary CTA -->
+                    <a href="#how-to-play" class="flex items-center justify-center gap-2 px-8 py-5 rounded-3xl font-heading font-black text-xl text-gray-300 hover:text-white border-2 border-white/10 hover:border-brand-teal/50 hover:bg-brand-surface/50 transition-all duration-300 backdrop-blur-sm">
+                        <iconify-icon icon="mdi:map-marker-path" class="text-3xl"></iconify-icon>
+                        اكتشف طريقة اللعب
+                    </a>
+                </div>
+
+                <div class="flex items-center gap-6 text-sm font-bold text-gray-500 pt-6">
+                    <span class="flex items-center gap-1.5"><iconify-icon icon="mdi:account-group" class="text-brand-teal text-lg"></iconify-icon> منافسة مغلقة بدعوة</span>
+                    <span class="w-1 h-1 rounded-full bg-gray-700"></span>
+                    <span class="flex items-center gap-1.5"><iconify-icon icon="mdi:calendar-star" class="text-brand-orange text-lg"></iconify-icon> مواسم تنافسية</span>
+                    <span class="w-1 h-1 rounded-full bg-gray-700"></span>
+                    <span class="flex items-center gap-1.5"><iconify-icon icon="mdi:crown" class="text-amber-500 text-lg"></iconify-icon> فائز واحد في النهاية</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 2: WHAT IS IT?
+             ========================================== -->
+        <section class="py-24 relative">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="grid lg:grid-cols-2 gap-16 items-center">
+                    <!-- Text Content -->
+                    <div class="space-y-8 reveal-on-scroll">
+                        <div class="inline-flex items-center gap-2 bg-brand-surface border border-white/5 px-4 py-2 rounded-xl text-brand-teal font-bold text-sm">
+                            <iconify-icon icon="mdi:help-circle-outline" class="text-lg"></iconify-icon>
+                            عن اللعبة
+                        </div>
+                        <h2 class="text-4xl md:text-5xl font-heading font-black text-white leading-tight">
+                            ما هي <span class="text-brand-orange">حرب الأسماء</span>؟
+                        </h2>
+                        <p class="text-xl text-gray-400 leading-relaxed font-body">
+                            منافسة موسمية مغلقة بين مجموعة حقيقية. كل لاعب يدخل بلقب مجهول، ولا أحد يعرف من يقف خلف كل اسم. خلال الموسم، تكسب النقاط من الأسئلة والهجمات — ومن يُنهي الموسم بأعلى رصيد هو البطل.
+                        </p>
+                        <div class="space-y-6 pt-4">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-brand-teal/20 text-brand-teal flex items-center justify-center flex-shrink-0">
+                                    <iconify-icon icon="mdi:calendar-clock" class="text-2xl"></iconify-icon>
+                                </div>
+                                <div>
+                                    <h4 class="text-xl font-heading font-black text-white mb-1">مواسم ودورات تنافسية</h4>
+                                    <p class="text-gray-400">كل منافسة تتكون من موسم مقسّم إلى دورات. في كل دورة، تتنافس على النقاط بأساليب مختلفة.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-brand-orange/20 text-brand-orange flex items-center justify-center flex-shrink-0">
+                                    <iconify-icon icon="mdi:sword-cross" class="text-2xl"></iconify-icon>
+                                </div>
+                                <div>
+                                    <h4 class="text-xl font-heading font-black text-white mb-1">هجمات، أسئلة، ومتجر</h4>
+                                    <p class="text-gray-400">اكسب النقاط من الأسئلة، خمّن هويات خصومك لسلب نقاطهم، واشترِ عناصر من المتجر لتعزيز قوتك.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center flex-shrink-0">
+                                    <iconify-icon icon="mdi:trophy" class="text-2xl"></iconify-icon>
+                                </div>
+                                <div>
+                                    <h4 class="text-xl font-heading font-black text-white mb-1">فائز واحد في نهاية الموسم</h4>
+                                    <p class="text-gray-400">من يملك أعلى رصيد عند انتهاء الموسم يفوز. كل نقطة تربحها أو تخسرها تقرّبك أو تبعدك عن القمة.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Visual Composition -->
+                    <div class="relative reveal-on-scroll">
+                        <div class="absolute inset-0 bg-brand-teal/20 blur-[80px] rounded-full"></div>
+                        <div class="relative bg-brand-surface/80 backdrop-blur-xl border border-white/10 rounded-[3rem] p-8 shadow-2xl mockup-grid overflow-hidden">
+                            <!-- Abstract UI Representation -->
+                            <div class="space-y-4">
+                                <!-- Header mock -->
+                                <div class="flex justify-between items-center pb-4 border-b border-white/5">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-brand-teal/30 animate-pulse"></div>
+                                        <div class="h-4 w-24 bg-white/10 rounded-md"></div>
+                                    </div>
+                                    <div class="h-6 w-16 bg-brand-orange/20 rounded-md"></div>
+                                </div>
+                                <!-- Content mock -->
+                                <div class="bg-brand-bg/50 rounded-2xl p-6 border border-white/5">
+                                    <div class="flex justify-center mb-6">
+                                        <div class="w-24 h-24 rounded-full bg-gradient-to-br from-brand-orange to-red-600 flex items-center justify-center shadow-[0_0_30px_rgba(216,67,21,0.3)] animate-float-medium">
+                                            <iconify-icon icon="mdi:incognito" class="text-5xl text-white"></iconify-icon>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <div class="h-3 w-full bg-white/5 rounded-full"></div>
+                                        <div class="h-3 w-4/5 bg-white/5 rounded-full mx-auto"></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 mt-6">
+                                        <div class="h-12 bg-white/5 rounded-xl border border-white/10"></div>
+                                        <div class="h-12 bg-brand-teal/20 border border-brand-teal/40 rounded-xl"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 3: HOW TO PLAY
+             ========================================== -->
+        <section id="how-to-play" class="py-24 relative bg-brand-surface/30 border-y border-white/5">
+            <div class="max-w-5xl mx-auto px-6">
+                <div class="text-center mb-20 reveal-on-scroll">
+                    <h2 class="text-4xl md:text-5xl font-heading font-black text-white mb-4">كيف تلعب <span class="text-brand-teal">حرب الأسماء</span>؟</h2>
+                    <p class="text-xl text-gray-400">من الانضمام إلى المنافسة حتى لحظة إعلان البطل.</p>
+                </div>
+
+                <div class="relative space-y-12 md:space-y-0">
+                    <!-- Connecting Line (Desktop) -->
+                    <div class="hidden md:block absolute top-0 bottom-0 right-1/2 w-1 bg-gradient-to-b from-brand-teal via-brand-orange to-brand-purple opacity-20 transform translate-x-1/2 rounded-full"></div>
+
+                    <!-- Step 1 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between group reveal-on-scroll">
+                        <div class="md:w-[45%] text-right order-2 md:order-1 mt-6 md:mt-0 bg-brand-surface border border-white/5 p-8 rounded-3xl hover:border-brand-teal/50 hover:bg-[#1a2333] transition-colors shadow-lg z-10">
+                            <h3 class="text-2xl font-heading font-black text-white mb-3 flex items-center gap-3">
+                                <span class="text-brand-teal">1.</span> اختر لقبك الخاص
+                            </h3>
+                            <p class="text-gray-400 leading-relaxed">
+                                تصلك دعوة للمنافسة. تدخل بلقب مجهول لا يعرفه أحد، ويبدأ رصيدك بنقاط ابتدائية. من هذه اللحظة، كل تحركاتك تحت اسم مستعار.
+                            </p>
+                        </div>
+                        <div class="absolute right-1/2 transform translate-x-1/2 w-16 h-16 rounded-2xl bg-brand-bg border-4 border-brand-surface flex items-center justify-center z-20 group-hover:scale-110 group-hover:border-brand-teal group-hover:shadow-[0_0_20px_rgba(11,138,141,0.5)] transition-all duration-300">
+                            <iconify-icon icon="mdi:user-mask" class="text-3xl text-brand-teal"></iconify-icon>
+                        </div>
+                        <div class="md:w-[45%] order-1 md:order-3 hidden md:flex justify-center items-center">
+                            <div class="w-36 h-36 rounded-[2rem] bg-brand-surface/50 border border-white/5 flex items-center justify-center relative group-hover:scale-105 transition-transform duration-500">
+                                <div class="w-20 h-20 hex-clip bg-gradient-to-br from-brand-teal/30 to-brand-teal/10 flex items-center justify-center">
+                                    <iconify-icon icon="mdi:incognito" class="text-4xl text-brand-teal drop-shadow-md"></iconify-icon>
+                                </div>
+                                <div class="absolute -bottom-2 -right-2 px-2.5 py-1 rounded-lg bg-brand-bg border border-brand-teal/20 text-brand-teal text-[10px] font-black whitespace-nowrap">لقبك المجهول</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between group reveal-on-scroll md:mt-24">
+                        <div class="md:w-[45%] order-1 hidden md:flex justify-center items-center">
+                            <div class="w-44 rounded-2xl bg-brand-surface/50 border border-white/5 p-4 group-hover:scale-105 transition-transform duration-500">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-[10px] font-bold text-gray-500">سؤال 3/10</span>
+                                    <span class="text-[10px] font-black text-brand-orange">00:12</span>
+                                </div>
+                                <div class="h-1.5 w-full bg-white/5 rounded-full mb-3"><div class="h-1.5 w-3/5 bg-brand-teal rounded-full"></div></div>
+                                <div class="space-y-2">
+                                    <div class="h-5 bg-white/5 rounded-lg border border-white/10"></div>
+                                    <div class="h-5 bg-brand-teal/10 rounded-lg border border-brand-teal/30"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="absolute right-1/2 transform translate-x-1/2 w-16 h-16 rounded-2xl bg-brand-bg border-4 border-brand-surface flex items-center justify-center z-20 group-hover:scale-110 group-hover:border-brand-slate group-hover:shadow-[0_0_20px_rgba(100,116,139,0.5)] transition-all duration-300">
+                            <iconify-icon icon="mdi:brain-puzzle" class="text-3xl text-brand-slate-light text-[#94A3B8]"></iconify-icon>
+                        </div>
+                        <div class="md:w-[45%] text-right order-2 mt-6 md:mt-0 bg-brand-surface border border-white/5 p-8 rounded-3xl hover:border-brand-slate/50 hover:bg-[#1a2333] transition-colors shadow-lg z-10">
+                            <h3 class="text-2xl font-heading font-black text-white mb-3 flex items-center gap-3">
+                                <span class="text-[#94A3B8]">2.</span> اكسب النقاط وابنِ رصيدك
+                            </h3>
+                            <p class="text-gray-400 leading-relaxed">
+                                شارك في جلسات أسئلة موقوتة خلال كل دورة. كل إجابة صحيحة تضيف لرصيدك، وكل خطأ يخصم منه. رصيدك هو سلاحك الأساسي طوال الموسم.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between group reveal-on-scroll md:mt-24">
+                        <div class="md:w-[45%] text-right order-2 md:order-1 mt-6 md:mt-0 bg-brand-surface border border-white/5 p-8 rounded-3xl hover:border-brand-orange/50 hover:bg-[#1a2333] transition-colors shadow-lg z-10">
+                            <h3 class="text-2xl font-heading font-black text-white mb-3 flex items-center gap-3">
+                                <span class="text-brand-orange">3.</span> هاجم، دافع، واستثمر
+                            </h3>
+                            <p class="text-gray-400 leading-relaxed">
+                                خمّن الاسم الحقيقي لخصم فتسلب نقاطه — أو يُهاجمك أحدهم فتخسر أنت. جهّز أسلحة ودروعاً من المتجر لترجّح الكفة لصالحك.
+                            </p>
+                        </div>
+                        <div class="absolute right-1/2 transform translate-x-1/2 w-16 h-16 rounded-2xl bg-brand-bg border-4 border-brand-surface flex items-center justify-center z-20 group-hover:scale-110 group-hover:border-brand-orange group-hover:shadow-[0_0_20px_rgba(216,67,21,0.5)] transition-all duration-300">
+                            <iconify-icon icon="mdi:shield-sword" class="text-3xl text-brand-orange"></iconify-icon>
+                        </div>
+                        <div class="md:w-[45%] order-1 md:order-3 hidden md:flex justify-center items-center">
+                            <div class="relative group-hover:scale-105 transition-transform duration-500">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-14 h-14 hex-clip bg-brand-teal/20 flex items-center justify-center">
+                                        <iconify-icon icon="mdi:incognito" class="text-2xl text-brand-teal"></iconify-icon>
+                                    </div>
+                                    <div class="w-10 h-10 rounded-full bg-brand-orange/20 border border-brand-orange/30 flex items-center justify-center impact-flash">
+                                        <iconify-icon icon="mdi:flash" class="text-xl text-brand-orange"></iconify-icon>
+                                    </div>
+                                    <div class="w-14 h-14 hex-clip bg-brand-orange/20 flex items-center justify-center">
+                                        <iconify-icon icon="mdi:help" class="text-2xl text-brand-orange/60"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between group reveal-on-scroll md:mt-24">
+                        <div class="md:w-[45%] order-1 hidden md:flex justify-center items-center">
+                            <div class="text-center group-hover:scale-105 transition-transform duration-500">
+                                <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500/15 to-yellow-400/10 border border-amber-500/25 flex items-center justify-center mx-auto mb-2 crown-glow">
+                                    <iconify-icon icon="mdi:crown" class="text-4xl text-amber-400"></iconify-icon>
+                                </div>
+                                <span class="text-amber-400/80 font-black text-[11px]">نهاية الموسم</span>
+                            </div>
+                        </div>
+                        <div class="absolute right-1/2 transform translate-x-1/2 w-16 h-16 rounded-2xl bg-brand-bg border-4 border-brand-surface flex items-center justify-center z-20 group-hover:scale-110 group-hover:border-brand-purple group-hover:shadow-[0_0_20px_rgba(147,51,234,0.5)] transition-all duration-300">
+                            <iconify-icon icon="mdi:crown" class="text-3xl text-brand-purple"></iconify-icon>
+                        </div>
+                        <div class="md:w-[45%] text-right order-2 mt-6 md:mt-0 bg-brand-surface border border-white/5 p-8 rounded-3xl hover:border-brand-purple/50 hover:bg-[#1a2333] transition-colors shadow-lg z-10">
+                            <h3 class="text-2xl font-heading font-black text-white mb-3 flex items-center gap-3">
+                                <span class="text-brand-purple">4.</span> أنهِ الموسم في القمة
+                            </h3>
+                            <p class="text-gray-400 leading-relaxed">
+                                تتكرر الدورات حتى ينتهي الموسم. من يملك أعلى رصيد إجمالي عند الإغلاق يُتوّج بطلاً. كل نقطة ربحتها أو خسرتها طوال الموسم تحسم مصيرك.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 4: BATTLE IMPACT SCENE
+             ========================================== -->
+        <section class="py-32 relative overflow-hidden">
+            <!-- Dramatic ambient -->
+            <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(216,67,21,0.06)_0%,transparent_60%)] pointer-events-none"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-orange/5 blur-[120px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-6xl mx-auto px-6 relative z-10">
+                <div class="text-center mb-16 reveal-on-scroll">
+                    <div class="inline-flex items-center gap-2 bg-brand-orange/10 border border-brand-orange/20 px-5 py-2 rounded-xl text-brand-orange font-bold text-sm mb-8">
+                        <iconify-icon icon="mdi:sword-cross" class="text-lg"></iconify-icon>
+                        لحظة المواجهة
+                    </div>
+                    <h2 class="text-4xl md:text-6xl font-heading font-black text-white leading-tight mb-4">
+                        خمّن اسمه. <span class="text-brand-orange">اسلب نقاطه.</span>
+                    </h2>
+                    <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+                        كل هجوم مقامرة محسوبة — إن أصبت، تسلب نقاط خصمك. وإن أخطأت، تدفع الثمن أنت.
+                    </p>
+                </div>
+
+                <!-- Battle Visual -->
+                <div class="reveal-on-scroll">
+                    <div class="relative bg-brand-surface/40 backdrop-blur-xl border border-white/5 rounded-[3rem] p-8 md:p-16 shadow-2xl overflow-hidden">
+                        <div class="absolute inset-0 hex-bg opacity-5"></div>
+
+                        <!-- Alias vs Alias confrontation -->
+                        <div class="relative z-10 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-0">
+
+                            <!-- Attacker -->
+                            <div class="flex-1 flex flex-col items-center text-center">
+                                <div class="w-28 h-28 md:w-36 md:h-36 hex-clip bg-gradient-to-br from-brand-teal to-brand-teal-hover flex items-center justify-center shadow-[0_0_40px_rgba(11,138,141,0.3)] mb-4">
+                                    <iconify-icon icon="mdi:incognito" class="text-5xl md:text-6xl text-white"></iconify-icon>
+                                </div>
+                                <h4 class="font-heading font-black text-white text-lg md:text-xl mb-1">ذئب الظلام</h4>
+                                <div class="flex items-center gap-2 text-brand-teal font-black text-sm">
+                                    <iconify-icon icon="mdi:star-four-points" class="text-xs"></iconify-icon>
+                                    <span>12,400 نقطة</span>
+                                </div>
+                                <div class="mt-3 px-3 py-1 rounded-full bg-brand-teal/10 border border-brand-teal/20 text-brand-teal text-xs font-bold">
+                                    المهاجم
+                                </div>
+                            </div>
+
+                            <!-- Impact Zone -->
+                            <div class="relative flex flex-col items-center mx-4 md:mx-12 my-6 md:my-0">
+                                <div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-brand-orange/20 to-red-600/15 border-2 border-brand-orange/30 flex items-center justify-center impact-flash">
+                                    <iconify-icon icon="mdi:flash" class="text-4xl md:text-5xl text-brand-orange"></iconify-icon>
+                                </div>
+                                <!-- Floating score changes -->
+                                <div class="absolute -top-6 -right-10 score-float-up">
+                                    <span class="px-3 py-1 rounded-full bg-brand-success/15 text-brand-success font-black text-sm border border-brand-success/20">+350</span>
+                                </div>
+                                <div class="absolute -bottom-6 -left-10 score-float-down">
+                                    <span class="px-3 py-1 rounded-full bg-red-500/15 text-red-400 font-black text-sm border border-red-500/20">−350</span>
+                                </div>
+                            </div>
+
+                            <!-- Target -->
+                            <div class="flex-1 flex flex-col items-center text-center">
+                                <div class="relative">
+                                    <div class="w-28 h-28 md:w-36 md:h-36 hex-clip bg-gradient-to-br from-brand-orange to-red-700 flex items-center justify-center shadow-[0_0_40px_rgba(216,67,21,0.3)] mb-4">
+                                        <iconify-icon icon="mdi:help" class="text-5xl md:text-6xl text-white/50"></iconify-icon>
+                                    </div>
+                                    <!-- Shield indicator -->
+                                    <div class="absolute -bottom-1 -left-1 w-11 h-11 rounded-xl bg-brand-purple/15 border border-brand-purple/30 flex items-center justify-center">
+                                        <iconify-icon icon="mdi:shield-half-full" class="text-xl text-brand-purple"></iconify-icon>
+                                    </div>
+                                </div>
+                                <h4 class="font-heading font-black text-white text-lg md:text-xl mb-1">؟؟؟</h4>
+                                <div class="flex items-center gap-2 text-brand-orange font-black text-sm">
+                                    <iconify-icon icon="mdi:star-four-points" class="text-xs"></iconify-icon>
+                                    <span>8,750 نقطة</span>
+                                </div>
+                                <div class="mt-3 px-3 py-1 rounded-full bg-brand-orange/10 border border-brand-orange/20 text-brand-orange text-xs font-bold">
+                                    الهدف
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Outcome Strip -->
+                        <div class="relative z-10 grid md:grid-cols-2 gap-6 mt-14 pt-10 border-t border-white/5">
+                            <!-- Success -->
+                            <div class="bg-brand-success/5 border border-brand-success/15 rounded-2xl p-6 text-center hover:bg-brand-success/10 transition-colors">
+                                <iconify-icon icon="mdi:check-circle" class="text-4xl text-brand-success mb-3"></iconify-icon>
+                                <h5 class="font-heading font-black text-brand-success text-lg mb-2">تخمين صحيح</h5>
+                                <p class="text-gray-400 text-sm leading-relaxed">تسلب نقاط الخصم وتُضاف لرصيدك. الأسلحة تُضاعف الضرر.</p>
+                            </div>
+                            <!-- Failure -->
+                            <div class="bg-red-500/5 border border-red-500/15 rounded-2xl p-6 text-center hover:bg-red-500/10 transition-colors">
+                                <iconify-icon icon="mdi:close-circle" class="text-4xl text-red-500 mb-3"></iconify-icon>
+                                <h5 class="font-heading font-black text-red-400 text-lg mb-2">تخمين خاطئ</h5>
+                                <p class="text-gray-400 text-sm leading-relaxed">تخسر أنت النقاط بدلاً منه. المخاطرة عالية — فكّر جيداً.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 5: CORE SYSTEMS (Feature Grid)
+             ========================================== -->
+        <section class="py-32 relative">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="text-center mb-20 reveal-on-scroll">
+                    <h2 class="text-4xl md:text-5xl font-heading font-black text-white mb-4">أنظمة لعب <span class="text-brand-orange">عميقة ومثيرة</span></h2>
+                    <p class="text-xl text-gray-400 max-w-2xl mx-auto">كل نظام مصمم ليجعل التنافس أشرس، وكل قرار يحمل ثمناً.</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    
+                    <!-- Card 1: Leaderboard -->
+                    <div class="bg-[#0d121c] border border-white/5 rounded-[2.5rem] p-10 hover:border-brand-teal/30 hover:bg-[#111826] transition-all duration-500 group reveal-on-scroll overflow-hidden relative">
+                        <div class="absolute top-0 left-0 w-64 h-64 bg-brand-teal/5 rounded-full blur-3xl group-hover:bg-brand-teal/10 transition-all"></div>
+                        <div class="flex items-start gap-6 relative z-10">
+                            <div class="w-20 h-20 rounded-3xl bg-brand-teal/10 border border-brand-teal/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
+                                <iconify-icon icon="mdi:podium" class="text-4xl text-brand-teal drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-3xl font-heading font-black text-white mb-3">الترتيب الحي</h3>
+                                <p class="text-gray-400 leading-relaxed mb-6">
+                                    تابع ترتيبك بين المتنافسين لحظة بلحظة. كل إجابة وكل هجوم يغيّر المشهد — المعركة لا تتوقف.
+                                </p>
+                                <ul class="space-y-2 text-sm font-bold text-brand-teal-light">
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:check"></iconify-icon> تحديث فوري للأرصدة</li>
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:check"></iconify-icon> ترتيب كل المتنافسين في الموسم</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- Mini UI Mockup -->
+                        <div class="mt-8 bg-brand-bg/80 border border-white/5 rounded-2xl p-4 opacity-50 group-hover:opacity-100 transition-opacity">
+                            <div class="flex justify-between items-center py-2 border-b border-white/5">
+                                <div class="flex items-center gap-3"><span class="text-amber-500 font-black">1</span><div class="w-6 h-6 rounded bg-gray-700"></div><span class="text-white font-bold text-sm">سلطان القمة</span></div>
+                                <span class="text-brand-teal font-black text-sm">24,120</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2">
+                                <div class="flex items-center gap-3"><span class="text-gray-400 font-black">2</span><div class="w-6 h-6 rounded bg-gray-700"></div><span class="text-white font-bold text-sm">برنس الصحراء</span></div>
+                                <span class="text-brand-teal font-black text-sm">19,850</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Attacks -->
+                    <div class="bg-[#0d121c] border border-white/5 rounded-[2.5rem] p-10 hover:border-brand-orange/30 hover:bg-[#111826] transition-all duration-500 group reveal-on-scroll overflow-hidden relative">
+                        <div class="absolute top-0 left-0 w-64 h-64 bg-brand-orange/5 rounded-full blur-3xl group-hover:bg-brand-orange/10 transition-all"></div>
+                        <div class="flex items-start gap-6 relative z-10">
+                            <div class="w-20 h-20 rounded-3xl bg-brand-orange/10 border border-brand-orange/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
+                                <iconify-icon icon="mdi:flash-outline" class="text-4xl text-brand-orange drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-3xl font-heading font-black text-white mb-3">الهجمات التكتيكية</h3>
+                                <p class="text-gray-400 leading-relaxed mb-6">
+                                    خمّن الاسم الحقيقي لخصمك. إن أصبت — يخسر نقاطاً. إن أخطأت — تخسر أنت. جهّز أسلحة من المتجر لتضاعف الضرر.
+                                </p>
+                                <ul class="space-y-2 text-sm font-bold text-amber-500">
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:check"></iconify-icon> أسلحة تُضاعف ضرر الهجوم</li>
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:check"></iconify-icon> تلميحات تكشف حروفاً من اسم الخصم</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- Mini UI Mockup -->
+                        <div class="mt-8 flex justify-center opacity-50 group-hover:opacity-100 transition-opacity">
+                            <div class="flex items-center gap-4 bg-red-500/10 border border-red-500/30 rounded-full px-6 py-3">
+                                <iconify-icon icon="mdi:sword-cross" class="text-red-500 text-2xl animate-pulse"></iconify-icon>
+                                <span class="text-white font-bold">تم تفعيل هجوم: <span class="text-red-500">سيف الحقيقة</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Defense -->
+                    <div class="bg-[#0d121c] border border-white/5 rounded-[2.5rem] p-10 hover:border-brand-purple/30 hover:bg-[#111826] transition-all duration-500 group reveal-on-scroll overflow-hidden relative">
+                        <div class="absolute top-0 right-0 w-64 h-64 bg-brand-purple/5 rounded-full blur-3xl group-hover:bg-brand-purple/10 transition-all"></div>
+                        <div class="flex items-start gap-6 relative z-10">
+                            <div class="w-20 h-20 rounded-3xl bg-brand-purple/10 border border-brand-purple/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
+                                <iconify-icon icon="mdi:shield-check" class="text-4xl text-brand-purple drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-3xl font-heading font-black text-white mb-3">نظام الحماية</h3>
+                                <p class="text-gray-400 leading-relaxed mb-6">
+                                    لا تترك نفسك مكشوفاً. اشترِ دروعاً تمتص جزءاً من الضرر، أو فعّل حماية مؤقتة تصدّ الهجمات بالكامل.
+                                </p>
+                                <ul class="space-y-2 text-sm font-bold text-purple-400">
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:check"></iconify-icon> دروع تقلّل الضرر عند كل هجوم</li>
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:check"></iconify-icon> حماية مؤقتة تصدّ الضربات بالكامل</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- Mini UI Mockup -->
+                        <div class="mt-8 flex justify-center opacity-50 group-hover:opacity-100 transition-opacity">
+                             <div class="relative">
+                                 <iconify-icon icon="mdi:user" class="text-5xl text-gray-500"></iconify-icon>
+                                 <iconify-icon icon="mdi:shield-outline" class="text-7xl text-brand-purple absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-70 animate-pulse"></iconify-icon>
+                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Store -->
+                    <div class="bg-[#0d121c] border border-white/5 rounded-[2.5rem] p-10 hover:border-brand-teal/30 hover:bg-[#111826] transition-all duration-500 group reveal-on-scroll overflow-hidden relative">
+                        <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-brand-teal/5 to-brand-orange/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-all"></div>
+                        <div class="flex items-start gap-6 relative z-10">
+                            <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-teal/20 to-brand-orange/20 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
+                                <iconify-icon icon="mdi:store" class="text-4xl text-white drop-shadow-md"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-3xl font-heading font-black text-white mb-3">المتجر الاستراتيجي</h3>
+                                <p class="text-gray-400 leading-relaxed mb-6">
+                                    استثمر نقاطك بذكاء في عناصر متنوعة: تلميحات تكشف الحروف، أسلحة هجومية، ودروع دفاعية — لكل منها مستوى ندرة وتأثير مختلف.
+                                </p>
+                                <ul class="space-y-2 text-sm font-bold text-gray-300">
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:star" class="text-amber-400"></iconify-icon> عناصر بمستويات ندرة متعددة</li>
+                                    <li class="flex items-center gap-2"><iconify-icon icon="mdi:star" class="text-brand-orange"></iconify-icon> من الشائع إلى الأسطوري والخرافي</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- Mini UI Mockup -->
+                        <div class="mt-8 flex justify-end gap-3 opacity-50 group-hover:opacity-100 transition-opacity">
+                            <div class="w-16 h-16 rounded-xl bg-gray-800 border-b-4 border-gray-500 flex flex-col items-center justify-center">
+                                <iconify-icon icon="mdi:torch" class="text-gray-400 text-xl"></iconify-icon>
+                                <span class="text-[9px] mt-1 font-bold">شائع</span>
+                            </div>
+                            <div class="w-16 h-16 rounded-xl bg-purple-900/30 border-b-4 border-purple-500 flex flex-col items-center justify-center relative -translate-y-2">
+                                <iconify-icon icon="mdi:eye-circle" class="text-purple-400 text-2xl drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]"></iconify-icon>
+                                <span class="text-[9px] mt-1 font-bold text-purple-300">خرافي</span>
+                            </div>
+                            <div class="w-16 h-16 rounded-xl bg-orange-900/30 border-b-4 border-brand-orange flex flex-col items-center justify-center">
+                                <iconify-icon icon="mdi:sword" class="text-brand-orange text-xl"></iconify-icon>
+                                <span class="text-[9px] mt-1 font-bold text-orange-300">أسطوري</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 6: SEASON VICTORY — THE REAL GOAL
+             ========================================== -->
+        <section class="py-32 md:py-40 relative overflow-hidden">
+            <!-- Multi-layered ambient -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-amber-500/8 blur-[150px] rounded-full pointer-events-none"></div>
+            <div class="absolute top-[20%] right-[10%] w-[300px] h-[300px] bg-amber-400/5 blur-[80px] rounded-full pointer-events-none"></div>
+            <div class="absolute bottom-[20%] left-[15%] w-[250px] h-[250px] bg-brand-teal/5 blur-[80px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-6xl mx-auto px-6 relative z-10">
+                <div class="text-center mb-20 reveal-on-scroll">
+                    <div class="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-5 py-2 rounded-xl text-amber-400 font-bold text-sm mb-8">
+                        <iconify-icon icon="mdi:crown" class="text-lg"></iconify-icon>
+                        الهدف الحقيقي
+                    </div>
+                    <h2 class="text-5xl md:text-7xl font-heading font-black text-white leading-tight mb-6">
+                        من يُنهي الموسم بأعلى رصيد<br/>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500">يُتوّج بطلاً</span>
+                    </h2>
+                    <p class="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto">
+                        الأسئلة والهجمات والمتجر — كلها أدوات. الهدف واحد: أنهِ الموسم وأنت في المركز الأول.
+                    </p>
+                </div>
+
+                <!-- Crown + Leaderboard Composition -->
+                <div class="reveal-on-scroll">
+                    <!-- Crown Hero -->
+                    <div class="flex justify-center mb-14">
+                        <div class="relative">
+                            <div class="w-36 h-36 md:w-44 md:h-44 rounded-full bg-gradient-to-br from-amber-500/15 via-yellow-400/10 to-amber-600/15 border-2 border-amber-500/25 flex items-center justify-center crown-glow">
+                                <iconify-icon icon="mdi:crown" class="text-7xl md:text-8xl text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.5)]"></iconify-icon>
+                            </div>
+                            <!-- Orbiting decorations -->
+                            <div class="absolute -top-3 -right-3 w-11 h-11 bg-amber-500/15 border border-amber-500/25 rounded-xl flex items-center justify-center animate-float-slow shadow-lg">
+                                <span class="text-amber-400 font-black text-sm">#1</span>
+                            </div>
+                            <div class="absolute -bottom-2 -left-5 w-9 h-9 bg-brand-teal/15 border border-brand-teal/25 rounded-lg flex items-center justify-center animate-float-medium">
+                                <iconify-icon icon="mdi:star" class="text-brand-teal text-sm"></iconify-icon>
+                            </div>
+                            <div class="absolute top-1/2 -left-8 w-8 h-8 bg-brand-orange/15 border border-brand-orange/20 rounded-lg flex items-center justify-center animate-float-slow" style="animation-delay: 2s">
+                                <iconify-icon icon="mdi:trophy" class="text-brand-orange text-xs"></iconify-icon>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leaderboard Mockup -->
+                    <div class="bg-brand-surface/60 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-6 md:p-10 shadow-2xl overflow-hidden max-w-2xl mx-auto relative">
+                        <div class="absolute inset-0 hex-bg opacity-10"></div>
+
+                        <div class="relative z-10 space-y-0">
+                            <!-- Header -->
+                            <div class="flex justify-between items-center pb-4 mb-4 border-b border-white/10">
+                                <span class="font-heading font-black text-gray-400 text-sm">الترتيب النهائي — نهاية الموسم</span>
+                                <span class="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 font-bold text-xs border border-amber-500/20">بطل الموسم</span>
+                            </div>
+
+                            <!-- Rank 1 — Champion -->
+                            <div class="flex justify-between items-center py-4 px-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 rank-pulse">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white font-black shadow-lg text-sm">1</div>
+                                    <div class="w-10 h-10 rounded-full bg-brand-teal/30 flex items-center justify-center">
+                                        <iconify-icon icon="mdi:incognito" class="text-xl text-brand-teal"></iconify-icon>
+                                    </div>
+                                    <div>
+                                        <span class="text-white font-black block text-sm md:text-base">سلطان القمة</span>
+                                        <span class="text-amber-400 text-xs font-bold flex items-center gap-1"><iconify-icon icon="mdi:crown" class="text-xs"></iconify-icon> البطل</span>
+                                    </div>
+                                </div>
+                                <span class="text-amber-400 font-black text-base md:text-lg">24,120</span>
+                            </div>
+
+                            <!-- Rank 2 -->
+                            <div class="flex justify-between items-center py-3 px-4 rounded-xl mb-2 hover:bg-white/5 transition-colors">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-xl bg-gray-600/20 flex items-center justify-center text-gray-300 font-black text-sm">2</div>
+                                    <div class="w-10 h-10 rounded-full bg-brand-orange/20 flex items-center justify-center">
+                                        <iconify-icon icon="mdi:incognito" class="text-xl text-brand-orange"></iconify-icon>
+                                    </div>
+                                    <span class="text-white font-bold text-sm">برنس الصحراء</span>
+                                </div>
+                                <span class="text-gray-300 font-black text-sm">19,850</span>
+                            </div>
+
+                            <!-- Rank 3 -->
+                            <div class="flex justify-between items-center py-3 px-4 rounded-xl mb-2 hover:bg-white/5 transition-colors">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-xl bg-gray-600/20 flex items-center justify-center text-gray-300 font-black text-sm">3</div>
+                                    <div class="w-10 h-10 rounded-full bg-brand-purple/20 flex items-center justify-center">
+                                        <iconify-icon icon="mdi:incognito" class="text-xl text-brand-purple"></iconify-icon>
+                                    </div>
+                                    <span class="text-white font-bold text-sm">صقر الليل</span>
+                                </div>
+                                <span class="text-gray-300 font-black text-sm">17,230</span>
+                            </div>
+
+                            <!-- Dots separator -->
+                            <div class="flex justify-center py-1">
+                                <iconify-icon icon="mdi:dots-vertical" class="text-gray-700 text-lg"></iconify-icon>
+                            </div>
+
+                            <!-- You (the viewer) -->
+                            <div class="flex justify-between items-center py-3 px-4 rounded-xl bg-brand-teal/5 border border-brand-teal/15 border-dashed">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-xl bg-brand-teal/15 border border-brand-teal/25 flex items-center justify-center text-brand-teal font-black text-sm">?</div>
+                                    <div class="w-10 h-10 rounded-full bg-white/5 border-2 border-dashed border-brand-teal/30 flex items-center justify-center">
+                                        <iconify-icon icon="mdi:account" class="text-xl text-brand-teal"></iconify-icon>
+                                    </div>
+                                    <div>
+                                        <span class="text-brand-teal font-black block text-sm">مكانك هنا</span>
+                                        <span class="text-gray-500 text-xs font-bold">أين ستكون عند نهاية الموسم؟</span>
+                                    </div>
+                                </div>
+                                <span class="text-brand-teal font-black">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Season timeline below leaderboard -->
+                    <div class="mt-14 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-0">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-brand-teal/15 border border-brand-teal/25 flex items-center justify-center">
+                                <iconify-icon icon="mdi:play" class="text-brand-teal text-lg"></iconify-icon>
+                            </div>
+                            <span class="text-gray-400 font-bold text-sm">بداية الموسم</span>
+                        </div>
+                        <div class="hidden md:block w-20 h-0.5 season-connector rounded-full mx-3"></div>
+                        <div class="md:hidden w-0.5 h-6 season-connector rounded-full"></div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-brand-orange/15 border border-brand-orange/25 flex items-center justify-center">
+                                <iconify-icon icon="mdi:refresh" class="text-brand-orange text-lg"></iconify-icon>
+                            </div>
+                            <span class="text-gray-400 font-bold text-sm">دورات متتالية</span>
+                        </div>
+                        <div class="hidden md:block w-20 h-0.5 season-connector rounded-full mx-3"></div>
+                        <div class="md:hidden w-0.5 h-6 season-connector rounded-full"></div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
+                                <iconify-icon icon="mdi:flag-checkered" class="text-amber-400 text-lg"></iconify-icon>
+                            </div>
+                            <span class="text-amber-400 font-bold text-sm">إعلان البطل</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 7: WHY IT'S DIFFERENT
+             ========================================== -->
+        <section class="py-24 relative overflow-hidden">
+            <div class="absolute inset-0 bg-brand-surface/50 skew-y-3 transform origin-top-left"></div>
+            <div class="max-w-7xl mx-auto px-6 relative z-10">
+                <div class="grid lg:grid-cols-5 gap-16 items-center">
+                    
+                    <div class="lg:col-span-2 space-y-12 reveal-on-scroll">
+                        <h2 class="text-4xl md:text-5xl font-heading font-black text-white leading-tight">
+                            لماذا كل قرار <span class="text-brand-teal-light">يصنع فرقاً؟</span>
+                        </h2>
+                        <div class="space-y-10">
+                            <div>
+                                <div class="flex items-center gap-3 mb-2">
+                                    <iconify-icon icon="mdi:scale-balance" class="text-2xl text-amber-400"></iconify-icon>
+                                    <h3 class="text-2xl font-black text-white">كل نقطة لها ثمن</h3>
+                                </div>
+                                <p class="text-gray-400 text-lg leading-relaxed">النقاط التي تكسبها من الأسئلة هي نفسها التي تُنفقها في المتجر وتُخاطر بها في الهجمات. كل قرار يعني مكسباً أو خسارة حقيقية.</p>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-2">
+                                    <iconify-icon icon="mdi:chess-knight" class="text-2xl text-brand-teal"></iconify-icon>
+                                    <h3 class="text-2xl font-black text-white">قرارات تكتيكية مستمرة</h3>
+                                </div>
+                                <p class="text-gray-400 text-lg leading-relaxed">متى تهاجم؟ من تستهدف؟ هل تشتري سلاحاً لتهاجم أم درعاً لتحمي رصيدك؟ لا توجد طريقة واحدة للفوز — استراتيجيتك تحدد مصيرك.</p>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-2">
+                                    <iconify-icon icon="mdi:incognito" class="text-2xl text-brand-orange"></iconify-icon>
+                                    <h3 class="text-2xl font-black text-white">هويات مجهولة ومعارك شخصية</h3>
+                                </div>
+                                <p class="text-gray-400 text-lg leading-relaxed">شخص مجهول هاجمك وأسقط رصيدك. لا تعرف من هو، لكنك تعرف لقبه — والانتقام مسألة وقت.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-3 flex justify-center reveal-on-scroll">
+                        <!-- Decision Moment Visual -->
+                        <div class="relative w-full max-w-lg">
+                            <!-- Decision Hub -->
+                            <div class="bg-brand-surface/60 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+                                <div class="absolute inset-0 hex-bg opacity-10"></div>
+                                <div class="relative z-10">
+                                    <!-- Player State -->
+                                    <div class="flex items-center justify-between mb-8 pb-5 border-b border-white/10">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 hex-clip bg-brand-teal/25 flex items-center justify-center">
+                                                <iconify-icon icon="mdi:incognito" class="text-xl text-brand-teal"></iconify-icon>
+                                            </div>
+                                            <span class="font-heading font-black text-white text-sm">رصيدك الحالي</span>
+                                        </div>
+                                        <span class="font-black text-brand-teal text-xl">8,500</span>
+                                    </div>
+
+                                    <!-- The Decision -->
+                                    <div class="text-center mb-6">
+                                        <span class="text-gray-500 font-bold text-xs tracking-widest uppercase">عندك 3,000 نقطة فائضة — ماذا تختار؟</span>
+                                    </div>
+
+                                    <!-- Two Paths -->
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <!-- Path A: Attack -->
+                                        <div class="bg-brand-orange/8 border border-brand-orange/20 rounded-2xl p-5 text-center hover:border-brand-orange/40 transition-all group/path cursor-default">
+                                            <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-brand-orange/15 flex items-center justify-center group-hover/path:scale-110 transition-transform">
+                                                <iconify-icon icon="mdi:sword-cross" class="text-3xl text-brand-orange"></iconify-icon>
+                                            </div>
+                                            <h4 class="font-black text-white text-sm mb-2">هاجم خصمك</h4>
+                                            <p class="text-gray-500 text-xs leading-relaxed mb-3">خاطر بالنقاط للهجوم — نجاح يعني سلب رصيده</p>
+                                            <div class="flex justify-center gap-2 text-xs font-black">
+                                                <span class="text-green-400">+1,200</span>
+                                                <span class="text-gray-600">أو</span>
+                                                <span class="text-red-400">−800</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Path B: Defend -->
+                                        <div class="bg-brand-purple/8 border border-brand-purple/20 rounded-2xl p-5 text-center hover:border-brand-purple/40 transition-all group/path cursor-default">
+                                            <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-brand-purple/15 flex items-center justify-center group-hover/path:scale-110 transition-transform">
+                                                <iconify-icon icon="mdi:shield-plus" class="text-3xl text-brand-purple"></iconify-icon>
+                                            </div>
+                                            <h4 class="font-black text-white text-sm mb-2">اشترِ حماية</h4>
+                                            <p class="text-gray-500 text-xs leading-relaxed mb-3">احمِ رصيدك من الهجمات القادمة بدرع قوي</p>
+                                            <div class="flex justify-center gap-2 text-xs font-black">
+                                                <span class="text-purple-400">−2,500</span>
+                                                <span class="text-gray-600">لكن</span>
+                                                <span class="text-green-400">أمان</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bottom line -->
+                                    <div class="mt-6 pt-4 border-t border-white/5 text-center">
+                                        <span class="text-gray-600 font-bold text-xs">لا توجد إجابة صحيحة — كل قرار يغيّر مسار الموسم</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ambient glow -->
+                            <div class="absolute -bottom-10 left-1/2 -translate-x-1/2 w-[80%] h-[60px] bg-brand-teal/10 blur-[40px] rounded-full pointer-events-none"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 8: ENTER THE ARENA — PRE-CTA MOMENT
+             ========================================== -->
+        <section class="py-32 md:py-40 relative overflow-hidden">
+            <!-- Deep ambient layers -->
+            <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-bg/50 to-transparent pointer-events-none"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-teal/6 blur-[180px] rounded-full pointer-events-none arena-glow"></div>
+            <div class="absolute top-[30%] left-[20%] w-[200px] h-[200px] bg-brand-orange/5 blur-[100px] rounded-full pointer-events-none"></div>
+            <div class="absolute bottom-[25%] right-[15%] w-[250px] h-[250px] bg-brand-purple/5 blur-[100px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-5xl mx-auto px-6 relative z-10">
+                <div class="reveal-on-scroll">
+                    <!-- Arena Gate Composition -->
+                    <div class="text-center mb-16">
+                        <div class="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-5 py-2 rounded-xl text-gray-400 font-bold text-sm mb-8">
+                            <iconify-icon icon="mdi:gate" class="text-lg text-brand-teal"></iconify-icon>
+                            الساحة مفتوحة
+                        </div>
+                        <h2 class="text-5xl md:text-7xl font-heading font-black text-white leading-tight mb-6">
+                            ادخل الساحة<br/>
+                            <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-teal via-brand-teal-light to-brand-orange">واثبت نفسك</span>
+                        </h2>
+                    </div>
+
+                    <!-- Arena Portal Visual -->
+                    <div class="relative max-w-2xl mx-auto">
+                        <!-- Outer gate frame -->
+                        <div class="relative bg-brand-surface/40 backdrop-blur-xl border border-white/5 rounded-[3rem] p-1 shadow-2xl">
+                            <div class="bg-gradient-to-b from-[#0d121c] to-[#0a0f18] rounded-[2.75rem] p-10 md:p-14 relative overflow-hidden">
+                                <div class="absolute inset-0 hex-bg opacity-15"></div>
+
+                                <!-- Inner portal content -->
+                                <div class="relative z-10 text-center">
+                                    <!-- Gate icon composition -->
+                                    <div class="relative inline-block mb-10">
+                                        <div class="w-28 h-28 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-brand-teal/10 to-brand-orange/10 border border-white/10 flex items-center justify-center mx-auto arena-glow">
+                                            <iconify-icon icon="mdi:shield-sword" class="text-6xl md:text-7xl text-white drop-shadow-[0_0_25px_rgba(11,138,141,0.4)]"></iconify-icon>
+                                        </div>
+                                        <!-- Orbiting rank badges -->
+                                        <div class="absolute -top-2 -right-4 w-11 h-11 bg-amber-500/15 border border-amber-500/25 rounded-xl flex items-center justify-center animate-float-slow shadow-lg">
+                                            <iconify-icon icon="mdi:crown" class="text-amber-400 text-lg"></iconify-icon>
+                                        </div>
+                                        <div class="absolute -bottom-3 -left-5 w-10 h-10 bg-brand-teal/15 border border-brand-teal/25 rounded-xl flex items-center justify-center animate-float-medium">
+                                            <iconify-icon icon="mdi:sword" class="text-brand-teal text-sm"></iconify-icon>
+                                        </div>
+                                        <div class="absolute top-1/2 -left-7 w-9 h-9 bg-brand-purple/15 border border-brand-purple/20 rounded-lg flex items-center justify-center animate-float-fast">
+                                            <iconify-icon icon="mdi:shield-half-full" class="text-brand-purple text-sm"></iconify-icon>
+                                        </div>
+                                    </div>
+
+                                    <!-- Arena stats — what awaits -->
+                                    <div class="grid grid-cols-3 gap-4 md:gap-6 mb-10">
+                                        <div class="bg-white/3 border border-white/5 rounded-2xl p-4 md:p-5">
+                                            <iconify-icon icon="mdi:help-circle" class="text-3xl text-brand-teal mb-2"></iconify-icon>
+                                            <div class="text-white font-black text-lg md:text-xl">أسئلة</div>
+                                            <div class="text-gray-500 text-xs font-bold mt-1">اكسب النقاط</div>
+                                        </div>
+                                        <div class="bg-white/3 border border-white/5 rounded-2xl p-4 md:p-5">
+                                            <iconify-icon icon="mdi:sword-cross" class="text-3xl text-brand-orange mb-2"></iconify-icon>
+                                            <div class="text-white font-black text-lg md:text-xl">هجمات</div>
+                                            <div class="text-gray-500 text-xs font-bold mt-1">اسلب الأرصدة</div>
+                                        </div>
+                                        <div class="bg-white/3 border border-white/5 rounded-2xl p-4 md:p-5">
+                                            <iconify-icon icon="mdi:trophy" class="text-3xl text-amber-400 mb-2"></iconify-icon>
+                                            <div class="text-white font-black text-lg md:text-xl">بطولة</div>
+                                            <div class="text-gray-500 text-xs font-bold mt-1">تُتوّج بطلاً</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Prestige line -->
+                                    <p class="text-gray-400 text-lg md:text-xl font-bold leading-relaxed max-w-lg mx-auto">
+                                        اختر لقبك. ابدأ من الصفر. واصعد بذكائك — لا أحد يعرف من أنت إلا إذا كشفوك.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gate bottom glow -->
+                        <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 w-[70%] h-[60px] bg-brand-teal/8 blur-[50px] rounded-full pointer-events-none"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECTION 9: FINAL CTA
+             ========================================== -->
+        <section id="final-cta" class="py-32 relative text-center px-4">
+            <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(11,138,141,0.15)_0%,transparent_70%)] pointer-events-none"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-orange/10 blur-[100px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-4xl mx-auto space-y-10 reveal-on-scroll relative z-10">
+                <h2 class="text-5xl md:text-7xl font-heading font-black text-white leading-tight">
+                    هل أنت جاهز لدخول <br/> <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-orange to-red-500">ساحة المعركة؟</span>
+                </h2>
+                <p class="text-2xl text-gray-400 font-medium max-w-xl mx-auto">
+                    الموسم مفتوح. خصومك يبنون أرصدتهم. مكانك في القمة لن ينتظرك.
+                </p>
+
+                <div class="pt-8 flex flex-col items-center">
+                    <div class="relative group">
+                        <a href="/" data-join-cta class="relative flex items-center justify-center gap-4 bg-gradient-to-r from-brand-teal to-brand-orange hover:from-[#09a0a4] hover:to-[#f04c18] text-white px-16 py-8 rounded-[2.5rem] font-heading font-black transition-all duration-300 transform hover:scale-105 active:scale-95 glow-pulse overflow-hidden">
+                            <div class="btn-shimmer animate-shimmer absolute inset-0 pointer-events-none"></div>
+                            <iconify-icon icon="mdi:rocket-launch" class="text-5xl drop-shadow-md relative z-10"></iconify-icon>
+                            <span class="text-4xl tracking-wide relative z-10">ادخل المنافسة</span>
+                        </a>
+                    </div>
+                    <p class="mt-8 text-gray-500 font-bold text-sm">
+                        تحتاج رابط دعوة للانضمام — اطلبه من مشرف المنافسة
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Global Footer -->
+    <div class="relative z-50">
+        <!-- component: RefinedGameFooter (9b147155-a6d3-40aa-8b7d-1ffadce7a840) -->
+<div v-scope="{ ...{&quot;logoHref&quot;:&quot;#&quot;,&quot;termsHref&quot;:&quot;#terms&quot;,&quot;privacyHref&quot;:&quot;#privacy&quot;,&quot;copyrightText&quot;:&quot;جميع الحقوق محفوظة © 2025 حرب الأسماء&quot;}, $emit() {} }">
+<footer class="bg-[#1F2937] dark:bg-[#0f141f] py-12 px-6 mt-8" style="background-image: repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(255, 255, 255, 0.02) 15px, rgba(255, 255, 255, 0.02) 30px)">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
+        <a :href="logoHref" id="footer-logo-link" class="transition-all duration-200 ease-in-out hover:opacity-80 block">
+            <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="w-[110px] object-contain opacity-80">
+        </a>
+        <div class="flex flex-col items-center md:items-start gap-4">
+            <div class="flex gap-6 font-medium text-sm text-gray-400">
+                <a :href="termsHref" id="link-terms-ftr" class="hover:text-white transition-all duration-200 ease-in-out">شروط الاستخدام</a>
+                <a :href="privacyHref" id="link-privacy-ftr" class="hover:text-white transition-all duration-200 ease-in-out">سياسة الخصوصية</a>
+            </div>
+            <div class="text-sm text-gray-500">
+                {{ copyrightText }}
+            </div>
+        </div>
+    </div>
+</footer>
+</div>
+<!-- /component: RefinedGameFooter (9b147155-a6d3-40aa-8b7d-1ffadce7a840) -->
+    </div>
+
+    <!-- Scroll Reveal Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-revealed');
+                    }
+                });
+            }, {
+                threshold: 0.15,
+                rootMargin: "0px 0px -50px 0px"
+            });
+
+            document.querySelectorAll('.reveal-on-scroll').forEach(el => {
+                observer.observe(el);
+            });
+        });
+    </script>
+
+    <!-- Ref Tracking -->
+    <script>
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            var ref = params.get('ref');
+            if (ref) {
+                // Store ref for the app to use after login/register
+                try { sessionStorage.setItem('won_landing_ref', ref); } catch(e) {}
+
+                // Append ?ref= to all CTA links pointing into the app
+                document.querySelectorAll('a[data-join-cta]').forEach(function(a) {
+                    var href = a.getAttribute('href');
+                    if (href && href.charAt(0) === '/') {
+                        var sep = href.indexOf('?') !== -1 ? '&' : '?';
+                        a.setAttribute('href', href + sep + 'ref=' + encodeURIComponent(ref));
+                    }
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

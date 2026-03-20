@@ -62,6 +62,15 @@ export default function InviteLinkPage() {
         method: 'POST',
         body: JSON.stringify({ alias }),
       })
+      // Track landing ref conversion (fire-and-forget)
+      const landingRef = sessionStorage.getItem('won_landing_ref')
+      if (landingRef) {
+        apiFetch('/api/landing-links/convert', {
+          method: 'POST',
+          body: JSON.stringify({ ref_token: landingRef }),
+        }).catch(() => {})
+        sessionStorage.removeItem('won_landing_ref')
+      }
       navigate('/lobby', { replace: true })
     } catch (err) {
       const detail = err.data

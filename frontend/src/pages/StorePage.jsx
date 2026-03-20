@@ -175,7 +175,8 @@ export default function StorePage() {
   async function handleUseItem(ownedItemId) {
     setUsingItem(true)
     try {
-      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use`, { method: 'POST' })
+      const qs = competitionId ? `?competition_id=${competitionId}` : ''
+      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use${qs}`, { method: 'POST' })
       setToast(res.message || 'تم استخدام العنصر بنجاح')
       refetchInventory()
       setTimeout(() => setToast(null), 3000)

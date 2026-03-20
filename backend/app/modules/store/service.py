@@ -58,9 +58,12 @@ async def _handle_fixed_bonus(
     balance_before = target.current_balance
     balance_after = balance_before + amount
 
+    ctx = context or {}
     ledger = LedgerEntry(
         membership_id=target.id,
         competition_id=target.competition_id,
+        season_id=ctx.get("season_id"),
+        cycle_id=ctx.get("cycle_id"),
         entry_type=LedgerEntryType.SYSTEM_REWARD,
         amount=amount,
         direction=LedgerDirection.CREDIT,
@@ -141,6 +144,8 @@ async def _handle_negative_effect(
     sub_type = effect.parameters.get("sub_type", "")
     target = target_membership if target_membership else membership
 
+    ctx = context or {}
+
     if sub_type == "deduct_points":
         amount = effect.parameters.get("amount", 0)
         if amount <= 0:
@@ -152,6 +157,8 @@ async def _handle_negative_effect(
         ledger = LedgerEntry(
             membership_id=target.id,
             competition_id=target.competition_id,
+            season_id=ctx.get("season_id"),
+            cycle_id=ctx.get("cycle_id"),
             entry_type=LedgerEntryType.ATTACK_PENALTY,
             amount=amount,
             direction=LedgerDirection.DEBIT,
@@ -179,6 +186,8 @@ async def _handle_negative_effect(
         ledger = LedgerEntry(
             membership_id=target.id,
             competition_id=target.competition_id,
+            season_id=ctx.get("season_id"),
+            cycle_id=ctx.get("cycle_id"),
             entry_type=LedgerEntryType.ATTACK_PENALTY,
             amount=amount,
             direction=LedgerDirection.DEBIT,

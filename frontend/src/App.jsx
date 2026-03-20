@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 import { AuthProvider } from './context/AuthContext'
@@ -40,7 +41,17 @@ import AdminNotificationsPage from './pages/admin/AdminNotificationsPage'
 import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 import AdminPlatformSettingsPage from './pages/admin/AdminPlatformSettingsPage'
 
+function useCaptureRef() {
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref')
+    if (ref) {
+      try { sessionStorage.setItem('won_landing_ref', ref) } catch {}
+    }
+  }, [])
+}
+
 function GameRoutes() {
+  useCaptureRef()
   return (
     <Routes>
       {/* ── Entry / Main Page (auth-aware gateway) ── */}

@@ -79,3 +79,4 @@ from app.modules.notifications.models import Notification  # noqa: E402, F401
 from app.modules.audit.models import AuditEvent  # noqa: E402, F401
 from app.modules.settings.models import SettingDefinition, SettingValue  # noqa: E402, F401
 from app.modules.media.models import ExportArtifact, ImportJob, MediaAsset  # noqa: E402, F401
+from app.modules.landing.models import LandingLink  # noqa: E402, F401

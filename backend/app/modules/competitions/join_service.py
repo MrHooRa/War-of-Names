@@ -17,6 +17,8 @@ from app.core.enums import (
     LedgerDirection,
     LedgerEntryType,
     MembershipStatus,
+    NotificationPriority,
+    NotificationType,
     SeasonStatus,
 )
 from app.modules.competitions.models import (
@@ -27,6 +29,7 @@ from app.modules.competitions.models import (
     Membership,
     Season,
 )
+from app.modules.notifications.service import create_notification
 from app.modules.scoring.models import LedgerEntry
 from app.modules.settings.service import get_setting
 
@@ -157,6 +160,20 @@ async def execute_join(
 
     # Increment invite use count
     invite.use_count += 1
+
+    # Notify the player they joined
+    await create_notification(
+        session,
+        recipient_id=account_id,
+        notification_type=NotificationType.COMPETITION_JOINED,
+        title="مرحباً في المنافسة!",
+        message=f"انضممت إلى {competition.name} بلقب «{alias}» ورصيد {initial_balance} نقطة",
+        membership_id=membership.id,
+        priority=NotificationPriority.HIGH,
+        reference_type="competition",
+        reference_id=competition.id,
+        deep_link="/dashboard",
+    )
 
     await session.commit()
 

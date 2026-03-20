@@ -68,6 +68,7 @@ export default function AdminSeasonsPage() {
   const [broadcastTitle, setBroadcastTitle] = useState('')
   const [broadcastMessage, setBroadcastMessage] = useState('')
   const [operatingCycle, setOperatingCycle] = useState(null)
+  const [operatingSeason, setOperatingSeason] = useState(null)
   const [resultBanner, setResultBanner] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -100,14 +101,32 @@ export default function AdminSeasonsPage() {
     setSaving(false)
   }
 
-  async function updateSeasonStatus(seasonId, status) {
+  async function startSeason(seasonId) {
+    setOperatingSeason(seasonId)
     try {
-      await apiFetch(`/api/admin/seasons/${seasonId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      })
+      const json = await apiFetch(`/api/admin/seasons/${seasonId}/start`, { method: 'POST' })
+      const data = json.data || {}
+      const details = [`الأعضاء المُشعَرون: ${data.members_notified || 0}`]
+      if (data.previous_seasons_completed > 0)
+        details.unshift(`مواسم سابقة مكتملة: ${data.previous_seasons_completed}`)
+      setResultBanner({ title: json.message || 'تم بدء الموسم بنجاح', details })
       loadDetail()
     } catch {}
+    setOperatingSeason(null)
+  }
+
+  async function endSeason(seasonId) {
+    setOperatingSeason(seasonId)
+    try {
+      const json = await apiFetch(`/api/admin/seasons/${seasonId}/end`, { method: 'POST' })
+      const data = json.data || {}
+      const details = [`الأعضاء المُشعَرون: ${data.members_notified || 0}`]
+      if (data.cycles_ended?.length > 0)
+        details.unshift(`دورات أُنهيت تلقائياً: ${data.cycles_ended.length}`)
+      setResultBanner({ title: json.message || 'تم إنهاء الموسم بنجاح', details })
+      loadDetail()
+    } catch {}
+    setOperatingSeason(null)
   }
 
   // ── Cycle CRUD ──────────────────────────────────────────────────────
@@ -368,20 +387,24 @@ export default function AdminSeasonsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {season.status === 'draft' && (
+                    {(season.status === 'draft' || season.status === 'paused') && (
                       <button
-                        onClick={() => updateSeasonStatus(season.id, 'active')}
-                        className="text-xs font-black bg-brand-success/10 text-brand-success hover:bg-brand-success/20 px-3 py-1.5 rounded-lg smooth-transition"
+                        onClick={() => startSeason(season.id)}
+                        disabled={operatingSeason === season.id}
+                        className="text-xs font-black bg-brand-success/10 text-brand-success hover:bg-brand-success/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
                       >
-                        تفعيل
+                        <iconify-icon icon={operatingSeason === season.id ? 'lucide:loader-2' : 'lucide:play'} class={`text-xs ${operatingSeason === season.id ? 'animate-spin' : ''}`}></iconify-icon>
+                        {operatingSeason === season.id ? 'جارٍ البدء...' : 'بدء الموسم'}
                       </button>
                     )}
                     {season.status === 'active' && (
                       <button
-                        onClick={() => updateSeasonStatus(season.id, 'completed')}
-                        className="text-xs font-black bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/30 px-3 py-1.5 rounded-lg smooth-transition"
+                        onClick={() => endSeason(season.id)}
+                        disabled={operatingSeason === season.id}
+                        className="text-xs font-black bg-brand-orange/10 text-brand-orange hover:bg-brand-orange/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
                       >
-                        إنهاء الموسم
+                        <iconify-icon icon={operatingSeason === season.id ? 'lucide:loader-2' : 'lucide:square'} class={`text-xs ${operatingSeason === season.id ? 'animate-spin' : ''}`}></iconify-icon>
+                        {operatingSeason === season.id ? 'جارٍ الإنهاء...' : 'إنهاء الموسم'}
                       </button>
                     )}
                     <button

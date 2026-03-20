@@ -14,6 +14,10 @@ export default defineConfig({
         target: 'http://api:8000',
         changeOrigin: true,
       },
+      '/l': {
+        target: 'http://api:8000',
+        changeOrigin: true,
+      },
     },
   },
 })

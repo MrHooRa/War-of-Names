@@ -18,6 +18,7 @@ from app.modules.store.router import router as store_router
 from app.modules.quiz.router import router as quiz_router
 from app.modules.admin.router import router as admin_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.landing.router import router as landing_router
 
 
 async def _apply_schema_patches(conn):
@@ -99,6 +100,7 @@ app.include_router(store_router)
 app.include_router(quiz_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)
+app.include_router(landing_router)
 
 
 # --- Health ---

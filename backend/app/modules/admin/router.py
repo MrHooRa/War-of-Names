@@ -685,19 +685,42 @@ class BroadcastBody(BaseModel):
 
 @router.patch("/seasons/{season_id}")
 async def update_season(season_id: uuid.UUID, body: UpdateSeasonRequest, admin: AdminAccount):
-    """Update season name, status, or dates."""
+    """Update season name, status, or dates. Use /start and /end for lifecycle transitions."""
     async with async_session() as session:
         season = await session.get(Season, season_id)
         if not season:
             raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        old_status = season.status
+
         if body.name is not None:
             season.name = body.name
         if body.status is not None:
+            # Guard: don't allow direct ACTIVE transition — force use of /start
+            if body.status == SeasonStatus.ACTIVE and old_status != SeasonStatus.ACTIVE:
+                raise HTTPException(
+                    status_code=400,
+                    detail="استخدم نقطة النهاية /start لتفعيل الموسم — لا يمكن التفعيل مباشرة",
+                )
             season.status = body.status
         if body.starts_at is not None:
             season.starts_at = datetime.fromisoformat(body.starts_at) if body.starts_at else None
         if body.ends_at is not None:
             season.ends_at = datetime.fromisoformat(body.ends_at) if body.ends_at else None
+
+        # Audit trail on status changes
+        if body.status is not None and body.status != old_status:
+            await write_audit(
+                session,
+                actor_id=admin.id,
+                subject_type="season",
+                subject_id=season.id,
+                event_type="season_status_changed",
+                summary=f"تغيير حالة الموسم: {old_status} → {body.status}",
+                before_state={"status": str(old_status)},
+                after_state={"status": body.status},
+            )
+
         await session.commit()
     return {"success": True, "message": "تم تحديث الموسم بنجاح"}
 
@@ -1254,6 +1277,87 @@ async def revoke_item_from_player(
         await session.commit()
 
     return {"success": True, "message": f"تمت مصادرة {item_name} بنجاح"}
+
+
+class AdminBulkRevokeRequest(BaseModel):
+    reason: str = ""
+
+
+@router.post("/store/items/{item_id}/revoke-all")
+async def bulk_revoke_owned_items(item_id: uuid.UUID, body: AdminBulkRevokeRequest, admin: AdminAccount):
+    """
+    Revoke all active owned instances of an item definition across all players.
+
+    Useful after archiving an item — removes it from every player's inventory.
+    Only affects AVAILABLE / ACTIVATED / PENDING items (already consumed/expired are untouched).
+    Each affected player receives a notification.
+    """
+    async with async_session() as session:
+        item_def = await session.get(ItemDefinition, item_id)
+        if not item_def:
+            raise HTTPException(status_code=404, detail="العنصر غير موجود")
+
+        # Find all active owned instances
+        result = await session.execute(
+            select(OwnedItem)
+            .where(
+                OwnedItem.item_definition_id == item_id,
+                OwnedItem.status.in_([
+                    OwnedItemStatus.AVAILABLE,
+                    OwnedItemStatus.ACTIVATED,
+                    OwnedItemStatus.PENDING,
+                ]),
+            )
+        )
+        owned_items = result.scalars().all()
+
+        if not owned_items:
+            return {"success": True, "message": "لا توجد عناصر نشطة لمصادرتها", "data": {"revoked_count": 0}}
+
+        now = datetime.utcnow()
+        affected_membership_ids = set()
+
+        for owned in owned_items:
+            owned.status = OwnedItemStatus.CONSUMED
+            owned.consumed_at = now
+            affected_membership_ids.add(owned.membership_id)
+
+        # Send notification to each affected player
+        for mid in affected_membership_ids:
+            membership = await session.get(Membership, mid)
+            if membership:
+                notif = Notification(
+                    recipient_id=membership.account_id,
+                    membership_id=mid,
+                    notification_type=NotificationType.ADMIN_CHANGE,
+                    title="تمت مصادرة عنصر",
+                    message=f"تمت مصادرة {item_def.name} من مخزونك بواسطة المشرف"
+                        + (f" — {body.reason}" if body.reason else ""),
+                    priority=NotificationPriority.HIGH,
+                )
+                session.add(notif)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="item_definition",
+            subject_id=item_id,
+            event_type="bulk_item_revoked",
+            summary=f"مصادرة جماعية: {item_def.name} — {len(owned_items)} نسخة من {len(affected_membership_ids)} لاعب",
+            reason=body.reason,
+            before_state={"active_count": len(owned_items)},
+            after_state={"active_count": 0, "revoked_count": len(owned_items)},
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "message": f"تمت مصادرة {len(owned_items)} نسخة من {item_def.name}",
+        "data": {
+            "revoked_count": len(owned_items),
+            "players_affected": len(affected_membership_ids),
+        },
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1948,23 +2052,72 @@ async def update_item_definition(item_id: uuid.UUID, body: UpdateItemDefinitionR
 
 
 @router.delete("/store/items/{item_id}")
-async def delete_item_definition(item_id: uuid.UUID, admin: AdminAccount):
-    """Archive an item definition."""
+async def archive_item_definition(item_id: uuid.UUID, admin: AdminAccount):
+    """
+    Archive an item definition.
+
+    Side effects:
+      - All ACTIVE store listings for this item are set to HIDDEN.
+      - Existing owned items remain intact (historical integrity).
+      - Future grants and new listings are blocked (grant endpoint
+        rejects archived items; listing creation should check status).
+    """
     async with async_session() as session:
         item = await session.get(ItemDefinition, item_id)
         if not item:
             raise HTTPException(status_code=404, detail="العنصر غير موجود")
+
+        if item.status == ItemStatus.ARCHIVED:
+            return {"success": True, "message": "العنصر مؤرشف بالفعل"}
+
+        old_status = item.status
         item.status = ItemStatus.ARCHIVED
+
+        # ── Cascade: deactivate all ACTIVE listings for this item ──
+        listing_result = await session.execute(
+            select(StoreListing).where(
+                StoreListing.item_definition_id == item_id,
+                StoreListing.status == ListingStatus.ACTIVE,
+            )
+        )
+        deactivated_listings = listing_result.scalars().all()
+        for listing in deactivated_listings:
+            listing.status = ListingStatus.HIDDEN
+
+        # Count active owned items for informational response
+        owned_count = (await session.execute(
+            select(func.count()).select_from(OwnedItem).where(
+                OwnedItem.item_definition_id == item_id,
+                OwnedItem.status.in_([
+                    OwnedItemStatus.AVAILABLE,
+                    OwnedItemStatus.ACTIVATED,
+                    OwnedItemStatus.PENDING,
+                ]),
+            )
+        )).scalar() or 0
 
         await write_audit(
             session, actor_id=admin.id, subject_type="item_definition", subject_id=item_id,
             event_type="item_definition_archived",
             summary=f"أرشف عنصر: {item.name}",
-            before_state={"name": item.name, "status": "active"},
-            after_state={"name": item.name, "status": "archived"},
+            before_state={"name": item.name, "status": str(old_status)},
+            after_state={
+                "name": item.name,
+                "status": "archived",
+                "listings_deactivated": len(deactivated_listings),
+                "owned_items_remaining": owned_count,
+            },
         )
         await session.commit()
-    return {"success": True, "message": "تم حذف العنصر"}
+
+    return {
+        "success": True,
+        "message": f"تم أرشفة العنصر «{item.name}»",
+        "data": {
+            "listings_deactivated": len(deactivated_listings),
+            "owned_items_remaining": owned_count,
+        },
+    }
 
 
 class CreateStoreListingRequest(BaseModel):
@@ -1982,6 +2135,8 @@ async def create_store_listing(body: CreateStoreListingRequest, admin: AdminAcco
         item = await session.get(ItemDefinition, body.item_definition_id)
         if not item:
             raise HTTPException(status_code=404, detail="العنصر غير موجود")
+        if item.status == ItemStatus.ARCHIVED:
+            raise HTTPException(status_code=400, detail="لا يمكن إنشاء عرض لعنصر مؤرشف")
         comp = await session.get(Competition, body.competition_id)
         if not comp:
             raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
@@ -2680,6 +2835,15 @@ async def create_item_effect(item_id: uuid.UUID, body: CreateItemEffectRequest, 
             order_index=body.order_index,
         )
         session.add(effect)
+        await session.flush()
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_effect", subject_id=effect.id,
+            event_type="item_effect_created",
+            summary=f"أضاف تأثير {body.effect_type} لعنصر {item.name}",
+            after_state={"effect_type": body.effect_type, "parameters": body.parameters, "target_scope": body.target_scope, "trigger_on": body.trigger_on},
+            related_type="item_definition", related_id=item_id,
+        )
         await session.commit()
         await session.refresh(effect)
 
@@ -2736,6 +2900,15 @@ async def update_item_effect(
             effect.trigger_on = body.trigger_on
         if body.order_index is not None:
             effect.order_index = body.order_index
+
+        item = await session.get(ItemDefinition, item_id)
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_effect", subject_id=effect_id,
+            event_type="item_effect_updated",
+            summary=f"عدّل تأثير {final_type} لعنصر {item.name if item else '?'}",
+            after_state={"effect_type": final_type, "parameters": final_params, "target_scope": final_scope, "trigger_on": final_trigger},
+            related_type="item_definition", related_id=item_id,
+        )
         await session.commit()
 
     summary = generate_effect_summary(final_type, final_params, final_duration, final_scope, final_trigger)
@@ -2749,6 +2922,15 @@ async def delete_item_effect(item_id: uuid.UUID, effect_id: uuid.UUID, admin: Ad
         effect = await session.get(ItemEffect, effect_id)
         if not effect or str(effect.item_definition_id) != str(item_id):
             raise HTTPException(status_code=404, detail="التأثير غير موجود")
+
+        item = await session.get(ItemDefinition, item_id)
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_effect", subject_id=effect_id,
+            event_type="item_effect_deleted",
+            summary=f"حذف تأثير {effect.effect_type} من عنصر {item.name if item else '?'}",
+            before_state={"effect_type": str(effect.effect_type), "parameters": effect.parameters, "target_scope": effect.target_scope},
+            related_type="item_definition", related_id=item_id,
+        )
         await session.delete(effect)
         await session.commit()
     return {"success": True, "message": "تم حذف التأثير"}
@@ -2810,13 +2992,89 @@ async def get_season_detail(season_id: uuid.UUID, admin: AdminAccount):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# SEASON LIFECYCLE
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.post("/seasons/{season_id}/start")
+async def start_season_endpoint(season_id: uuid.UUID, admin: AdminAccount):
+    """Start a season with full lifecycle events — completes other active seasons, notifies members."""
+    from app.modules.competitions.cycle_service import start_season as do_start_season
+
+    async with async_session() as session:
+        season = await session.get(Season, season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+        if season.status not in (SeasonStatus.DRAFT, SeasonStatus.PAUSED):
+            raise HTTPException(status_code=400, detail="يمكن بدء المواسم ذات الحالة مسودة أو متوقفة فقط")
+
+        result = await do_start_season(session, season, season.competition_id)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="season",
+            subject_id=season.id,
+            event_type="season_started",
+            summary=f"بدء الموسم: {season.name}",
+            after_state={"status": str(season.status), "name": season.name},
+            related_type="competition",
+            related_id=season.competition_id,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result,
+        "message": f"تم بدء الموسم: {season.name}",
+    }
+
+
+@router.post("/seasons/{season_id}/end")
+async def end_season_endpoint(season_id: uuid.UUID, admin: AdminAccount):
+    """End a season with full lifecycle events — ends active cycles, notifies members."""
+    from app.modules.competitions.cycle_service import end_season as do_end_season
+
+    async with async_session() as session:
+        season = await session.get(Season, season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+        if season.status != SeasonStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="الموسم ليس نشطاً حالياً")
+
+        result = await do_end_season(session, season, season.competition_id)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="season",
+            subject_id=season.id,
+            event_type="season_ended",
+            summary=f"إنهاء الموسم: {season.name}",
+            after_state={"status": str(season.status), "name": season.name},
+            related_type="competition",
+            related_id=season.competition_id,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result,
+        "message": f"تم إنهاء الموسم: {season.name}",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # CYCLE LIFECYCLE
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.post("/cycles/{cycle_id}/start")
 async def start_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
     """Start a cycle with full lifecycle events — clears protections, resets bankruptcy, notifies members."""
-    from app.modules.competitions.cycle_service import start_cycle as do_start_cycle
+    from app.modules.competitions.cycle_service import (
+        close_expired_cycles,
+        start_cycle as do_start_cycle,
+    )
 
     async with async_session() as session:
         cycle = await session.get(Cycle, cycle_id)
@@ -2828,6 +3086,9 @@ async def start_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
         season = await session.get(Season, cycle.season_id)
         if not season:
             raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        # Auto-close any cycles past their ends_at before starting a new one
+        await close_expired_cycles(session, season.competition_id)
 
         result = await do_start_cycle(session, cycle, season)
 
@@ -2943,7 +3204,10 @@ async def activate_cycle(cycle_id: uuid.UUID, admin: AdminAccount):
 @router.post("/cycles/{cycle_id}/advance")
 async def advance_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
     """End the currently active cycle in the same season and start this one. Full lifecycle events for both."""
-    from app.modules.competitions.cycle_service import advance_to_next_cycle
+    from app.modules.competitions.cycle_service import (
+        advance_to_next_cycle,
+        close_expired_cycles,
+    )
 
     async with async_session() as session:
         next_cycle = await session.get(Cycle, cycle_id)
@@ -2955,6 +3219,9 @@ async def advance_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
         season = await session.get(Season, next_cycle.season_id)
         if not season:
             raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        # Auto-close any cycles past their ends_at
+        await close_expired_cycles(session, season.competition_id)
 
         # Find the currently active cycle in this season
         active_result = await session.execute(

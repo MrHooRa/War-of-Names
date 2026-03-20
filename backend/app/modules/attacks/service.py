@@ -61,8 +61,10 @@ def _calc_reward(base_reward: int, decay_factor: float, stage: int) -> int:
 async def _load_attack_settings(
     session: AsyncSession,
     competition_id: uuid.UUID,
+    season_id: uuid.UUID | None = None,
+    cycle_id: uuid.UUID | None = None,
 ) -> dict:
-    """Load all attack-related settings from DB with cascade."""
+    """Load all attack-related settings from DB with full cascade (cycle→season→competition→global)."""
     settings = await get_settings_batch(
         session,
         [
@@ -73,6 +75,8 @@ async def _load_attack_settings(
             "score_bankruptcy_threshold",
         ],
         competition_id=competition_id,
+        season_id=season_id,
+        cycle_id=cycle_id,
     )
     return {
         "base_reward": int(settings.get("attack_base_reward") or _FALLBACK_BASE_REWARD),
@@ -292,12 +296,14 @@ async def get_attack_preview(
     attacker_membership_id: uuid.UUID,
     target_membership_id: uuid.UUID,
     competition_id: uuid.UUID,
+    season_id: uuid.UUID | None = None,
+    cycle_id: uuid.UUID | None = None,
 ) -> dict:
     """
     Returns preview data: eligibility, estimated reward/penalty, current stage.
     Does NOT write anything to the database.
     """
-    cfg = await _load_attack_settings(session, competition_id)
+    cfg = await _load_attack_settings(session, competition_id, season_id, cycle_id)
     base_penalty = cfg["base_penalty"]
 
     # Load attacker
@@ -358,6 +364,9 @@ async def get_attack_preview(
             "estimated_penalty": base_penalty,
             "target_current_stage": 0,
         }
+
+    # PARTIAL protection: attack allowed, but target loses less (noted in modifiers)
+    has_partial_protection = target.protection == ProtectionType.PARTIAL
 
     if str(attacker_membership_id) == str(target_membership_id):
         return {
@@ -435,6 +444,10 @@ async def get_attack_preview(
     if modifiers["on_defense"]["loss_multiplier"] != 1.0 or modifiers["on_defense"]["loss_reduction"] > 0:
         active_modifiers.append("الهدف لديه درع دفاعي نشط")
 
+    # PARTIAL protection indicator
+    if has_partial_protection:
+        active_modifiers.append("الهدف محمي جزئياً — خسارته مخفّضة بنسبة 50٪")
+
     return {
         "can_attack": True,
         "blocking_reason": None,
@@ -468,7 +481,7 @@ async def execute_attack(
     8. Check bankruptcy for both parties (create BankruptcyRecord)
     9. Persist AttackAttempt record
     """
-    cfg = await _load_attack_settings(session, competition_id)
+    cfg = await _load_attack_settings(session, competition_id, season_id, cycle_id)
 
     # Load both memberships
     attacker = await session.get(Membership, attacker_membership_id)
@@ -510,6 +523,9 @@ async def execute_attack(
             "message": "الهجوم مرفوض — الهدف محمي",
             "attempt_id": uuid.uuid4(),
         }
+
+    # PARTIAL protection: attack proceeds but target deduction halved
+    has_partial_protection = target.protection == ProtectionType.PARTIAL
 
     # Load active + pending item effect modifiers
     modifiers = await _get_attack_modifiers(session, attacker_membership_id, target_membership_id)
@@ -577,6 +593,9 @@ async def execute_attack(
 
         # Calculate target deduction (may be reduced by defender's pending effects)
         target_deduction = reward_amount
+        # PARTIAL protection: halve the target's loss
+        if has_partial_protection:
+            target_deduction = max(0, round(target_deduction * 0.5))
         if modifiers["on_defense"]["loss_multiplier"] != 1.0:
             target_deduction = max(0, round(target_deduction * modifiers["on_defense"]["loss_multiplier"]))
         target_deduction = max(0, target_deduction - modifiers["on_defense"]["loss_reduction"])
@@ -629,6 +648,33 @@ async def execute_attack(
                 trigger_source_id=attempt.id,
                 reason=f"إفلاس بسبب هجوم ناجح — الرصيد: {target.current_balance}",
             )
+            await create_notification(
+                session,
+                recipient_id=target.account_id,
+                notification_type=NotificationType.BANKRUPTCY_TRIGGERED,
+                title="إفلاس!",
+                message=f"رصيدك وصل إلى {target.current_balance} — أنت الآن في حالة إفلاس",
+                membership_id=target_membership_id,
+                priority=NotificationPriority.URGENT,
+                reference_type="attack_attempt",
+                reference_id=attempt.id,
+                deep_link="/dashboard",
+            )
+
+        # Notify target of FULL protection activation
+        if exposure.max_attacks_reached and target.protection == ProtectionType.FULL:
+            await create_notification(
+                session,
+                recipient_id=target.account_id,
+                notification_type=NotificationType.PROTECTION_ACTIVATED,
+                title="حماية كاملة!",
+                message="بلغت الحد الأقصى من الهجمات — أنت الآن محمي بالكامل لبقية الدورة",
+                membership_id=target_membership_id,
+                priority=NotificationPriority.HIGH,
+                reference_type="cycle",
+                reference_id=cycle_id,
+                deep_link="/dashboard",
+            )
 
     else:  # FAILED
         penalty = cfg["base_penalty"]
@@ -674,6 +720,18 @@ async def execute_attack(
                 cycle_id=cycle_id,
                 trigger_source_id=attempt.id,
                 reason=f"إفلاس بسبب خسارة هجوم — الرصيد: {attacker.current_balance}",
+            )
+            await create_notification(
+                session,
+                recipient_id=attacker.account_id,
+                notification_type=NotificationType.BANKRUPTCY_TRIGGERED,
+                title="إفلاس!",
+                message=f"رصيدك وصل إلى {attacker.current_balance} — أنت الآن في حالة إفلاس",
+                membership_id=attacker_membership_id,
+                priority=NotificationPriority.URGENT,
+                reference_type="attack_attempt",
+                reference_id=attempt.id,
+                deep_link="/dashboard",
             )
 
     # ── Notifications ──────────────────────────────────────────────────────

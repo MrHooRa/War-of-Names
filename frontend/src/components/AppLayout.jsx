@@ -49,7 +49,11 @@ export default function AppLayout({ activeItem = 'home', children }) {
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    apiFetch('/api/me/notifications')
+    const activeComp = localStorage.getItem('won_active_competition')
+    const url = activeComp
+      ? `/api/me/notifications?competition_id=${activeComp}`
+      : '/api/me/notifications'
+    apiFetch(url)
       .then(r => {
         if (r.data) setUnreadCount(r.data.filter(n => !n.is_read).length)
       })
