@@ -358,14 +358,17 @@ async def list_my_memberships(account: CurrentAccount):
 
 
 @router.get("/api/me/competition-context")
-async def get_competition_context(account: CurrentAccount):
+async def get_competition_context(
+    account: CurrentAccount,
+    competition_id: uuid.UUID | None = None,
+):
     """Returns the active competition context for the current user.
 
     If competition_id query param is provided, use that; otherwise pick the
     first active membership.
     """
     async with async_session() as session:
-        mem_result = await session.execute(
+        query = (
             select(Membership, Competition)
             .join(Competition, Membership.competition_id == Competition.id)
             .where(
@@ -376,8 +379,11 @@ async def get_competition_context(account: CurrentAccount):
                     CompetitionStatus.REGISTRATION_OPEN,
                 ]),
             )
-            .limit(1)
         )
+        if competition_id:
+            query = query.where(Competition.id == competition_id)
+        query = query.limit(1)
+        mem_result = await session.execute(query)
         row = mem_result.first()
         if not row:
             return {"success": True, "data": None}

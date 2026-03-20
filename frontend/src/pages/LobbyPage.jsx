@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef } from 'react'
 import useCompetitionContext from '../hooks/useCompetitionContext'
+import CompetitionSwitcher from '../components/CompetitionSwitcher'
 
 export default function LobbyPage() {
   const containerRef = useRef(null)
@@ -138,12 +139,15 @@ export default function LobbyPage() {
 
       {/* Header (Minimal) */}
       <header className="relative z-30 w-full p-6 flex justify-between items-center opacity-0 animate-[slideDownFade_0.5s_ease_0.5s_forwards] pointer-events-none">
-        <div className="flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg pointer-events-auto">
-          <div className="w-2.5 h-2.5 rounded-full bg-brand-emerald animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
-          <span className="text-sm font-bold text-gray-200 tracking-wide">
-            {seasonName || 'المركز الرئيسي متصل'}
-            {cycleLabel && <span className="text-gray-400 mr-2">— {cycleLabel}</span>}
-          </span>
+        <div className="flex items-center gap-4 pointer-events-auto">
+          <CompetitionSwitcher variant="dark" />
+          <div className="flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg">
+            <div className="w-2.5 h-2.5 rounded-full bg-brand-emerald animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+            <span className="text-sm font-bold text-gray-200 tracking-wide">
+              {seasonName || 'المركز الرئيسي متصل'}
+              {cycleLabel && <span className="text-gray-400 mr-2">— {cycleLabel}</span>}
+            </span>
+          </div>
         </div>
         <div className="flex gap-4 pointer-events-auto">
           <Link

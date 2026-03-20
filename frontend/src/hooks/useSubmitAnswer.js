@@ -7,13 +7,17 @@
 import { useState, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 
+const STORAGE_KEY = 'won_active_competition'
+
 export default function useSubmitAnswer() {
   const [state, setState] = useState({ submitting: false, error: null, result: null })
 
   const submitAnswer = useCallback(async (sessionId, sessionQuestionId, answer) => {
     setState({ submitting: true, error: null, result: null })
     try {
-      const json = await apiFetch(`/api/quiz/${sessionId}/answer`, {
+      const activeComp = localStorage.getItem(STORAGE_KEY)
+      const qs = activeComp ? `?competition_id=${activeComp}` : ''
+      const json = await apiFetch(`/api/quiz/${sessionId}/answer${qs}`, {
         method: 'POST',
         body: JSON.stringify({
           session_question_id: sessionQuestionId,

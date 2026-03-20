@@ -129,12 +129,24 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* CTA Action */}
+          {/* CTA Action — context-aware */}
           <div className="w-full md:w-auto mt-4 md:mt-0">
-            <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
-              <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
-              ابدأ الهجوم
-            </Link>
+            {data.is_bankrupt ? (
+              <div className="w-full md:w-auto bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 cursor-not-allowed">
+                <iconify-icon icon="lucide:ghost" class="text-3xl"></iconify-icon>
+                مفلس — لا يمكن الهجوم
+              </div>
+            ) : data.protection === 'full' ? (
+              <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+                <iconify-icon icon="lucide:shield-check" class="text-3xl"></iconify-icon>
+                محمي — الساحة
+              </Link>
+            ) : (
+              <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+                <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
+                ابدأ الهجوم
+              </Link>
+            )}
           </div>
         </div>
       </section>

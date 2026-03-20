@@ -802,20 +802,90 @@ async def list_players(admin: AdminAccount, competition_id: uuid.UUID | None = N
 
 @router.get("/players/{membership_id}")
 async def get_player_detail(membership_id: uuid.UUID, admin: AdminAccount):
-    """Get detailed player info with ledger and attack history."""
+    """Get detailed player info with full operational state, ledger, attacks, and inventory."""
     async with async_session() as session:
         membership = await session.get(Membership, membership_id)
         if not membership:
             raise HTTPException(status_code=404, detail="اللاعب غير موجود")
 
         account = await session.get(Account, membership.account_id)
+        competition = await session.get(Competition, membership.competition_id)
+
+        # Rank within competition
+        rank = (await session.execute(
+            select(func.count()).where(
+                Membership.competition_id == membership.competition_id,
+                Membership.status == MembershipStatus.ACTIVE,
+                Membership.current_balance > membership.current_balance,
+            )
+        )).scalar() + 1
+        total_active = (await session.execute(
+            select(func.count()).where(
+                Membership.competition_id == membership.competition_id,
+                Membership.status == MembershipStatus.ACTIVE,
+            )
+        )).scalar() or 0
+
+        # Attack stats
+        attacks_sent = (await session.execute(
+            select(func.count()).where(
+                AttackAttempt.attacker_id == membership_id,
+                AttackAttempt.outcome.in_([AttackOutcome.SUCCEEDED, AttackOutcome.FAILED]),
+            )
+        )).scalar() or 0
+        attacks_won = (await session.execute(
+            select(func.count()).where(
+                AttackAttempt.attacker_id == membership_id,
+                AttackAttempt.outcome == AttackOutcome.SUCCEEDED,
+            )
+        )).scalar() or 0
+        attacks_received = (await session.execute(
+            select(func.count()).where(
+                AttackAttempt.target_id == membership_id,
+                AttackAttempt.outcome == AttackOutcome.SUCCEEDED,
+            )
+        )).scalar() or 0
+
+        # Notification stats for this membership
+        notif_count = (await session.execute(
+            select(func.count()).where(Notification.membership_id == membership_id)
+        )).scalar() or 0
+        unread_notifs = (await session.execute(
+            select(func.count()).where(
+                Notification.membership_id == membership_id,
+                Notification.is_read == False,
+            )
+        )).scalar() or 0
+
+        # Active season / cycle context
+        active_season_data = None
+        active_cycle_data = None
+        if competition:
+            season_res = await session.execute(
+                select(Season).where(
+                    Season.competition_id == competition.id,
+                    Season.status == SeasonStatus.ACTIVE,
+                ).limit(1)
+            )
+            active_season = season_res.scalars().first()
+            if active_season:
+                active_season_data = {"id": str(active_season.id), "name": active_season.name}
+                cycle_res = await session.execute(
+                    select(Cycle).where(
+                        Cycle.season_id == active_season.id,
+                        Cycle.status == CycleStatus.ACTIVE,
+                    ).limit(1)
+                )
+                active_cycle = cycle_res.scalars().first()
+                if active_cycle:
+                    active_cycle_data = {"id": str(active_cycle.id), "label": active_cycle.label}
 
         # Recent ledger entries
         ledger_result = await session.execute(
             select(LedgerEntry)
             .where(LedgerEntry.membership_id == membership_id)
             .order_by(LedgerEntry.created_at.desc())
-            .limit(20)
+            .limit(30)
         )
         ledger_rows = ledger_result.scalars().all()
         ledger_data = [{
@@ -834,7 +904,7 @@ async def get_player_detail(membership_id: uuid.UUID, admin: AdminAccount):
         attacks_result = await session.execute(
             select(AttackAttempt).where(
                 (AttackAttempt.attacker_id == membership_id) | (AttackAttempt.target_id == membership_id)
-            ).order_by(AttackAttempt.created_at.desc()).limit(10)
+            ).order_by(AttackAttempt.created_at.desc()).limit(15)
         )
         attacks_rows = attacks_result.scalars().all()
 
@@ -853,7 +923,7 @@ async def get_player_detail(membership_id: uuid.UUID, admin: AdminAccount):
                 "created_at": a.created_at.isoformat() if a.created_at else None,
             })
 
-        # Inventory
+        # Inventory (enriched with item detail)
         inv_result = await session.execute(
             select(OwnedItem, ItemDefinition)
             .join(ItemDefinition, OwnedItem.item_definition_id == ItemDefinition.id)
@@ -863,10 +933,20 @@ async def get_player_detail(membership_id: uuid.UUID, admin: AdminAccount):
         inv_rows = inv_result.all()
         inventory_data = [{
             "id": str(oi.id),
+            "item_definition_id": str(item.id),
             "name": item.name,
+            "description": item.description,
             "rarity": item.rarity,
+            "category": item.category,
+            "usage_type": item.usage_type,
             "status": oi.status,
+            "source_type": oi.source_type,
+            "quantity": oi.quantity,
+            "uses_remaining": oi.uses_remaining,
             "acquired_at": oi.acquired_at.isoformat() if oi.acquired_at else None,
+            "activated_at": oi.activated_at.isoformat() if oi.activated_at else None,
+            "expires_at": oi.expires_at.isoformat() if oi.expires_at else None,
+            "consumed_at": oi.consumed_at.isoformat() if oi.consumed_at else None,
         } for oi, item in inv_rows]
 
     return {
@@ -882,7 +962,18 @@ async def get_player_detail(membership_id: uuid.UUID, admin: AdminAccount):
             "protection": membership.protection,
             "is_bankrupt": membership.is_bankrupt,
             "competition_id": str(membership.competition_id),
-            "joined_at": membership.updated_at.isoformat() if membership.updated_at else None,
+            "competition_name": competition.name if competition else "?",
+            "competition_status": competition.status if competition else None,
+            "rank": rank,
+            "total_active_members": total_active,
+            "attacks_sent": attacks_sent,
+            "attacks_won": attacks_won,
+            "attacks_received": attacks_received,
+            "notification_count": notif_count,
+            "unread_notifications": unread_notifs,
+            "active_season": active_season_data,
+            "active_cycle": active_cycle_data,
+            "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
             "ledger": ledger_data,
             "attacks": attacks_data,
             "inventory": inventory_data,
@@ -1012,6 +1103,206 @@ async def update_player_protection(membership_id: uuid.UUID, body: AdminPlayerPr
 
     labels = {"none": "بدون حماية", "partial": "حماية جزئية", "full": "حماية كاملة"}
     return {"success": True, "message": f"تم تحديث الحماية إلى: {labels.get(body.protection, body.protection)}"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INVENTORY MANAGEMENT (admin grant / revoke items)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AdminGrantItemRequest(BaseModel):
+    item_definition_id: uuid.UUID
+    quantity: int = 1
+    reason: str = ""
+
+
+@router.post("/players/{membership_id}/grant-item", status_code=201)
+async def grant_item_to_player(membership_id: uuid.UUID, body: AdminGrantItemRequest, admin: AdminAccount):
+    """Grant an item to a player via admin action. Creates OwnedItem with source=admin_grant."""
+    if body.quantity < 1:
+        raise HTTPException(status_code=400, detail="الكمية يجب أن تكون 1 على الأقل")
+
+    async with async_session() as session:
+        membership = await session.get(Membership, membership_id)
+        if not membership:
+            raise HTTPException(status_code=404, detail="اللاعب غير موجود")
+
+        item_def = await session.get(ItemDefinition, body.item_definition_id)
+        if not item_def:
+            raise HTTPException(status_code=404, detail="العنصر غير موجود")
+        if item_def.status not in (ItemStatus.ACTIVE, ItemStatus.DRAFT):
+            raise HTTPException(status_code=400, detail="لا يمكن منح عنصر مؤرشف أو معطّل")
+
+        # Check if player already owns a stackable version
+        existing = None
+        if item_def.is_stackable:
+            existing_result = await session.execute(
+                select(OwnedItem).where(
+                    OwnedItem.membership_id == membership_id,
+                    OwnedItem.item_definition_id == body.item_definition_id,
+                    OwnedItem.status == OwnedItemStatus.AVAILABLE,
+                ).limit(1)
+            )
+            existing = existing_result.scalars().first()
+
+        if existing:
+            existing.quantity += body.quantity
+            owned_item_id = existing.id
+        else:
+            owned = OwnedItem(
+                membership_id=membership_id,
+                item_definition_id=body.item_definition_id,
+                source_type="admin_grant",
+                source_id=admin.id,
+                quantity=body.quantity,
+                uses_remaining=item_def.max_uses,
+                status=OwnedItemStatus.AVAILABLE,
+            )
+            session.add(owned)
+            await session.flush()
+            owned_item_id = owned.id
+
+        # Create notification for recipient
+        notif = Notification(
+            recipient_id=membership.account_id,
+            membership_id=membership_id,
+            notification_type=NotificationType.ITEM_RECEIVED,
+            title="عنصر جديد من المشرف",
+            message=f"تم منحك {body.quantity}x {item_def.name}" + (f" — {body.reason}" if body.reason else ""),
+            priority=NotificationPriority.NORMAL,
+        )
+        session.add(notif)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership_id,
+            event_type="item_granted",
+            summary=f"منح عنصر: {item_def.name} x{body.quantity}",
+            reason=body.reason,
+            before_state={},
+            after_state={"item": item_def.name, "quantity": body.quantity, "owned_item_id": str(owned_item_id)},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"owned_item_id": str(owned_item_id)},
+        "message": f"تم منح {body.quantity}x {item_def.name} بنجاح",
+    }
+
+
+class AdminRevokeItemRequest(BaseModel):
+    reason: str = ""
+
+
+@router.post("/players/{membership_id}/revoke-item/{owned_item_id}")
+async def revoke_item_from_player(
+    membership_id: uuid.UUID,
+    owned_item_id: uuid.UUID,
+    body: AdminRevokeItemRequest,
+    admin: AdminAccount,
+):
+    """Revoke an owned item from a player. Sets status to consumed with admin trace."""
+    async with async_session() as session:
+        membership = await session.get(Membership, membership_id)
+        if not membership:
+            raise HTTPException(status_code=404, detail="اللاعب غير موجود")
+
+        owned_item = await session.get(OwnedItem, owned_item_id)
+        if not owned_item or str(owned_item.membership_id) != str(membership_id):
+            raise HTTPException(status_code=404, detail="العنصر غير موجود في مخزون اللاعب")
+
+        if owned_item.status in (OwnedItemStatus.CONSUMED, OwnedItemStatus.EXPIRED):
+            raise HTTPException(status_code=400, detail="العنصر مستهلك أو منتهي بالفعل")
+
+        # Get item name for messages
+        item_def = await session.get(ItemDefinition, owned_item.item_definition_id)
+        item_name = item_def.name if item_def else "عنصر"
+
+        old_status = owned_item.status
+        old_quantity = owned_item.quantity
+        owned_item.status = OwnedItemStatus.CONSUMED
+        owned_item.consumed_at = datetime.utcnow()
+
+        # Create notification for player
+        notif = Notification(
+            recipient_id=membership.account_id,
+            membership_id=membership_id,
+            notification_type=NotificationType.ADMIN_CHANGE,
+            title="تمت مصادرة عنصر",
+            message=f"تمت مصادرة {item_name} من مخزونك" + (f" — {body.reason}" if body.reason else ""),
+            priority=NotificationPriority.HIGH,
+        )
+        session.add(notif)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership_id,
+            event_type="item_revoked",
+            summary=f"مصادرة عنصر: {item_name}",
+            reason=body.reason,
+            before_state={"status": str(old_status), "quantity": old_quantity},
+            after_state={"status": "consumed"},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
+        await session.commit()
+
+    return {"success": True, "message": f"تمت مصادرة {item_name} بنجاح"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADMIN PLAYER NOTIFICATIONS (targeted alert)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AdminPlayerAlertRequest(BaseModel):
+    title: str
+    message: str
+    priority: str = "normal"
+
+
+@router.post("/players/{membership_id}/send-alert", status_code=201)
+async def send_player_alert(membership_id: uuid.UUID, body: AdminPlayerAlertRequest, admin: AdminAccount):
+    """Send a direct alert/notification to a specific player within a competition context."""
+    valid_priorities = {"low", "normal", "high", "urgent"}
+    if body.priority not in valid_priorities:
+        raise HTTPException(status_code=400, detail=f"الأولوية يجب أن تكون: {', '.join(valid_priorities)}")
+
+    async with async_session() as session:
+        membership = await session.get(Membership, membership_id)
+        if not membership:
+            raise HTTPException(status_code=404, detail="اللاعب غير موجود")
+
+        notif = Notification(
+            recipient_id=membership.account_id,
+            membership_id=membership_id,
+            notification_type=NotificationType.ADMIN_ALERT,
+            title=body.title,
+            message=body.message,
+            priority=body.priority,
+        )
+        session.add(notif)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership_id,
+            event_type="admin_alert_sent",
+            summary=f"إرسال تنبيه: {body.title}",
+            before_state={},
+            after_state={"title": body.title, "priority": body.priority},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
+        await session.commit()
+
+    return {"success": True, "message": "تم إرسال التنبيه بنجاح"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1146,6 +1437,16 @@ async def create_question(body: CreateQuestionRequest, admin: AdminAccount):
             status=QuestionStatus.ACTIVE,
         )
         session.add(q)
+        await session.flush()
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question",
+            subject_id=q.id,
+            event_type="question_created",
+            summary=f"أنشأ سؤال في مجموعة {group.title}",
+            after_state={"prompt": body.prompt, "type": body.question_type, "score": body.score_value},
+        )
         await session.commit()
         await session.refresh(q)
 
@@ -1218,10 +1519,22 @@ async def update_quiz_session(session_id: uuid.UUID, body: UpdateQuizSessionRequ
         qs = await session.get(QuizSession, session_id)
         if not qs:
             raise HTTPException(status_code=404, detail="جلسة الأسئلة غير موجودة")
+        before = {"status": str(qs.status), "title": qs.title}
         if body.status is not None:
             qs.status = body.status
         if body.title is not None:
             qs.title = body.title
+        after = {"status": str(qs.status), "title": qs.title}
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="quiz_session",
+            subject_id=qs.id,
+            event_type="quiz_session_updated",
+            summary=f"حدّث جلسة أسئلة: {qs.title}",
+            before_state=before,
+            after_state=after,
+        )
         await session.commit()
     return {"success": True, "message": "تم تحديث جلسة الأسئلة"}
 
@@ -1243,6 +1556,16 @@ async def create_question_group(body: CreateQuestionGroupRequest, admin: AdminAc
             status=QuestionStatus.ACTIVE,
         )
         session.add(group)
+        await session.flush()
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question_group",
+            subject_id=group.id,
+            event_type="question_group_created",
+            summary=f"أنشأ مجموعة أسئلة: {group.title}",
+            after_state={"title": group.title, "description": group.description},
+        )
         await session.commit()
         await session.refresh(group)
     return {"success": True, "data": {"id": str(group.id)}, "message": "تم إنشاء مجموعة الأسئلة بنجاح"}
@@ -1265,6 +1588,7 @@ async def update_question(question_id: uuid.UUID, body: UpdateQuestionRequest, a
         q = await session.get(Question, question_id)
         if not q:
             raise HTTPException(status_code=404, detail="السؤال غير موجود")
+        before = {"prompt": q.prompt, "score_value": q.score_value, "difficulty": str(q.difficulty), "status": str(q.status)}
         if body.prompt is not None:
             q.prompt = body.prompt
         if body.options is not None:
@@ -1279,6 +1603,17 @@ async def update_question(question_id: uuid.UUID, body: UpdateQuestionRequest, a
             q.category = body.category
         if body.status is not None:
             q.status = body.status
+        after = {"prompt": q.prompt, "score_value": q.score_value, "difficulty": str(q.difficulty), "status": str(q.status)}
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question",
+            subject_id=q.id,
+            event_type="question_updated",
+            summary=f"حدّث سؤال: {q.prompt[:50]}",
+            before_state=before,
+            after_state=after,
+        )
         await session.commit()
     return {"success": True, "message": "تم تحديث السؤال بنجاح"}
 
@@ -1291,6 +1626,16 @@ async def delete_question(question_id: uuid.UUID, admin: AdminAccount):
         if not q:
             raise HTTPException(status_code=404, detail="السؤال غير موجود")
         q.status = QuestionStatus.ARCHIVED
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question",
+            subject_id=q.id,
+            event_type="question_archived",
+            summary=f"أرشف سؤال: {q.prompt[:50]}",
+            before_state={"status": "active"},
+            after_state={"status": "archived"},
+        )
         await session.commit()
     return {"success": True, "message": "تم حذف السؤال"}
 
@@ -1357,6 +1702,15 @@ async def create_quiz_session(body: CreateQuizSessionRequest, admin: AdminAccoun
             )
             session.add(sq)
 
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="quiz_session",
+            subject_id=qs.id,
+            event_type="quiz_session_created",
+            summary=f"أنشأ جلسة أسئلة: {body.title} ({len(questions)} سؤال)",
+            after_state={"title": body.title, "question_count": len(questions), "competition_id": str(body.competition_id)},
+        )
         await session.commit()
         await session.refresh(qs)
 
@@ -1375,6 +1729,16 @@ async def delete_quiz_session(session_id: uuid.UUID, admin: AdminAccount):
         if not qs:
             raise HTTPException(status_code=404, detail="جلسة الأسئلة غير موجودة")
         qs.status = SessionStatus.CANCELLED
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="quiz_session",
+            subject_id=qs.id,
+            event_type="quiz_session_cancelled",
+            summary=f"ألغى جلسة أسئلة: {qs.title}",
+            before_state={"status": str(qs.status)},
+            after_state={"status": "cancelled"},
+        )
         await session.commit()
     return {"success": True, "message": "تم إلغاء جلسة الأسئلة"}
 
@@ -1385,24 +1749,48 @@ async def delete_quiz_session(session_id: uuid.UUID, admin: AdminAccount):
 
 @router.get("/store/items")
 async def list_item_definitions(admin: AdminAccount):
-    """List all item definitions."""
+    """List all item definitions with effect counts and listing counts."""
     async with async_session() as session:
         result = await session.execute(
             select(ItemDefinition).order_by(ItemDefinition.created_at.desc())
         )
         items = result.scalars().all()
 
-        data = [{
-            "id": str(item.id),
-            "name": item.name,
-            "description": item.description,
-            "rarity": item.rarity,
-            "status": item.status,
-            "category": item.category,
-            "usage_type": item.usage_type,
-            "max_uses": item.max_uses,
-            "created_at": item.created_at.isoformat() if item.created_at else None,
-        } for item in items]
+        data = []
+        for item in items:
+            # Count effects
+            effect_count = (await session.execute(
+                select(func.count()).where(ItemEffect.item_definition_id == item.id)
+            )).scalar() or 0
+            # Count active listings
+            listing_count = (await session.execute(
+                select(func.count()).where(
+                    StoreListing.item_definition_id == item.id,
+                    StoreListing.status == ListingStatus.ACTIVE,
+                )
+            )).scalar() or 0
+            # Count total owned (available + activated + pending)
+            owned_count = (await session.execute(
+                select(func.count()).where(
+                    OwnedItem.item_definition_id == item.id,
+                    OwnedItem.status.in_([OwnedItemStatus.AVAILABLE, OwnedItemStatus.ACTIVATED, OwnedItemStatus.PENDING]),
+                )
+            )).scalar() or 0
+
+            data.append({
+                "id": str(item.id),
+                "name": item.name,
+                "description": item.description,
+                "rarity": item.rarity,
+                "status": item.status,
+                "category": item.category,
+                "usage_type": item.usage_type,
+                "max_uses": item.max_uses,
+                "effect_count": effect_count,
+                "listing_count": listing_count,
+                "owned_count": owned_count,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+            })
 
     return {"success": True, "data": data}
 
@@ -1424,15 +1812,21 @@ async def list_store_listings(admin: AdminAccount, competition_id: uuid.UUID | N
 
         data = []
         for listing, item in rows:
+            remaining = None
+            if listing.total_stock is not None:
+                remaining = max(0, listing.total_stock - (listing.sold_count or 0))
             data.append({
                 "listing_id": str(listing.id),
                 "item_id": str(item.id),
                 "item_name": item.name,
+                "item_description": item.description,
                 "item_rarity": item.rarity,
+                "item_category": item.category,
                 "status": listing.status,
                 "price": listing.price,
                 "max_per_participant": listing.max_per_participant,
                 "total_stock": listing.total_stock,
+                "remaining_stock": remaining,
                 "sold_count": listing.sold_count,
                 "competition_id": str(listing.competition_id) if listing.competition_id else None,
                 "created_at": listing.created_at.isoformat() if listing.created_at else None,
@@ -1454,12 +1848,21 @@ async def update_listing(listing_id: uuid.UUID, body: UpdateListingRequest, admi
         listing = await session.get(StoreListing, listing_id)
         if not listing:
             raise HTTPException(status_code=404, detail="العنصر غير موجود في المتجر")
+        before = {"status": listing.status, "price": listing.price, "total_stock": listing.total_stock}
         if body.status is not None:
             listing.status = body.status
         if body.price is not None:
             listing.price = body.price
         if body.total_stock is not None:
             listing.total_stock = body.total_stock
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="store_listing", subject_id=listing_id,
+            event_type="listing_updated",
+            summary="عدّل عرض متجر",
+            before_state=before,
+            after_state={"status": listing.status, "price": listing.price, "total_stock": listing.total_stock},
+        )
         await session.commit()
     return {"success": True, "message": "تم تحديث العنصر في المتجر"}
 
@@ -1487,6 +1890,14 @@ async def create_item_definition(body: CreateItemDefinitionRequest, admin: Admin
             status=ItemStatus.ACTIVE,
         )
         session.add(item)
+        await session.flush()
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_definition", subject_id=item.id,
+            event_type="item_definition_created",
+            summary=f"أنشأ عنصر: {item.name}",
+            after_state={"name": item.name, "rarity": body.rarity, "category": body.category, "usage_type": body.usage_type},
+        )
         await session.commit()
         await session.refresh(item)
     return {"success": True, "data": {"id": str(item.id)}, "message": "تم إنشاء العنصر بنجاح"}
@@ -1509,6 +1920,7 @@ async def update_item_definition(item_id: uuid.UUID, body: UpdateItemDefinitionR
         item = await session.get(ItemDefinition, item_id)
         if not item:
             raise HTTPException(status_code=404, detail="العنصر غير موجود")
+        before = {"name": item.name, "rarity": item.rarity, "category": item.category, "status": item.status}
         if body.name is not None:
             item.name = body.name
         if body.description is not None:
@@ -1523,6 +1935,14 @@ async def update_item_definition(item_id: uuid.UUID, body: UpdateItemDefinitionR
             item.max_uses = body.max_uses
         if body.status is not None:
             item.status = body.status
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_definition", subject_id=item_id,
+            event_type="item_definition_updated",
+            summary=f"عدّل عنصر: {item.name}",
+            before_state=before,
+            after_state={"name": item.name, "rarity": item.rarity, "category": item.category, "status": item.status},
+        )
         await session.commit()
     return {"success": True, "message": "تم تحديث العنصر بنجاح"}
 
@@ -1535,6 +1955,14 @@ async def delete_item_definition(item_id: uuid.UUID, admin: AdminAccount):
         if not item:
             raise HTTPException(status_code=404, detail="العنصر غير موجود")
         item.status = ItemStatus.ARCHIVED
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_definition", subject_id=item_id,
+            event_type="item_definition_archived",
+            summary=f"أرشف عنصر: {item.name}",
+            before_state={"name": item.name, "status": "active"},
+            after_state={"name": item.name, "status": "archived"},
+        )
         await session.commit()
     return {"success": True, "message": "تم حذف العنصر"}
 
@@ -1567,6 +1995,14 @@ async def create_store_listing(body: CreateStoreListingRequest, admin: AdminAcco
             status=ListingStatus.ACTIVE,
         )
         session.add(listing)
+        await session.flush()
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="store_listing", subject_id=listing.id,
+            event_type="listing_created",
+            summary=f"أنشأ عرض متجر: {item.name} بسعر {body.price}",
+            after_state={"item": item.name, "price": body.price, "stock": body.total_stock, "competition_id": str(body.competition_id)},
+        )
         await session.commit()
         await session.refresh(listing)
     return {"success": True, "data": {"id": str(listing.id)}, "message": "تم إنشاء العرض في المتجر بنجاح"}
@@ -1579,9 +2015,56 @@ async def delete_store_listing(listing_id: uuid.UUID, admin: AdminAccount):
         listing = await session.get(StoreListing, listing_id)
         if not listing:
             raise HTTPException(status_code=404, detail="العنصر غير موجود في المتجر")
+        old_status = listing.status
         listing.status = ListingStatus.HIDDEN
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="store_listing", subject_id=listing_id,
+            event_type="listing_hidden",
+            summary="أخفى عرض متجر",
+            before_state={"status": old_status},
+            after_state={"status": "hidden"},
+        )
         await session.commit()
     return {"success": True, "message": "تم إخفاء العنصر من المتجر"}
+
+
+@router.get("/store/ownership")
+async def list_store_ownership(admin: AdminAccount, competition_id: uuid.UUID | None = None):
+    """List all owned items across a competition — who owns what, source, status."""
+    async with async_session() as session:
+        query = (
+            select(OwnedItem, ItemDefinition, Membership, Account)
+            .join(ItemDefinition, OwnedItem.item_definition_id == ItemDefinition.id)
+            .join(Membership, OwnedItem.membership_id == Membership.id)
+            .join(Account, Membership.account_id == Account.id)
+            .order_by(OwnedItem.acquired_at.desc())
+        )
+        if competition_id:
+            query = query.where(Membership.competition_id == competition_id)
+
+        result = await session.execute(query)
+        rows = result.all()
+
+        data = []
+        for owned, item, membership, account in rows:
+            data.append({
+                "id": str(owned.id),
+                "item_name": item.name,
+                "item_rarity": item.rarity,
+                "item_category": item.category,
+                "player_alias": membership.current_alias,
+                "player_username": account.username,
+                "membership_id": str(membership.id),
+                "status": owned.status,
+                "source_type": owned.source_type,
+                "quantity": owned.quantity,
+                "uses_remaining": owned.uses_remaining,
+                "acquired_at": owned.acquired_at.isoformat() if owned.acquired_at else None,
+                "consumed_at": owned.consumed_at.isoformat() if owned.consumed_at else None,
+            })
+
+    return {"success": True, "data": data}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1875,13 +2358,13 @@ async def list_accounts(admin: AdminAccount):
 
 @router.get("/accounts/{account_id}")
 async def get_account_detail(account_id: uuid.UUID, admin: AdminAccount):
-    """Get account detail with all linked memberships."""
+    """Get account detail with all linked memberships and competition context."""
     async with async_session() as session:
         acct = await session.get(Account, account_id)
         if not acct:
             raise HTTPException(status_code=404, detail="الحساب غير موجود")
 
-        # Get all memberships for this account
+        # Get all memberships for this account with competition data
         mem_result = await session.execute(
             select(Membership, Competition)
             .join(Competition, Membership.competition_id == Competition.id)
@@ -1889,18 +2372,73 @@ async def get_account_detail(account_id: uuid.UUID, admin: AdminAccount):
             .order_by(Membership.joined_at.desc())
         )
         memberships = []
+        competitions_seen = {}
         for mem, comp in mem_result.all():
+            # Count attacks for this membership
+            attacks_sent = (await session.execute(
+                select(func.count()).where(
+                    AttackAttempt.attacker_id == mem.id,
+                    AttackAttempt.outcome.in_([AttackOutcome.SUCCEEDED, AttackOutcome.FAILED]),
+                )
+            )).scalar() or 0
+            attacks_won = (await session.execute(
+                select(func.count()).where(
+                    AttackAttempt.attacker_id == mem.id,
+                    AttackAttempt.outcome == AttackOutcome.SUCCEEDED,
+                )
+            )).scalar() or 0
+
+            # Count inventory
+            item_count = (await session.execute(
+                select(func.count()).where(OwnedItem.membership_id == mem.id)
+            )).scalar() or 0
+
+            # Rank within competition (by balance, desc)
+            rank = (await session.execute(
+                select(func.count()).where(
+                    Membership.competition_id == comp.id,
+                    Membership.status == MembershipStatus.ACTIVE,
+                    Membership.current_balance > mem.current_balance,
+                )
+            )).scalar() + 1
+
             memberships.append({
                 "membership_id": str(mem.id),
                 "competition_id": str(comp.id),
                 "competition_name": comp.name,
+                "competition_status": comp.status,
                 "alias": mem.current_alias,
                 "balance": mem.current_balance,
                 "status": mem.status,
                 "protection": mem.protection,
                 "is_bankrupt": mem.is_bankrupt,
+                "rank": rank,
+                "attacks_sent": attacks_sent,
+                "attacks_won": attacks_won,
+                "item_count": item_count,
                 "joined_at": mem.joined_at.isoformat() if mem.joined_at else None,
             })
+
+            # Track unique competitions
+            comp_id_str = str(comp.id)
+            if comp_id_str not in competitions_seen:
+                competitions_seen[comp_id_str] = {
+                    "id": comp_id_str,
+                    "name": comp.name,
+                    "status": comp.status,
+                    "registration_open": comp.registration_open,
+                }
+
+        # Total notifications for this account
+        notif_count = (await session.execute(
+            select(func.count()).where(Notification.recipient_id == account_id)
+        )).scalar() or 0
+        unread_notif_count = (await session.execute(
+            select(func.count()).where(
+                Notification.recipient_id == account_id,
+                Notification.is_read == False,
+            )
+        )).scalar() or 0
 
     return {
         "success": True,
@@ -1912,7 +2450,10 @@ async def get_account_detail(account_id: uuid.UUID, admin: AdminAccount):
             "is_admin": acct.is_admin,
             "created_at": acct.created_at.isoformat() if acct.created_at else None,
             "last_login_at": acct.last_login_at.isoformat() if acct.last_login_at else None,
+            "notification_count": notif_count,
+            "unread_notification_count": unread_notif_count,
             "memberships": memberships,
+            "competitions": list(competitions_seen.values()),
         },
     }
 
@@ -2004,12 +2545,24 @@ async def update_question_group(group_id: uuid.UUID, body: UpdateQuestionGroupRe
         group = await session.get(QuestionGroup, group_id)
         if not group:
             raise HTTPException(status_code=404, detail="مجموعة الأسئلة غير موجودة")
+        before = {"title": group.title, "description": group.description, "status": str(group.status)}
         if body.title is not None:
             group.title = body.title
         if body.description is not None:
             group.description = body.description
         if body.status is not None:
             group.status = body.status
+        after = {"title": group.title, "description": group.description, "status": str(group.status)}
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question_group",
+            subject_id=group.id,
+            event_type="question_group_updated",
+            summary=f"حدّث مجموعة أسئلة: {group.title}",
+            before_state=before,
+            after_state=after,
+        )
         await session.commit()
     return {"success": True, "message": "تم تحديث مجموعة الأسئلة بنجاح"}
 
@@ -2022,6 +2575,16 @@ async def delete_question_group(group_id: uuid.UUID, admin: AdminAccount):
         if not group:
             raise HTTPException(status_code=404, detail="مجموعة الأسئلة غير موجودة")
         group.status = QuestionStatus.ARCHIVED
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question_group",
+            subject_id=group.id,
+            event_type="question_group_archived",
+            summary=f"أرشف مجموعة أسئلة: {group.title}",
+            before_state={"status": "active"},
+            after_state={"status": "archived"},
+        )
         await session.commit()
     return {"success": True, "message": "تم أرشفة مجموعة الأسئلة"}
 

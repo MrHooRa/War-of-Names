@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../context/AuthContext'
 import useCompetitionContext from '../hooks/useCompetitionContext'
+import CompetitionSwitcher from './CompetitionSwitcher'
 import { apiFetch } from '../lib/api'
 
 const LOGO_URL =
@@ -72,11 +73,14 @@ export default function AppLayout({ activeItem = 'home', children }) {
                 className="w-[130px] md:w-[150px] object-contain drop-shadow-sm"
               />
             </Link>
-            <div className="hidden lg:flex flex-col items-start border-r border-gray-200 dark:border-gray-700 pr-5">
-              <div className="text-xs font-bold mt-1.5 text-gray-500 dark:text-gray-400">
-                {seasonName || 'الموسم التنافسي'}
-                {cycleLabel && <span className="text-gray-400 dark:text-gray-500"> — {cycleLabel}</span>}
-              </div>
+            <div className="hidden lg:flex items-center gap-3 border-r border-gray-200 dark:border-gray-700 pr-5">
+              <CompetitionSwitcher variant="light" />
+              {(seasonName || cycleLabel) && (
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                  {seasonName}
+                  {cycleLabel && <span className="text-gray-400 dark:text-gray-500"> — {cycleLabel}</span>}
+                </div>
+              )}
             </div>
           </div>
 

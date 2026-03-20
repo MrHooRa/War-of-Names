@@ -34,16 +34,22 @@ class SubmitAnswerRequest(BaseModel):
 
 
 @router.get("/api/quiz/active")
-async def get_active_quiz(account: CurrentAccount):
+async def get_active_quiz(account: CurrentAccount, competition_id: str | None = None):
     """Get the currently open quiz session with its questions (no correct answers)."""
     async with async_session() as session:
-        # Find user's active membership
-        mem_result = await session.execute(
-            select(Membership).where(
-                Membership.account_id == account.id,
-                Membership.status == MembershipStatus.ACTIVE,
-            ).limit(1)
+        # Find user's active membership (competition-scoped if provided)
+        mem_query = select(Membership).where(
+            Membership.account_id == account.id,
+            Membership.status == MembershipStatus.ACTIVE,
         )
+        if competition_id:
+            try:
+                cid = uuid.UUID(competition_id)
+                mem_query = mem_query.where(Membership.competition_id == cid)
+            except ValueError:
+                pass
+        mem_query = mem_query.limit(1)
+        mem_result = await session.execute(mem_query)
         membership = mem_result.scalars().first()
         if not membership:
             raise HTTPException(status_code=403, detail="أنت لست عضواً في أي منافسة")
@@ -105,16 +111,23 @@ async def submit_answer(
     session_id: uuid.UUID,
     body: SubmitAnswerRequest,
     account: CurrentAccount,
+    competition_id: str | None = None,
 ):
     """Submit an answer to a quiz question. Returns correctness and points awarded."""
     async with async_session() as session:
-        # Get membership
-        mem_result = await session.execute(
-            select(Membership).where(
-                Membership.account_id == account.id,
-                Membership.status == MembershipStatus.ACTIVE,
-            ).limit(1)
+        # Get membership (competition-scoped if provided)
+        mem_query = select(Membership).where(
+            Membership.account_id == account.id,
+            Membership.status == MembershipStatus.ACTIVE,
         )
+        if competition_id:
+            try:
+                cid = uuid.UUID(competition_id)
+                mem_query = mem_query.where(Membership.competition_id == cid)
+            except ValueError:
+                pass
+        mem_query = mem_query.limit(1)
+        mem_result = await session.execute(mem_query)
         membership = mem_result.scalars().first()
         if not membership:
             raise HTTPException(status_code=403, detail="أنت لست عضواً في أي منافسة")
@@ -156,6 +169,7 @@ async def submit_answer(
             evaluated_at=datetime.utcnow(),
         )
         session.add(submission)
+        await session.flush()
 
         # Award points via ledger if correct
         balance_after = membership.current_balance
@@ -166,12 +180,15 @@ async def submit_answer(
             ledger = LedgerEntry(
                 membership_id=membership.id,
                 competition_id=membership.competition_id,
+                season_id=quiz.season_id,
+                cycle_id=quiz.cycle_id,
                 entry_type=LedgerEntryType.QUESTION_REWARD,
                 amount=points,
                 direction=LedgerDirection.CREDIT,
                 balance_before=balance_before,
                 balance_after=balance_after,
                 source_type="answer_submission",
+                source_id=submission.id,
                 reason=f"إجابة صحيحة على سؤال في الجلسة",
             )
             session.add(ledger)

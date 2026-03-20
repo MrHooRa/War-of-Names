@@ -19,10 +19,12 @@ CurrentAccount = Annotated[Account, Depends(get_current_account)]
 
 
 @router.get("/api/me/dashboard")
-async def get_dashboard(account: CurrentAccount):
+async def get_dashboard(account: CurrentAccount, competition_id: str | None = None):
+    import uuid as _uuid
+
     async with async_session() as session:
         # Active membership
-        mem_result = await session.execute(
+        query = (
             select(Membership, Competition)
             .join(Competition, Membership.competition_id == Competition.id)
             .where(
@@ -30,8 +32,15 @@ async def get_dashboard(account: CurrentAccount):
                 Membership.status == MembershipStatus.ACTIVE,
                 Competition.status == "active",
             )
-            .limit(1)
         )
+        if competition_id:
+            try:
+                cid = _uuid.UUID(competition_id)
+                query = query.where(Competition.id == cid)
+            except ValueError:
+                pass
+        query = query.limit(1)
+        mem_result = await session.execute(query)
         row = mem_result.first()
         if not row:
             return {"success": True, "data": None}
@@ -166,10 +175,12 @@ async def get_dashboard(account: CurrentAccount):
 
 
 @router.get("/api/me/attacks")
-async def get_my_attacks(account: CurrentAccount):
+async def get_my_attacks(account: CurrentAccount, competition_id: str | None = None):
     """Get current player's recent battle history (as attacker or target)."""
+    import uuid as _uuid
+
     async with async_session() as session:
-        mem_result = await session.execute(
+        query = (
             select(Membership)
             .join(Competition, Membership.competition_id == Competition.id)
             .where(
@@ -177,8 +188,15 @@ async def get_my_attacks(account: CurrentAccount):
                 Membership.status == MembershipStatus.ACTIVE,
                 Competition.status == "active",
             )
-            .limit(1)
         )
+        if competition_id:
+            try:
+                cid = _uuid.UUID(competition_id)
+                query = query.where(Competition.id == cid)
+            except ValueError:
+                pass
+        query = query.limit(1)
+        mem_result = await session.execute(query)
         membership = mem_result.scalars().first()
         if not membership:
             return {"success": True, "data": []}
@@ -211,10 +229,12 @@ async def get_my_attacks(account: CurrentAccount):
 
 
 @router.get("/api/me/inventory-details")
-async def get_my_inventory_details(account: CurrentAccount):
+async def get_my_inventory_details(account: CurrentAccount, competition_id: str | None = None):
     """Get player's inventory with item details (name, rarity, description)."""
+    import uuid as _uuid
+
     async with async_session() as session:
-        mem_result = await session.execute(
+        query = (
             select(Membership)
             .join(Competition, Membership.competition_id == Competition.id)
             .where(
@@ -222,8 +242,15 @@ async def get_my_inventory_details(account: CurrentAccount):
                 Membership.status == MembershipStatus.ACTIVE,
                 Competition.status == "active",
             )
-            .limit(1)
         )
+        if competition_id:
+            try:
+                cid = _uuid.UUID(competition_id)
+                query = query.where(Competition.id == cid)
+            except ValueError:
+                pass
+        query = query.limit(1)
+        mem_result = await session.execute(query)
         membership = mem_result.scalars().first()
         if not membership:
             return {"success": True, "data": []}

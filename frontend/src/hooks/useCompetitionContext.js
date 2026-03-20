@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
+
+const STORAGE_KEY = 'won_active_competition'
 
 export default function useCompetitionContext() {
   const [state, setState] = useState({
@@ -23,8 +25,14 @@ export default function useCompetitionContext() {
     error: null,
   })
 
-  useEffect(() => {
-    apiFetch('/api/me/competition-context')
+  const fetchContext = useCallback(() => {
+    const activeComp = localStorage.getItem(STORAGE_KEY)
+    const url = activeComp
+      ? `/api/me/competition-context?competition_id=${activeComp}`
+      : '/api/me/competition-context'
+
+    setState(s => ({ ...s, loading: true, error: null }))
+    apiFetch(url)
       .then(json => {
         const d = json.data
         setState({
@@ -53,5 +61,7 @@ export default function useCompetitionContext() {
       })
   }, [])
 
-  return state
+  useEffect(() => { fetchContext() }, [fetchContext])
+
+  return { ...state, refetchContext: fetchContext }
 }

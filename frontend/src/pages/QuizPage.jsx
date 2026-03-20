@@ -16,8 +16,27 @@ export default function QuizPage() {
   const timerRef = useRef(null)
 
   const questions = quiz?.questions ?? []
-  const currentQ = questions[currentIndex]
   const totalQuestions = questions.length
+
+  // Seed answered state from server-reported already_answered flags & skip to first unanswered
+  useEffect(() => {
+    if (!questions.length) return
+    const preAnswered = {}
+    let firstUnanswered = questions.length // default: all done
+    for (let i = 0; i < questions.length; i++) {
+      if (questions[i].already_answered) {
+        preAnswered[questions[i].session_question_id] = { is_correct: null, points_awarded: 0, pre_answered: true }
+      } else if (firstUnanswered === questions.length) {
+        firstUnanswered = i
+      }
+    }
+    if (Object.keys(preAnswered).length > 0) {
+      setAnswered(prev => ({ ...preAnswered, ...prev }))
+      setCurrentIndex(firstUnanswered)
+    }
+  }, [questions.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const currentQ = questions[currentIndex]
 
   // Timer countdown
   useEffect(() => {
