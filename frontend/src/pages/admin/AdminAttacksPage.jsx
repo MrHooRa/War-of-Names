@@ -1,5 +1,12 @@
+/**
+ * AdminAttacksPage — Competition-scoped attack log.
+ * Filters attacks by the currently selected competition.
+ */
+
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import useAdminData from '../../hooks/useAdminData'
+import { apiFetch } from '../../lib/api'
+import { useAdminCompetition } from '../../context/AdminCompetitionContext'
 
 function StatusBadge({ status }) {
   const colors = {
@@ -13,91 +20,115 @@ function StatusBadge({ status }) {
 }
 
 export default function AdminAttacksPage() {
-  const { data: attacks, loading, error } = useAdminData('/api/admin/attacks')
+  const { selected, selectedId } = useAdminCompetition()
+  const [attacks, setAttacks] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-20"><iconify-icon icon="lucide:loader-2" class="text-4xl text-brand-teal animate-spin"></iconify-icon></div>
+  const loadAttacks = useCallback(() => {
+    if (!selectedId) return
+    setLoading(true)
+    apiFetch(`/api/admin/attacks?competition_id=${selectedId}`)
+      .then(json => setAttacks(json.data || []))
+      .catch(() => setAttacks([]))
+      .finally(() => setLoading(false))
+  }, [selectedId])
+
+  useEffect(() => { loadAttacks() }, [loadAttacks])
+
+  if (!selected) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <iconify-icon icon="lucide:swords" class="text-4xl text-gray-300 dark:text-gray-600 mb-3"></iconify-icon>
+        <p className="font-bold text-gray-500 dark:text-gray-400">اختر منافسة من القائمة الجانبية لعرض الهجمات</p>
+      </div>
+    )
   }
 
-  const succeeded = attacks?.filter(a => a.outcome === 'succeeded').length || 0
-  const failed = attacks?.filter(a => a.outcome === 'failed').length || 0
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><iconify-icon icon="lucide:loader-2" class="text-3xl text-brand-teal animate-spin"></iconify-icon></div>
+  }
+
+  const succeeded = attacks.filter(a => a.outcome === 'succeeded').length
+  const failed = attacks.filter(a => a.outcome === 'failed').length
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">سجل الهجمات</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {attacks?.length || 0} هجوم — {succeeded} ناجح، {failed} فاشل
+        <h1 className="font-heading font-black text-2xl text-gray-900 dark:text-white">سجل الهجمات</h1>
+        <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">
+          {selected.name} — {attacks.length} هجوم — {succeeded} ناجح، {failed} فاشل
         </p>
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-4 text-center">
+        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي</div>
-          <div className="font-display text-2xl font-black text-gray-900 dark:text-white">{attacks?.length || 0}</div>
+          <div className="font-heading font-black text-2xl text-gray-900 dark:text-white">{attacks.length}</div>
         </div>
-        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-4 text-center">
+        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">ناجح</div>
-          <div className="font-display text-2xl font-black text-brand-success">{succeeded}</div>
+          <div className="font-heading font-black text-2xl text-brand-success">{succeeded}</div>
         </div>
-        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-4 text-center">
+        <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">فاشل</div>
-          <div className="font-display text-2xl font-black text-brand-danger">{failed}</div>
+          <div className="font-heading font-black text-2xl text-brand-danger">{failed}</div>
         </div>
       </div>
 
       {/* Attacks Table */}
-      <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">النتيجة</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">المهاجم</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">الهدف</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">المكافأة</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">العقوبة</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-widest">التوقيت</th>
+              <tr className="border-b border-gray-200 dark:border-gray-800">
+                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">النتيجة</th>
+                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">المهاجم</th>
+                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">الهدف</th>
+                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">المكافأة</th>
+                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">العقوبة</th>
+                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">التوقيت</th>
               </tr>
             </thead>
-            <tbody>
-              {attacks?.map(a => (
-                <tr key={a.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 smooth-transition">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {attacks.map(a => (
+                <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 smooth-transition">
                   <td className="px-4 py-3"><StatusBadge status={a.outcome} /></td>
                   <td className="px-4 py-3">
-                    <Link to={`/admin/players/${a.attacker_membership_id}`} className="hover:text-brand-teal smooth-transition">
+                    <Link to={`/admin/members/${a.attacker_membership_id}`} className="hover:text-brand-teal smooth-transition">
                       <div className="font-bold text-gray-900 dark:text-white">{a.attacker_alias}</div>
-                      <div className="text-[11px] text-gray-400">{a.attacker_real_name}</div>
+                      <div className="text-[11px] font-bold text-gray-400">{a.attacker_real_name}</div>
                     </Link>
                   </td>
                   <td className="px-4 py-3">
-                    <Link to={`/admin/players/${a.target_membership_id}`} className="hover:text-brand-teal smooth-transition">
+                    <Link to={`/admin/members/${a.target_membership_id}`} className="hover:text-brand-teal smooth-transition">
                       <div className="font-bold text-gray-900 dark:text-white">{a.target_alias}</div>
-                      <div className="text-[11px] text-gray-400">{a.target_real_name}</div>
+                      <div className="text-[11px] font-bold text-gray-400">{a.target_real_name}</div>
                     </Link>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     {a.reward_amount > 0 ? (
                       <span className="font-heading font-black text-brand-success">+{a.reward_amount}</span>
                     ) : <span className="text-gray-400">—</span>}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     {a.penalty_amount > 0 ? (
                       <span className="font-heading font-black text-brand-danger">-{a.penalty_amount}</span>
                     ) : <span className="text-gray-400">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
+                  <td className="px-4 py-3 text-xs font-bold text-gray-400">
                     {a.created_at ? new Date(a.created_at).toLocaleString('ar-SA') : '—'}
                   </td>
                 </tr>
               ))}
+              {attacks.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-4 py-10 text-center font-bold text-gray-400">لا توجد هجمات بعد</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-        {(!attacks || attacks.length === 0) && (
-          <div className="text-center py-12 text-gray-400 font-bold">لا توجد هجمات بعد</div>
-        )}
       </div>
     </div>
   )

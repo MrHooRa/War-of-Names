@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import useDashboard from '../hooks/useDashboard'
 import { apiFetch } from '../lib/api'
+import CycleCountdown from '../components/CycleCountdown'
 
 const RARITY_COLORS = {
   common: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
@@ -20,8 +21,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (data) {
-      apiFetch('/api/me/attacks').then(r => { if (r.data) setAttacks(r.data) }).catch(() => {})
-      apiFetch('/api/me/inventory-details').then(r => { if (r.data) setInventory(r.data) }).catch(() => {})
+      const cid = data.competition_id
+      const qs = cid ? `?competition_id=${cid}` : ''
+      apiFetch(`/api/me/attacks${qs}`).then(r => { if (r.data) setAttacks(r.data) }).catch(() => {})
+      apiFetch(`/api/me/inventory-details${qs}`).then(r => { if (r.data) setInventory(r.data) }).catch(() => {})
     }
   }, [data])
 
@@ -29,10 +32,12 @@ export default function DashboardPage() {
     setUsingItemId(ownedItemId)
     setItemMessage(null)
     try {
-      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use`, { method: 'POST' })
+      const cid = data?.competition_id
+      const qs = cid ? `?competition_id=${cid}` : ''
+      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use${qs}`, { method: 'POST' })
       setItemMessage({ type: 'success', text: res.message || 'تم استخدام العنصر بنجاح' })
       // Refresh inventory
-      const inv = await apiFetch('/api/me/inventory-details')
+      const inv = await apiFetch(`/api/me/inventory-details${qs}`)
       if (inv.data) setInventory(inv.data)
     } catch (err) {
       setItemMessage({ type: 'error', text: err.message })
@@ -89,6 +94,33 @@ export default function DashboardPage() {
 
             <p className="text-gray-600 dark:text-gray-400 font-medium text-lg">{data.competition_name}</p>
 
+            {/* Season / Cycle context */}
+            {data.season_name && (
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm">
+                <span className="flex items-center gap-1.5 bg-brand-teal/10 dark:bg-brand-slate/10 text-brand-teal dark:text-brand-slate px-3 py-1.5 rounded-lg font-bold">
+                  <iconify-icon icon="lucide:calendar-range" class="text-sm"></iconify-icon>
+                  {data.season_name}
+                </span>
+                {data.cycle_label && (
+                  <span className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg font-bold">
+                    <iconify-icon icon="lucide:repeat" class="text-sm"></iconify-icon>
+                    {data.cycle_label}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Cycle Countdown */}
+            {data.cycle_ends_at && (
+              <div className="flex justify-center md:justify-start">
+                <CycleCountdown
+                  cycleEndsAt={data.cycle_ends_at}
+                  cycleLabel={data.cycle_label}
+                  nextCycleLabel={data.next_cycle_label}
+                />
+              </div>
+            )}
+
             <div className="pt-3 flex flex-wrap justify-center md:justify-start gap-4">
               <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/40 px-5 py-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md smooth-transition">
                 <iconify-icon icon="lucide:trophy" class="text-brand-orange text-xl"></iconify-icon>
@@ -101,12 +133,24 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* CTA Action */}
+          {/* CTA Action — context-aware */}
           <div className="w-full md:w-auto mt-4 md:mt-0">
-            <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
-              <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
-              ابدأ الهجوم
-            </Link>
+            {data.is_bankrupt ? (
+              <div className="w-full md:w-auto bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 cursor-not-allowed">
+                <iconify-icon icon="lucide:ghost" class="text-3xl"></iconify-icon>
+                مفلس — لا يمكن الهجوم
+              </div>
+            ) : data.protection === 'full' ? (
+              <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+                <iconify-icon icon="lucide:shield-check" class="text-3xl"></iconify-icon>
+                محمي — الساحة
+              </Link>
+            ) : (
+              <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+                <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
+                ابدأ الهجوم
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -303,6 +347,18 @@ export default function DashboardPage() {
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-400">إجمالي المتسابقين</span>
                 <span className="text-sm font-black text-gray-900 dark:text-white">{data.total_members}</span>
               </div>
+              {data.season_name && (
+                <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">الموسم</span>
+                  <span className="text-sm font-black text-gray-900 dark:text-white">{data.season_name}</span>
+                </div>
+              )}
+              {data.cycle_label && (
+                <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">الدورة</span>
+                  <span className="text-sm font-black text-gray-900 dark:text-white">{data.cycle_label}</span>
+                </div>
+              )}
             </div>
           </div>
 

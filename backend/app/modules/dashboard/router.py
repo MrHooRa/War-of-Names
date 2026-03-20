@@ -7,10 +7,10 @@ from sqlalchemy import func, select
 
 from app.core.auth import get_current_account
 from app.core.database import async_session
-from app.core.enums import AttackOutcome, MembershipStatus, OwnedItemStatus
+from app.core.enums import AttackOutcome, CycleStatus, MembershipStatus, OwnedItemStatus, SeasonStatus
 from app.modules.attacks.models import AttackAttempt
 from app.modules.auth.models import Account
-from app.modules.competitions.models import Competition, Membership
+from app.modules.competitions.models import Competition, Cycle, Membership, Season
 from app.modules.notifications.models import Notification
 from app.modules.store.models import ItemDefinition, OwnedItem
 
@@ -19,10 +19,12 @@ CurrentAccount = Annotated[Account, Depends(get_current_account)]
 
 
 @router.get("/api/me/dashboard")
-async def get_dashboard(account: CurrentAccount):
+async def get_dashboard(account: CurrentAccount, competition_id: str | None = None):
+    import uuid as _uuid
+
     async with async_session() as session:
         # Active membership
-        mem_result = await session.execute(
+        query = (
             select(Membership, Competition)
             .join(Competition, Membership.competition_id == Competition.id)
             .where(
@@ -30,13 +32,47 @@ async def get_dashboard(account: CurrentAccount):
                 Membership.status == MembershipStatus.ACTIVE,
                 Competition.status == "active",
             )
-            .limit(1)
         )
+        if competition_id:
+            try:
+                cid = _uuid.UUID(competition_id)
+                query = query.where(Competition.id == cid)
+            except ValueError:
+                pass
+        query = query.limit(1)
+        mem_result = await session.execute(query)
         row = mem_result.first()
         if not row:
             return {"success": True, "data": None}
 
         membership, competition = row
+
+        # Active season + cycle
+        season = (await session.execute(
+            select(Season).where(
+                Season.competition_id == competition.id,
+                Season.status == SeasonStatus.ACTIVE,
+            ).limit(1)
+        )).scalars().first()
+
+        cycle = None
+        next_cycle = None
+        if season:
+            cycle = (await session.execute(
+                select(Cycle).where(
+                    Cycle.season_id == season.id,
+                    Cycle.status == CycleStatus.ACTIVE,
+                ).limit(1)
+            )).scalars().first()
+
+            if cycle:
+                next_cycle = (await session.execute(
+                    select(Cycle).where(
+                        Cycle.season_id == season.id,
+                        Cycle.status.in_([CycleStatus.DRAFT, CycleStatus.PAUSED]),
+                        Cycle.order_index > cycle.order_index,
+                    ).order_by(Cycle.order_index).limit(1)
+                )).scalars().first()
 
         # Rank
         rank_result = await session.execute(
@@ -86,11 +122,11 @@ async def get_dashboard(account: CurrentAccount):
             )
         )).scalar() or 0
 
-        # Inventory count
+        # Inventory count (AVAILABLE + ACTIVATED + PENDING — matches all inventory views)
         inventory_count = (await session.execute(
             select(func.count()).where(
                 OwnedItem.membership_id == membership.id,
-                OwnedItem.status == OwnedItemStatus.AVAILABLE,
+                OwnedItem.status.in_([OwnedItemStatus.AVAILABLE, OwnedItemStatus.ACTIVATED, OwnedItemStatus.PENDING]),
             )
         )).scalar() or 0
 
@@ -113,6 +149,14 @@ async def get_dashboard(account: CurrentAccount):
             "membership_id": str(membership.id),
             "competition_id": str(competition.id),
             "competition_name": competition.name,
+            "season_id": str(season.id) if season else None,
+            "season_name": season.name if season else None,
+            "cycle_id": str(cycle.id) if cycle else None,
+            "cycle_label": cycle.label if cycle else None,
+            "cycle_starts_at": cycle.starts_at.isoformat() if cycle and cycle.starts_at else None,
+            "cycle_ends_at": cycle.ends_at.isoformat() if cycle and cycle.ends_at else None,
+            "next_cycle_label": next_cycle.label if next_cycle else None,
+            "next_cycle_starts_at": next_cycle.starts_at.isoformat() if next_cycle and next_cycle.starts_at else None,
             "alias": membership.current_alias or account.username,
             "balance": membership.current_balance,
             "rank": rank,
@@ -131,10 +175,12 @@ async def get_dashboard(account: CurrentAccount):
 
 
 @router.get("/api/me/attacks")
-async def get_my_attacks(account: CurrentAccount):
+async def get_my_attacks(account: CurrentAccount, competition_id: str | None = None):
     """Get current player's recent battle history (as attacker or target)."""
+    import uuid as _uuid
+
     async with async_session() as session:
-        mem_result = await session.execute(
+        query = (
             select(Membership)
             .join(Competition, Membership.competition_id == Competition.id)
             .where(
@@ -142,8 +188,15 @@ async def get_my_attacks(account: CurrentAccount):
                 Membership.status == MembershipStatus.ACTIVE,
                 Competition.status == "active",
             )
-            .limit(1)
         )
+        if competition_id:
+            try:
+                cid = _uuid.UUID(competition_id)
+                query = query.where(Competition.id == cid)
+            except ValueError:
+                pass
+        query = query.limit(1)
+        mem_result = await session.execute(query)
         membership = mem_result.scalars().first()
         if not membership:
             return {"success": True, "data": []}
@@ -176,10 +229,12 @@ async def get_my_attacks(account: CurrentAccount):
 
 
 @router.get("/api/me/inventory-details")
-async def get_my_inventory_details(account: CurrentAccount):
+async def get_my_inventory_details(account: CurrentAccount, competition_id: str | None = None):
     """Get player's inventory with item details (name, rarity, description)."""
+    import uuid as _uuid
+
     async with async_session() as session:
-        mem_result = await session.execute(
+        query = (
             select(Membership)
             .join(Competition, Membership.competition_id == Competition.id)
             .where(
@@ -187,8 +242,15 @@ async def get_my_inventory_details(account: CurrentAccount):
                 Membership.status == MembershipStatus.ACTIVE,
                 Competition.status == "active",
             )
-            .limit(1)
         )
+        if competition_id:
+            try:
+                cid = _uuid.UUID(competition_id)
+                query = query.where(Competition.id == cid)
+            except ValueError:
+                pass
+        query = query.limit(1)
+        mem_result = await session.execute(query)
         membership = mem_result.scalars().first()
         if not membership:
             return {"success": True, "data": []}
@@ -198,7 +260,7 @@ async def get_my_inventory_details(account: CurrentAccount):
             .join(ItemDefinition, OwnedItem.item_definition_id == ItemDefinition.id)
             .where(
                 OwnedItem.membership_id == membership.id,
-                OwnedItem.status == OwnedItemStatus.AVAILABLE,
+                OwnedItem.status.in_([OwnedItemStatus.AVAILABLE, OwnedItemStatus.ACTIVATED, OwnedItemStatus.PENDING]),
             )
             .order_by(OwnedItem.acquired_at.desc())
         )
@@ -206,6 +268,7 @@ async def get_my_inventory_details(account: CurrentAccount):
 
         data = [{
             "id": str(oi.id),
+            "owned_item_id": str(oi.id),
             "item_definition_id": str(item.id),
             "name": item.name,
             "description": item.description,
@@ -213,8 +276,10 @@ async def get_my_inventory_details(account: CurrentAccount):
             "category": item.category,
             "usage_type": item.usage_type,
             "status": oi.status,
+            "can_use": oi.status == OwnedItemStatus.AVAILABLE,
             "uses_remaining": oi.uses_remaining,
             "acquired_at": oi.acquired_at.isoformat() if oi.acquired_at else None,
+            "expires_at": oi.expires_at.isoformat() if oi.expires_at else None,
         } for oi, item in rows]
 
     return {"success": True, "data": data}

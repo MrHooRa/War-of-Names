@@ -142,6 +142,13 @@ class ItemActivation(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# DEFERRED MODELS — tables exist in schema but no service/endpoint code yet.
+# Kept for Alembic table registration. Do not build endpoints against these
+# until a service layer is implemented.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
 class RewardDefinition(Base):
     __tablename__ = "reward_definitions"
 

@@ -65,11 +65,15 @@ async def preview_attack(
         if not membership:
             raise HTTPException(status_code=403, detail="أنت لست عضواً في هذه المنافسة")
 
+        season, cycle = await _get_active_season_cycle(session, competition_id)
+
         preview = await get_attack_preview(
             session,
             attacker_membership_id=membership.id,
             target_membership_id=body.target_membership_id,
             competition_id=competition_id,
+            season_id=season.id if season else None,
+            cycle_id=cycle.id if cycle else None,
         )
 
     return {"success": True, "data": preview}

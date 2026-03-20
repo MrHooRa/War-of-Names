@@ -1,0 +1,291 @@
+Page: حرب الأسماء - Lobby (Mega CTA)
+
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head>
+    <meta charset="UTF-8">
+    <meta name="view-transition" content="same-origin">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/94b7801d-9ae3-4dbc-b6e5-05a181086ba3" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/f0ca436b-401e-4fdf-b045-1a5e79be1186" as="document">
+    <link rel="prefetch" href="https://p.superdesign.dev/draft/6262a12d-9de3-4796-9e36-a6e2cac458ec" as="document">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobby | حرب الأسماء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&amp;family=Changa:wght@400;700;800&amp;display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-bg': '#0a0d14',
+                        'brand-surface': '#151b29',
+                        'brand-teal': '#0B8A8D',
+                        'brand-teal-light': '#00D9E9',
+                        'brand-orange': '#D84315',
+                        'brand-purple': '#9333EA',
+                        'brand-blue': '#3B82F6',
+                        'brand-emerald': '#10B981',
+                        'brand-border': '#2A3142',
+                    },
+                    fontFamily: {
+                        display: ['Cairo', 'sans-serif'],
+                        heading: ['Changa', 'sans-serif'],
+                        body: ['Cairo', 'sans-serif']
+                    },
+                    animation: {
+                        'slide-down-fade': 'slideDownFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'fade-in-scale': 'fadeInScale 1s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        slideDownFade: {
+                            '0%': { opacity: '0', transform: 'translateY(-40px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        fadeInScale: {
+                            '0%': { opacity: '0', transform: 'scale(0.85)', filter: 'drop-shadow(0 0 0px rgba(11, 138, 141, 0))' },
+                            '100%': { opacity: '1', transform: 'scale(1)', filter: 'drop-shadow(0 0 40px rgba(11, 138, 141, 0.6)) drop-shadow(0 0 60px rgba(0, 217, 233, 0.3))' },
+                        }
+                    },
+                    transitionTimingFunction: {
+                        'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        'smooth': 'cubic-bezier(0.25, 1, 0.5, 1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0a0d14;
+            color: #FFFFFF;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Custom Transitions Layering */
+        .trans-slow { transition: all 800ms cubic-bezier(0.25, 1, 0.5, 1); }
+        .trans-mid { transition: all 600ms cubic-bezier(0.25, 1, 0.5, 1); }
+        .trans-fast { transition: all 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Hexagon Background */
+        .hex-bg {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='103.92304845413264' viewBox='0 0 60 103.92304845413264' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpolygon points='30 103.92304845413264 0 86.60254037844386 0 51.96152422706632 30 34.64101615137754 60 51.96152422706632 60 86.60254037844386'/%3E%3Cpolygon points='30 51.96152422706632 0 34.64101615137754 0 0 30 -17.32050807568877 60 0 60 34.64101615137754'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            background-size: 100px 173.2px;
+        }
+
+        /* Rotating Shapes Base */
+        .bg-shape {
+            animation: rotateShape var(--rot-speed, 45s) linear infinite;
+            transition: animation-duration 1s ease;
+        }
+        .bg-shape-reverse {
+            animation: rotateShapeReverse var(--rot-speed, 55s) linear infinite;
+            transition: animation-duration 1s ease;
+        }
+        @keyframes rotateShape { to { transform: rotate(360deg); } }
+        @keyframes rotateShapeReverse { to { transform: rotate(-360deg); } }
+
+        /* Global Hover Reactions (Active Lobby State) */
+        body.lobby-active .bg-shape { --rot-speed: 20s; }
+        body.lobby-active .bg-shape-reverse { --rot-speed: 25s; }
+        body.lobby-active #main-logo {
+            transform: scale(1.08);
+            filter: drop-shadow(0 0 60px rgba(11, 138, 141, 0.8)) drop-shadow(0 0 80px rgba(0, 217, 233, 0.5));
+        }
+
+        /* Magnetic Button Layering */
+        .magnetic-wrapper {
+            perspective: 1000px;
+        }
+        .magnetic-inner {
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+        /* Fallback hover effect if JS is disabled */
+        .magnetic-wrapper:hover .magnetic-inner {
+            transform: translateY(-8px) scale(1.05);
+        }
+
+        /* Shimmer Effect for Buttons */
+        .shimmer-bg {
+            background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.08) 60%, transparent 70%);
+            background-size: 250% 100%;
+            animation: shimmerSlide 3s infinite linear;
+        }
+        @keyframes shimmerSlide {
+            0% { background-position: 100% 0; }
+            100% { background-position: -150% 0; }
+        }
+
+        /* Mega CTA Specific Animations */
+        .glow-pulse {
+            box-shadow: 0 0 20px rgba(216, 67, 21, 0.4), 0 0 40px rgba(11, 138, 141, 0.4);
+            animation: pulseGlow 3s infinite alternate;
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 20px rgba(216, 67, 21, 0.4), 0 0 40px rgba(11, 138, 141, 0.4); }
+            100% { box-shadow: 0 0 40px rgba(216, 67, 21, 0.8), 0 0 60px rgba(11, 138, 141, 0.8); }
+        }
+        .dark .glow-pulse {
+            animation: pulseGlowDark 3s infinite alternate;
+        }
+        @keyframes pulseGlowDark {
+            0% { box-shadow: 0 0 30px rgba(216, 67, 21, 0.6), 0 0 50px rgba(11, 138, 141, 0.6); }
+            100% { box-shadow: 0 0 60px rgba(216, 67, 21, 1), 0 0 80px rgba(11, 138, 141, 1); }
+        }
+        .float-animation {
+            animation: floatUpDown 4s ease-in-out infinite;
+        }
+        @keyframes floatUpDown {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .shimmer-effect {
+            background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 60%, rgba(255,255,255,0) 100%);
+            background-size: 200% 100%;
+            animation: shimmerPass 3s infinite linear;
+        }
+        @keyframes shimmerPass {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .animate-float-slow { animation: floatIcon 6s ease-in-out infinite; }
+        .animate-float-medium { animation: floatIcon 5s ease-in-out infinite 1s; }
+        .animate-float-fast { animation: floatIcon 4s ease-in-out infinite 2s; }
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(10deg); }
+        }
+        @keyframes slideUpFade {
+            0% { opacity: 0; transform: translateY(40px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- Background Visual Zone: Ambient Tavern/Club Vibe -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <!-- Warm ambient base -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(21,27,41,1)_0%,rgba(10,13,20,1)_100%)]"></div>
+        
+        <!-- Main subtle hex grid -->
+        <div class="absolute inset-0 hex-bg opacity-30"></div>
+        
+        <!-- Dynamic Rotating Background Shapes -->
+        <div class="absolute top-0 -right-[5%] w-[700px] h-[700px] opacity-10 bg-shape">
+            <svg viewBox="0 0 100 100" class="w-full h-full text-brand-teal fill-current drop-shadow-[0_0_80px_rgba(11,138,141,1)]">
+                <polygon points="50 1, 93.3 25, 93.3 75, 50 99, 6.7 75, 6.7 25"></polygon>
+            </svg>
+        </div>
+        <div class="absolute bottom-[-10%] -left-[10%] w-[900px] h-[900px] opacity-[0.08] bg-shape-reverse">
+            <svg viewBox="0 0 100 100" class="w-full h-full text-brand-orange fill-current drop-shadow-[0_0_100px_rgba(216,67,21,1)]">
+                <polygon points="50 1, 93.3 25, 93.3 75, 50 99, 6.7 75, 6.7 25"></polygon>
+            </svg>
+        </div>
+        
+        <!-- Center Focus Glow -->
+        <div class="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-brand-teal/10 blur-[120px] rounded-full trans-mid" id="center-glow"></div>
+    </div>
+
+    <!-- Header (Minimal) -->
+    <header class="relative z-30 w-full p-6 flex justify-between items-center opacity-0 animate-[slideDownFade_0.5s_ease_0.5s_forwards] pointer-events-none">
+        <div class="flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg pointer-events-auto">
+            <div class="w-2.5 h-2.5 rounded-full bg-brand-emerald animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+            <span class="text-sm font-bold text-gray-200 tracking-wide">المركز الرئيسي متصل</span>
+        </div>
+        <div class="flex gap-4 pointer-events-auto">
+            <a href="#notifications" id="nav-notifications-link" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-teal/50 transition-colors backdrop-blur-md relative">
+                <iconify-icon icon="lucide:bell" class="text-xl"></iconify-icon>
+                <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-brand-orange"></span>
+            </a>
+            <a href="#settings" id="nav-settings-link" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-teal/50 transition-colors backdrop-blur-md">
+                <iconify-icon icon="lucide:settings" class="text-xl"></iconify-icon>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Interactive Content (Center) -->
+    <main class="relative z-20 flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-4 py-12 md:py-8">
+        
+        <!-- Central Interactive Logo -->
+        <div class="relative flex flex-col items-center z-30 mb-12 md:mb-20">
+            <img id="main-logo" src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png" alt="شعار حرب الأسماء" class="h-[clamp(8rem,20vw,16rem)] w-auto object-contain object-center animate-fade-in-scale trans-mid will-change-transform" style="width: 492px; height: 244px;">
+        </div>
+
+        <!-- Mega CTA Section -->
+        <div class="relative w-full max-w-2xl flex flex-col items-center text-center mt-4">
+            
+            <!-- Top Text -->
+            <div class="inline-flex items-center gap-2 bg-brand-orange/10 border border-brand-orange/30 text-brand-orange dark:text-orange-400 px-5 py-2 rounded-full text-sm font-bold mb-8 animate-[slideDownFade_0.5s_ease_0.8s_forwards] opacity-0 shadow-[0_0_15px_rgba(216,67,21,0.2)]"><span class="text-lg leading-none" contenteditable="true" style="cursor: text;">يهووووه أقوى لعبة لعام 2026 🔥</span></div>
+
+            <!-- The Mega Button Container -->
+            <div class="relative w-full sm:w-auto animate-[fadeInScale_0.8s_cubic-bezier(0.16,1,0.3,1)_1s_forwards] opacity-0 z-40">
+                
+                <!-- Decorative Stars -->
+                <iconify-icon icon="mdi:star-four-points" class="absolute -top-6 -left-8 text-amber-300 text-3xl animate-float-slow drop-shadow-[0_0_10px_rgba(252,211,77,0.8)]"></iconify-icon>
+                <iconify-icon icon="mdi:star-four-points" class="absolute top-1/2 -right-10 text-brand-teal-light text-2xl animate-float-fast drop-shadow-[0_0_10px_rgba(0,217,233,0.8)]"></iconify-icon>
+                <iconify-icon icon="mdi:sparkles" class="absolute -bottom-4 -left-4 text-brand-orange text-xl animate-float-medium drop-shadow-[0_0_10px_rgba(216,67,21,0.8)]"></iconify-icon>
+                
+                <!-- Main Button -->
+                <a href="https://p.superdesign.dev/draft/9a150d25-7476-4f14-bd65-3a17275e62b1" class="btn-mega-cta relative block w-full sm:w-[450px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-teal to-brand-orange p-[2px] focus:outline-none focus:ring-4 focus:ring-brand-orange/50 transition-all duration-300 hover:scale-[1.08] active:scale-95 group">
+                    
+                    <!-- Outer Glow / Shadow -->
+                    <div class="absolute inset-0 rounded-[2rem] glow-pulse opacity-70 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    
+                    <div class="relative h-full w-full bg-gradient-to-br from-[#0B8A8D] to-[#D84315] rounded-[calc(2rem-2px)] px-12 py-6 flex flex-col items-center justify-center gap-2 overflow-hidden float-animation">
+                        <!-- Shimmer Effect -->
+                        <div class="absolute inset-0 w-[200%] h-full shimmer-effect pointer-events-none"></div>
+                        
+                        <!-- Particle bg effect (subtle) -->
+                        <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-30 mix-blend-overlay pointer-events-none"></div>
+                        
+                        <div class="relative z-10 flex items-center justify-center gap-4 text-white">
+                            <iconify-icon icon="mdi:rocket" class="text-4xl drop-shadow-lg group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform duration-300"></iconify-icon>
+                            <span class="font-heading font-black text-3xl md:text-4xl tracking-wide drop-shadow-md">ابدأ اللعبة الآن</span>
+                        </div>
+                        
+                    </div>
+                </a>
+            </div>
+
+            <!-- Bottom Texts -->
+            <div class="mt-10 flex flex-col items-center gap-6" style="animation: slideUpFade 0.8s ease 1.2s forwards; opacity: 0;">
+                
+                
+                
+            </div>
+
+        </div>
+    </main>
+
+    <!-- JavaScript for Interactions -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ctaBtn = document.querySelector('.btn-mega-cta');
+            const body = document.body;
+            const centerGlow = document.getElementById('center-glow');
+
+            if (ctaBtn) {
+                ctaBtn.addEventListener('mouseenter', () => {
+                    body.classList.add('lobby-active');
+                    if(centerGlow) centerGlow.style.backgroundColor = 'rgba(216, 67, 21, 0.25)';
+                });
+                ctaBtn.addEventListener('mouseleave', () => {
+                    body.classList.remove('lobby-active');
+                    if(centerGlow) centerGlow.style.backgroundColor = 'rgba(11, 138, 141, 0.1)';
+                });
+            }
+        });
+    </script>
+
+</body></html>
+```
+
+Please reference this design and implement it into our codebase; Try to understand the structure, which part of our codebase is relevant and implement

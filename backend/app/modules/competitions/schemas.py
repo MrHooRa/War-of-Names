@@ -7,6 +7,11 @@ class JoinRequest(BaseModel):
     invite_code: str
     alias: str
 
+    @field_validator("invite_code")
+    @classmethod
+    def invite_code_clean(cls, v: str) -> str:
+        return v.strip().upper()
+
     @field_validator("alias")
     @classmethod
     def alias_clean(cls, v: str) -> str:

@@ -20,7 +20,14 @@ export default function LoginPage() {
         body: JSON.stringify(form),
       })
       login(json.data)
-      navigate('/dashboard', { replace: true })
+      // Check for invite return redirect
+      const inviteReturn = localStorage.getItem('won_invite_return')
+      if (inviteReturn) {
+        localStorage.removeItem('won_invite_return')
+        navigate(inviteReturn, { replace: true })
+      } else {
+        navigate('/', { replace: true })
+      }
     } catch (err) {
       setError(err.message)
     } finally {

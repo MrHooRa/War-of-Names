@@ -217,7 +217,7 @@ export default function AdminPlayersPage() {
               {filtered.map(p => (
                 <tr key={p.membership_id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 smooth-transition">
                   <td className="px-4 py-3">
-                    <Link to={`/admin/players/${p.membership_id}`} className="flex items-center gap-3 group">
+                    <Link to={`/admin/members/${p.membership_id}`} className="flex items-center gap-3 group">
                       <div className="w-9 h-9 bg-brand-teal/10 dark:bg-brand-slate/20 rounded-lg flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-sm">
                         {p.alias?.[0] || '?'}
                       </div>

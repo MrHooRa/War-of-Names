@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef } from 'react'
+import useCompetitionContext from '../hooks/useCompetitionContext'
+import CompetitionSwitcher from '../components/CompetitionSwitcher'
 
 export default function LobbyPage() {
   const containerRef = useRef(null)
   const centerGlowRef = useRef(null)
+  const { seasonName, cycleLabel } = useCompetitionContext()
 
   useEffect(() => {
     const container = containerRef.current
@@ -136,26 +139,32 @@ export default function LobbyPage() {
 
       {/* Header (Minimal) */}
       <header className="relative z-30 w-full p-6 flex justify-between items-center opacity-0 animate-[slideDownFade_0.5s_ease_0.5s_forwards] pointer-events-none">
-        <div className="flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg pointer-events-auto">
-          <div className="w-2.5 h-2.5 rounded-full bg-brand-emerald animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
-          <span className="text-sm font-bold text-gray-200 tracking-wide">المركز الرئيسي متصل</span>
+        <div className="flex items-center gap-4 pointer-events-auto">
+          <CompetitionSwitcher variant="dark" />
+          <div className="flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg">
+            <div className="w-2.5 h-2.5 rounded-full bg-brand-emerald animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+            <span className="text-sm font-bold text-gray-200 tracking-wide">
+              {seasonName || 'المركز الرئيسي متصل'}
+              {cycleLabel && <span className="text-gray-400 mr-2">— {cycleLabel}</span>}
+            </span>
+          </div>
         </div>
         <div className="flex gap-4 pointer-events-auto">
-          <a
-            href="#notifications"
+          <Link
+            to="/notifications"
             id="nav-notifications-link"
             className="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-teal/50 transition-colors backdrop-blur-md relative"
           >
             <iconify-icon icon="lucide:bell" class="text-xl"></iconify-icon>
             <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-brand-orange"></span>
-          </a>
-          <a
-            href="#settings"
+          </Link>
+          <Link
+            to="/account"
             id="nav-settings-link"
             className="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-teal/50 transition-colors backdrop-blur-md"
           >
             <iconify-icon icon="lucide:settings" class="text-xl"></iconify-icon>
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -178,7 +187,7 @@ export default function LobbyPage() {
           {/* Button 1: Profile (Far Left on Desktop - Slightly Raised) */}
           <div className="magnetic-wrapper w-full md:w-1/4 md:-translate-y-4 transition-transform duration-700 delay-100" data-glow-color="teal">
             <Link
-              to="/"
+              to="/dashboard"
               id="arc-btn-profile"
               className="magnetic-inner block w-full trans-fast rounded-[24px] focus:outline-none focus:ring-4 focus:ring-brand-teal/50"
             >

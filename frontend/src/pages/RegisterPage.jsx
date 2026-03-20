@@ -20,7 +20,7 @@ export default function RegisterPage() {
         body: JSON.stringify(form),
       })
       login(json.data)
-      navigate('/join', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {

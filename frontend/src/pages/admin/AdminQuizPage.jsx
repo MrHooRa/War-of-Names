@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
-
-const ACTIVE_COMPETITION_ID = '00000000-0000-0000-0000-000000000001'
+import { useAdminCompetition } from '../../context/AdminCompetitionContext'
 
 function StatusBadge({ status }) {
   const colors = {
@@ -382,7 +381,7 @@ function CreateSessionModal({ groups, onClose, onSuccess }) {
       await apiFetch('/api/admin/quiz-sessions', {
         method: 'POST',
         body: JSON.stringify({
-          competition_id: ACTIVE_COMPETITION_ID,
+          competition_id: selectedId,
           title: title.trim(),
           source_group_id: sourceGroupId,
           answer_duration_seconds: Number(answerDuration),
@@ -426,6 +425,7 @@ function CreateSessionModal({ groups, onClose, onSuccess }) {
 
 // ─── Main Page Component ──────────────────────────────────────────────────────
 export default function AdminQuizPage() {
+  const { selected, selectedId } = useAdminCompetition()
   const [tab, setTab] = useState('sessions') // 'sessions' | 'questions' | 'groups'
   const { data: sessions, loading: loadingSessions, refetch: refetchSessions } = useAdminData('/api/admin/quiz-sessions')
   const { data: questions, loading: loadingQuestions, refetch: refetchQuestions } = useAdminData('/api/admin/questions')
@@ -553,6 +553,15 @@ export default function AdminQuizPage() {
 
   const loading = tab === 'sessions' ? loadingSessions : tab === 'questions' ? loadingQuestions : loadingGroups
 
+  if (!selected) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <iconify-icon icon="lucide:book-open" class="text-4xl text-gray-300 dark:text-gray-600 mb-3"></iconify-icon>
+        <p className="font-bold text-gray-500 dark:text-gray-400">اختر منافسة من القائمة الجانبية لإدارة الأسئلة</p>
+      </div>
+    )
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><iconify-icon icon="lucide:loader-2" class="text-4xl text-brand-teal animate-spin"></iconify-icon></div>
   }
@@ -560,8 +569,8 @@ export default function AdminQuizPage() {
   return (
     <div className="space-y-6 max-w-7xl">
       <div>
-        <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">إدارة الأسئلة</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">بنك الأسئلة وجلسات الاختبار</p>
+        <h1 className="font-heading font-black text-2xl text-gray-900 dark:text-white">إدارة الأسئلة</h1>
+        <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">{selected.name} — بنك الأسئلة وجلسات الاختبار</p>
       </div>
 
       {actionMsg && (

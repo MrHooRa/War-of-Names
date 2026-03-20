@@ -1,39 +1,39 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 
 export default function JoinPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ invite_code: '', alias: '' })
-  const [competitionId, setCompetitionId] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Fetch the active competition ID on mount
-  useEffect(() => {
-    apiFetch('/api/competitions/active')
-      .then(json => {
-        if (json.data) setCompetitionId(json.data.competition_id)
-      })
-      .catch(() => {})
-  }, [])
-
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!competitionId) {
-      setError('لا توجد منافسة مفتوحة حالياً')
-      return
-    }
     setError('')
     setLoading(true)
     try {
-      await apiFetch(`/api/competitions/${competitionId}/join`, {
+      await apiFetch('/api/join', {
         method: 'POST',
         body: JSON.stringify(form),
       })
-      navigate('/dashboard', { replace: true })
+      // Track landing ref conversion (fire-and-forget)
+      const landingRef = sessionStorage.getItem('won_landing_ref')
+      if (landingRef) {
+        apiFetch('/api/landing-links/convert', {
+          method: 'POST',
+          body: JSON.stringify({ ref_token: landingRef }),
+        }).catch(() => {})
+        sessionStorage.removeItem('won_landing_ref')
+      }
+      navigate('/lobby', { replace: true })
     } catch (err) {
-      setError(err.message)
+      const detail = err.data
+      if (detail && detail.message) {
+        setError(detail.message)
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }

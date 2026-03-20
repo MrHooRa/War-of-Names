@@ -3,6 +3,7 @@ import useCompetitionContext from '../hooks/useCompetitionContext'
 import useStore from '../hooks/useStore'
 import useInventory from '../hooks/useInventory'
 import useBuyItem from '../hooks/useBuyItem'
+import { apiFetch } from '../lib/api'
 
 const RARITY_CONFIG = {
   common: { label: 'عادي', bg: 'bg-gray-200 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300' },
@@ -62,6 +63,18 @@ function StoreItem({ listing, onBuy, buying }) {
           {listing.description}
         </p>
 
+        {/* Effect Summaries */}
+        {listing.effects?.length > 0 && (
+          <div className={`mt-3 w-full space-y-1.5 ${isMythic ? 'max-w-md mx-auto' : ''}`}>
+            {listing.effects.map((eff, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-brand-teal/5 dark:bg-brand-slate/10 rounded-lg">
+                <iconify-icon icon="lucide:sparkles" class="text-xs text-brand-teal dark:text-brand-slate flex-shrink-0"></iconify-icon>
+                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{eff}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {!isMythic && listing.stock_remaining !== null && (
           <div className="mt-auto pt-5 w-full">
             <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 w-full flex justify-between items-center">
@@ -88,7 +101,7 @@ function StoreItem({ listing, onBuy, buying }) {
   )
 }
 
-function InventoryItem({ item }) {
+function InventoryItem({ item, onUse, using }) {
   const icon = CATEGORY_ICONS[item.category] || 'lucide:package'
   const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common
 
@@ -106,10 +119,37 @@ function InventoryItem({ item }) {
             </span>
           </div>
           <div className="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">
-            {item.status === 'available' ? 'جاهز للاستخدام' : item.status === 'activated' ? 'نشط' : item.status}
+            {item.status === 'available' ? 'جاهز للاستخدام' : item.status === 'activated' ? 'نشط' : item.status === 'pending' ? 'ينتظر التفعيل...' : item.status}
           </div>
         </div>
       </div>
+
+      {/* Effect summaries */}
+      {item.effects?.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {item.effects.map((eff, i) => (
+            <div key={i} className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <iconify-icon icon="lucide:zap" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
+              {eff}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Use button */}
+      {item.can_use && (
+        <button
+          onClick={() => onUse(item.owned_item_id)}
+          disabled={using}
+          className="mt-2 w-full py-1.5 rounded-lg text-xs font-bold bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate hover:bg-brand-teal/20 dark:hover:bg-brand-slate/30 smooth-transition disabled:opacity-50"
+        >
+          {using ? (
+            <iconify-icon icon="lucide:loader-2" class="animate-spin text-xs"></iconify-icon>
+          ) : (
+            'استخدام'
+          )}
+        </button>
+      )}
     </div>
   )
 }
@@ -117,10 +157,11 @@ function InventoryItem({ item }) {
 export default function StorePage() {
   const { competitionId } = useCompetitionContext()
   const { listings, loading, error } = useStore(competitionId)
-  const { items: inventoryItems, loading: invLoading, refetch: refetchInventory } = useInventory()
+  const { items: inventoryItems, maxCapacity, loading: invLoading, refetch: refetchInventory } = useInventory()
   const { buying, error: buyError, buyItem } = useBuyItem(competitionId)
   const [toast, setToast] = useState(null)
   const [category, setCategory] = useState('all')
+  const [usingItem, setUsingItem] = useState(false)
 
   async function handleBuy(listingId) {
     const result = await buyItem(listingId)
@@ -128,6 +169,22 @@ export default function StorePage() {
       setToast(result.message)
       refetchInventory()
       setTimeout(() => setToast(null), 3000)
+    }
+  }
+
+  async function handleUseItem(ownedItemId) {
+    setUsingItem(true)
+    try {
+      const qs = competitionId ? `?competition_id=${competitionId}` : ''
+      const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use${qs}`, { method: 'POST' })
+      setToast(res.message || 'تم استخدام العنصر بنجاح')
+      refetchInventory()
+      setTimeout(() => setToast(null), 3000)
+    } catch (err) {
+      setToast(err.message || 'فشل استخدام العنصر')
+      setTimeout(() => setToast(null), 3000)
+    } finally {
+      setUsingItem(false)
     }
   }
 
@@ -241,7 +298,7 @@ export default function StorePage() {
                   </div>
                 ) : (
                   inventoryItems.map(item => (
-                    <InventoryItem key={item.owned_item_id} item={item} />
+                    <InventoryItem key={item.owned_item_id} item={item} onUse={handleUseItem} using={usingItem} />
                   ))
                 )}
               </div>
@@ -250,12 +307,12 @@ export default function StorePage() {
               <div className="p-5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
                 <div className="flex justify-between text-[11px] font-heading font-bold mb-2 text-gray-500 dark:text-gray-400 uppercase">
                   <span>السعة المستخدمة</span>
-                  <span>{inventoryItems.length} / 10</span>
+                  <span>{inventoryItems.length} / {maxCapacity}</span>
                 </div>
                 <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-l from-brand-teal to-brand-teal-light dark:from-brand-slate dark:to-brand-slate rounded-full relative overflow-hidden"
-                    style={{ width: `${Math.min(100, (inventoryItems.length / 10) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (inventoryItems.length / maxCapacity) * 100)}%` }}
                   >
                     <div className="absolute inset-0 bg-white/20 w-full h-full" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,0.1) 8px, rgba(0,0,0,0.1) 16px)' }}></div>
                   </div>
