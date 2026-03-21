@@ -82,6 +82,11 @@ export default function AdminPlayerDetailPage() {
   const [revokeReason, setRevokeReason] = useState('')
   const [revoking, setRevoking] = useState(false)
 
+  const [aliasModal, setAliasModal] = useState(false)
+  const [newAlias, setNewAlias] = useState('')
+  const [aliasReason, setAliasReason] = useState('')
+  const [aliasChanging, setAliasChanging] = useState(false)
+
   const [confirmAction, setConfirmAction] = useState(null)
 
   function showMsg(text, isError = false) {
@@ -215,6 +220,24 @@ export default function AdminPlayerDetailPage() {
     setRevoking(false)
   }
 
+  async function handleChangeAlias(e) {
+    e.preventDefault()
+    if (!newAlias.trim()) return
+    setAliasChanging(true)
+    try {
+      const res = await apiFetch(`/api/admin/players/${membershipId}/alias`, {
+        method: 'PATCH',
+        body: JSON.stringify({ new_alias: newAlias.trim(), reason: aliasReason || 'تغيير إداري' }),
+      })
+      showMsg(res.message || 'تم تغيير اللقب')
+      setAliasModal(false)
+      setNewAlias('')
+      setAliasReason('')
+      loadPlayer()
+    } catch (err) { showMsg(err.message, true) }
+    setAliasChanging(false)
+  }
+
   if (loading) return <div className="flex items-center justify-center py-20"><iconify-icon icon="lucide:loader-2" class="text-4xl text-brand-teal animate-spin"></iconify-icon></div>
   if (error || !player) return <div className="text-center py-20 text-gray-500 font-bold">{error || 'لم يتم العثور على اللاعب'}</div>
 
@@ -260,6 +283,10 @@ export default function AdminPlayerDetailPage() {
 
           {/* Quick Actions */}
           <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => { setAliasModal(true); setNewAlias(player.alias || '') }} className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-xl font-bold text-sm smooth-transition">
+              <iconify-icon icon="lucide:pen-line" class="text-base"></iconify-icon>
+              تغيير اللقب
+            </button>
             <button onClick={() => setAlertModal(true)} className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-xl font-bold text-sm smooth-transition">
               <iconify-icon icon="lucide:bell-ring" class="text-base"></iconify-icon>
               تنبيه
@@ -588,6 +615,37 @@ export default function AdminPlayerDetailPage() {
                   {revoking ? 'جارٍ المصادرة...' : 'تأكيد المصادرة'}
                 </button>
                 <button type="button" onClick={() => setRevokeItem(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Alias Modal */}
+      {aliasModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setAliasModal(false)}>
+          <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <iconify-icon icon="lucide:pen-line" class="text-amber-500"></iconify-icon>
+              تغيير لقب — {player.alias}
+            </h3>
+            <form onSubmit={handleChangeAlias} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">اللقب الجديد <span className="text-brand-danger">*</span></label>
+                <input type="text" value={newAlias} onChange={e => setNewAlias(e.target.value)} required placeholder="اللقب الجديد" minLength={2} maxLength={50}
+                  className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">السبب</label>
+                <input type="text" value={aliasReason} onChange={e => setAliasReason(e.target.value)} placeholder="سبب التغيير (اختياري)"
+                  className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={aliasChanging} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-heading font-black smooth-transition disabled:opacity-60 flex items-center justify-center gap-2">
+                  {aliasChanging && <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>}
+                  {aliasChanging ? 'جارٍ التغيير...' : 'تغيير اللقب'}
+                </button>
+                <button type="button" onClick={() => setAliasModal(false)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
               </div>
             </form>
           </div>

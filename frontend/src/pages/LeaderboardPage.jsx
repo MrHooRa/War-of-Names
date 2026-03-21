@@ -51,7 +51,7 @@ function PlayerRow({ player, myMembershipId }) {
         {/* Rank + mobile alias */}
         <div className="col-span-1 flex items-center gap-4">
           <RankBadge rank={player.rank} />
-          <div className="md:hidden font-heading text-lg font-black text-gray-900 dark:text-white">{player.alias}</div>
+          <Link to={`/players/${player.membership_id}`} className="md:hidden font-heading text-lg font-black text-gray-900 dark:text-white hover:text-brand-teal dark:hover:text-brand-slate smooth-transition">{player.alias}</Link>
         </div>
 
         {/* Avatar + alias (desktop) */}
@@ -67,13 +67,10 @@ function PlayerRow({ player, myMembershipId }) {
             )}
           </div>
           <div className="hidden md:block">
-            <h3 className={`font-heading font-black text-lg ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+            <Link to={`/players/${player.membership_id}`} className={`font-heading font-black text-lg hover:text-brand-teal dark:hover:text-brand-slate smooth-transition block ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
               {player.alias}
-            </h3>
+            </Link>
             {isSelf && <p className="text-[11px] font-bold text-brand-teal dark:text-brand-slate">أنت</p>}
-            {player.real_name && (
-              <p className="text-[11px] font-bold text-brand-danger">{player.real_name}</p>
-            )}
           </div>
         </div>
 
@@ -128,7 +125,7 @@ export default function LeaderboardPage() {
   const myPlayer = players.find(p => p.membership_id === myMembershipId)
 
   const filtered = players.filter(p =>
-    p.alias.includes(search) || (p.real_name && p.real_name.includes(search))
+    p.alias.includes(search)
   )
 
   return (

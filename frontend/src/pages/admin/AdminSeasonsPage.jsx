@@ -72,6 +72,102 @@ export default function AdminSeasonsPage() {
   const [resultBanner, setResultBanner] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  // ── War/Peace (attack_enabled) ────────────────────────────────────
+  const [attackEnabled, setAttackEnabled] = useState(null)
+  const [attackToggling, setAttackToggling] = useState(false)
+
+  // ── Bulk actions ──────────────────────────────────────────────────
+  const [bulkModal, setBulkModal] = useState(null)   // 'deactivate' | 'give' | 'set' | 'reset' | null
+  const [bulkAmount, setBulkAmount] = useState('')
+  const [bulkReason, setBulkReason] = useState('')
+  const [bulkRunning, setBulkRunning] = useState(false)
+
+  const loadAttackSetting = useCallback(() => {
+    if (!selectedId) return
+    apiFetch(`/api/admin/competitions/${selectedId}/settings`)
+      .then(json => {
+        const setting = (json.data || []).find(s => s.key === 'attack_enabled')
+        if (setting) setAttackEnabled(setting.effective_value?.v ?? false)
+      })
+      .catch(() => {})
+  }, [selectedId])
+
+  useEffect(() => { loadAttackSetting() }, [loadAttackSetting])
+
+  async function toggleAttackEnabled() {
+    const newValue = !attackEnabled
+    setAttackToggling(true)
+    try {
+      await apiFetch(`/api/admin/competitions/${selectedId}/settings/attack_enabled`, {
+        method: 'PATCH',
+        body: JSON.stringify({ value: { v: newValue } }),
+      })
+      setAttackEnabled(newValue)
+      setResultBanner({
+        title: newValue ? 'تم تفعيل الهجمات — وقت الحرب' : 'تم إيقاف الهجمات — وقت السلام',
+        details: [newValue ? 'يمكن للمتسابقين مهاجمة بعضهم الآن' : 'لن يتمكن أي متسابق من تنفيذ هجمات حتى يُعاد التفعيل'],
+      })
+    } catch { }
+    setAttackToggling(false)
+  }
+
+  // ── Bulk action handlers ──────────────────────────────────────────
+
+  async function bulkDeactivateAll() {
+    setBulkRunning(true)
+    try {
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/bulk/deactivate-all`, { method: 'POST' })
+      setResultBanner({ title: json.message, details: [`عدد المتأثرين: ${json.data?.deactivated_count || 0}`] })
+      setBulkModal(null)
+      loadDetail()
+    } catch (err) { setResultBanner({ title: 'فشلت العملية', details: [err.message] }) }
+    setBulkRunning(false)
+  }
+
+  async function bulkGivePoints(e) {
+    e.preventDefault()
+    if (!bulkAmount) return
+    setBulkRunning(true)
+    try {
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/bulk/give-points`, {
+        method: 'POST',
+        body: JSON.stringify({ amount: parseInt(bulkAmount), reason: bulkReason || 'توزيع إداري' }),
+      })
+      setResultBanner({ title: json.message, details: [`عدد المتأثرين: ${json.data?.affected_count || 0}`] })
+      setBulkModal(null)
+      setBulkAmount('')
+      setBulkReason('')
+    } catch (err) { setResultBanner({ title: 'فشلت العملية', details: [err.message] }) }
+    setBulkRunning(false)
+  }
+
+  async function bulkSetBalance(e) {
+    e.preventDefault()
+    if (!bulkAmount) return
+    setBulkRunning(true)
+    try {
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/bulk/set-balance`, {
+        method: 'POST',
+        body: JSON.stringify({ amount: parseInt(bulkAmount), reason: bulkReason || 'تعيين رصيد إداري' }),
+      })
+      setResultBanner({ title: json.message, details: [`عدد المتأثرين: ${json.data?.affected_count || 0}`] })
+      setBulkModal(null)
+      setBulkAmount('')
+      setBulkReason('')
+    } catch (err) { setResultBanner({ title: 'فشلت العملية', details: [err.message] }) }
+    setBulkRunning(false)
+  }
+
+  async function bulkResetBankrupt() {
+    setBulkRunning(true)
+    try {
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/bulk/reset-bankrupt`, { method: 'POST' })
+      setResultBanner({ title: json.message, details: [`عدد المتأثرين: ${json.data?.cleared_count || 0}`] })
+      setBulkModal(null)
+    } catch (err) { setResultBanner({ title: 'فشلت العملية', details: [err.message] }) }
+    setBulkRunning(false)
+  }
+
   const loadDetail = useCallback(() => {
     if (!selectedId) return
     setLoading(true)
@@ -290,6 +386,171 @@ export default function AdminSeasonsPage() {
 
       {/* Result banner */}
       <ResultBanner result={resultBanner} onDismiss={() => setResultBanner(null)} />
+
+      {/* ══ War/Peace Control ══ */}
+      {attackEnabled !== null && (
+        <div className={`border rounded-2xl p-5 smooth-transition ${attackEnabled ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800'}`}>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${attackEnabled ? 'bg-red-100 dark:bg-red-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                <iconify-icon icon={attackEnabled ? 'lucide:swords' : 'lucide:shield-check'} class={`text-2xl ${attackEnabled ? 'text-red-500' : 'text-blue-500'}`}></iconify-icon>
+              </div>
+              <div>
+                <div className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                  {attackEnabled ? 'وقت الحرب' : 'وقت السلام'}
+                  <span className={`w-2 h-2 rounded-full ${attackEnabled ? 'bg-red-500 animate-pulse' : 'bg-blue-500'}`}></span>
+                </div>
+                <p className="text-sm font-bold text-gray-500 dark:text-gray-400">
+                  {attackEnabled ? 'الهجمات مفعّلة — يمكن للمتسابقين مهاجمة بعضهم' : 'الهجمات معطّلة — لا يمكن لأي متسابق تنفيذ هجوم'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={toggleAttackEnabled}
+              disabled={attackToggling}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-heading font-black text-sm smooth-transition disabled:opacity-60 ${
+                attackEnabled
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-red-500 hover:bg-red-600 text-white'
+              }`}
+            >
+              <iconify-icon icon={attackToggling ? 'lucide:loader-2' : attackEnabled ? 'lucide:shield-check' : 'lucide:swords'} class={`text-lg ${attackToggling ? 'animate-spin' : ''}`}></iconify-icon>
+              {attackToggling ? 'جارٍ التبديل...' : attackEnabled ? 'إيقاف الهجمات (سلام)' : 'تفعيل الهجمات (حرب)'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Bulk Operations ══ */}
+      <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/20 rounded-xl flex items-center justify-center">
+            <iconify-icon icon="lucide:zap" class="text-xl text-amber-600 dark:text-amber-400"></iconify-icon>
+          </div>
+          <div>
+            <div className="font-heading font-black text-lg text-gray-900 dark:text-white">عمليات جماعية</div>
+            <p className="text-xs font-bold text-gray-400">إجراءات تطبّق على جميع أعضاء المنافسة</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button onClick={() => setBulkModal('deactivate')} className="flex flex-col items-center gap-2 p-4 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl smooth-transition group">
+            <iconify-icon icon="lucide:user-x" class="text-2xl text-red-500 group-hover:scale-110 smooth-transition"></iconify-icon>
+            <span className="text-xs font-black text-red-600 dark:text-red-400">تعطيل الجميع</span>
+          </button>
+          <button onClick={() => { setBulkModal('give'); setBulkAmount(''); setBulkReason('') }} className="flex flex-col items-center gap-2 p-4 bg-brand-success/5 hover:bg-brand-success/10 border border-brand-success/20 rounded-xl smooth-transition group">
+            <iconify-icon icon="lucide:coins" class="text-2xl text-brand-success group-hover:scale-110 smooth-transition"></iconify-icon>
+            <span className="text-xs font-black text-brand-success">منح نقاط للجميع</span>
+          </button>
+          <button onClick={() => { setBulkModal('set'); setBulkAmount(''); setBulkReason('') }} className="flex flex-col items-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl smooth-transition group">
+            <iconify-icon icon="lucide:equal" class="text-2xl text-blue-500 group-hover:scale-110 smooth-transition"></iconify-icon>
+            <span className="text-xs font-black text-blue-600 dark:text-blue-400">تعيين رصيد موحد</span>
+          </button>
+          <button onClick={() => setBulkModal('reset')} className="flex flex-col items-center gap-2 p-4 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl smooth-transition group">
+            <iconify-icon icon="lucide:heart-pulse" class="text-2xl text-amber-500 group-hover:scale-110 smooth-transition"></iconify-icon>
+            <span className="text-xs font-black text-amber-600 dark:text-amber-400">إعادة تعيين المفلسين</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ══ Bulk Modals ══ */}
+
+      {/* Deactivate All Confirm */}
+      {bulkModal === 'deactivate' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setBulkModal(null)}>
+          <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
+            <iconify-icon icon="lucide:alert-triangle" class="text-4xl text-red-500 mb-3"></iconify-icon>
+            <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white mb-2">تعطيل جميع الأعضاء</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">سيتم تعليق جميع الأعضاء النشطين في المنافسة. هل أنت متأكد؟</p>
+            <div className="flex gap-3">
+              <button onClick={bulkDeactivateAll} disabled={bulkRunning} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-heading font-black smooth-transition disabled:opacity-60 flex items-center justify-center gap-2">
+                {bulkRunning && <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>}
+                {bulkRunning ? 'جارٍ التنفيذ...' : 'تأكيد التعطيل'}
+              </button>
+              <button onClick={() => setBulkModal(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Give Points Modal */}
+      {bulkModal === 'give' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setBulkModal(null)}>
+          <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <iconify-icon icon="lucide:coins" class="text-brand-success"></iconify-icon>
+              منح نقاط لجميع الأعضاء
+            </h3>
+            <form onSubmit={bulkGivePoints} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">المبلغ (موجب = إضافة، سالب = خصم)</label>
+                <input type="number" value={bulkAmount} onChange={e => setBulkAmount(e.target.value)} required placeholder="500 أو -200"
+                  className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">السبب</label>
+                <input type="text" value={bulkReason} onChange={e => setBulkReason(e.target.value)} placeholder="توزيع إداري"
+                  className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={bulkRunning} className="flex-1 bg-brand-success hover:bg-brand-success/90 text-white py-3 rounded-xl font-heading font-black smooth-transition disabled:opacity-60 flex items-center justify-center gap-2">
+                  {bulkRunning && <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>}
+                  {bulkRunning ? 'جارٍ التنفيذ...' : 'تأكيد المنح'}
+                </button>
+                <button type="button" onClick={() => setBulkModal(null)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Set Balance Modal */}
+      {bulkModal === 'set' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setBulkModal(null)}>
+          <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <iconify-icon icon="lucide:equal" class="text-blue-500"></iconify-icon>
+              تعيين رصيد موحد لجميع الأعضاء
+            </h3>
+            <form onSubmit={bulkSetBalance} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الرصيد المطلوب</label>
+                <input type="number" value={bulkAmount} onChange={e => setBulkAmount(e.target.value)} required placeholder="1000" min="0"
+                  className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">السبب</label>
+                <input type="text" value={bulkReason} onChange={e => setBulkReason(e.target.value)} placeholder="تعيين رصيد موحد"
+                  className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={bulkRunning} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-heading font-black smooth-transition disabled:opacity-60 flex items-center justify-center gap-2">
+                  {bulkRunning && <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>}
+                  {bulkRunning ? 'جارٍ التنفيذ...' : 'تأكيد التعيين'}
+                </button>
+                <button type="button" onClick={() => setBulkModal(null)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Bankrupt Confirm */}
+      {bulkModal === 'reset' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setBulkModal(null)}>
+          <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
+            <iconify-icon icon="lucide:heart-pulse" class="text-4xl text-amber-500 mb-3"></iconify-icon>
+            <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white mb-2">إعادة تعيين المفلسين</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">سيتم إزالة حالة الإفلاس عن جميع اللاعبين المفلسين. هل أنت متأكد؟</p>
+            <div className="flex gap-3">
+              <button onClick={bulkResetBankrupt} disabled={bulkRunning} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-heading font-black smooth-transition disabled:opacity-60 flex items-center justify-center gap-2">
+                {bulkRunning && <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>}
+                {bulkRunning ? 'جارٍ التنفيذ...' : 'تأكيد إعادة التعيين'}
+              </button>
+              <button onClick={() => setBulkModal(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Broadcast form */}
       {showBroadcastForm && (

@@ -104,11 +104,6 @@ export default function PlayerProfilePage() {
             )}
           </div>
 
-          {/* Real name if bankrupt */}
-          {profile.real_name && (
-            <p className="text-sm font-bold text-brand-danger">الهوية المكشوفة: {profile.real_name}</p>
-          )}
-
           <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm font-bold text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <iconify-icon icon="lucide:zap" class="text-brand-teal dark:text-brand-slate"></iconify-icon>

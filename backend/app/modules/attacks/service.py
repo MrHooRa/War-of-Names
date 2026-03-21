@@ -68,6 +68,7 @@ async def _load_attack_settings(
     settings = await get_settings_batch(
         session,
         [
+            "attack_enabled",
             "attack_base_reward",
             "attack_decay_factor",
             "attack_base_penalty",
@@ -78,7 +79,12 @@ async def _load_attack_settings(
         season_id=season_id,
         cycle_id=cycle_id,
     )
+    # attack_enabled defaults to False (disabled) if not set
+    raw_enabled = settings.get("attack_enabled")
+    attack_enabled = bool(raw_enabled) if raw_enabled is not None else False
+
     return {
+        "attack_enabled": attack_enabled,
         "base_reward": int(settings.get("attack_base_reward") or _FALLBACK_BASE_REWARD),
         "decay_factor": float(settings.get("attack_decay_factor") or _FALLBACK_DECAY_FACTOR),
         "base_penalty": int(settings.get("attack_base_penalty") or _FALLBACK_BASE_PENALTY),
@@ -306,6 +312,18 @@ async def get_attack_preview(
     cfg = await _load_attack_settings(session, competition_id, season_id, cycle_id)
     base_penalty = cfg["base_penalty"]
 
+    # Global / scoped attack-enabled check
+    if not cfg["attack_enabled"]:
+        return {
+            "can_attack": False,
+            "blocking_reason": "الهجمات معطّلة حالياً من قِبل الإدارة",
+            "target_alias": None,
+            "target_protection": ProtectionType.NONE,
+            "estimated_reward": 0,
+            "estimated_penalty": base_penalty,
+            "target_current_stage": 0,
+        }
+
     # Load attacker
     attacker = await session.get(Membership, attacker_membership_id)
     if not attacker or str(attacker.competition_id) != str(competition_id):
@@ -482,6 +500,19 @@ async def execute_attack(
     9. Persist AttackAttempt record
     """
     cfg = await _load_attack_settings(session, competition_id, season_id, cycle_id)
+
+    # Global / scoped attack-enabled check
+    if not cfg["attack_enabled"]:
+        return {
+            "outcome": AttackOutcome.BLOCKED,
+            "reward_amount": 0,
+            "penalty_amount": 0,
+            "attacker_balance_after": 0,
+            "target_balance_after": None,
+            "target_real_name": None,
+            "message": "الهجمات معطّلة حالياً من قِبل الإدارة",
+            "attempt_id": uuid.uuid4(),
+        }
 
     # Load both memberships
     attacker = await session.get(Membership, attacker_membership_id)
@@ -781,7 +812,7 @@ async def execute_attack(
     await session.refresh(attempt)
 
     message_map = {
-        AttackOutcome.SUCCEEDED: f"هجوم ناجح! كشفت هوية {target_real_name} وحصلت على {reward_amount} نقطة",
+        AttackOutcome.SUCCEEDED: f"هجوم ناجح! كشفت هوية الهدف وحصلت على {reward_amount} نقطة",
         AttackOutcome.FAILED: f"هجوم فاشل! خسرت {penalty_amount} نقطة",
     }
 
@@ -791,7 +822,7 @@ async def execute_attack(
         "penalty_amount": penalty_amount,
         "attacker_balance_after": attacker_balance_after,
         "target_balance_after": target_balance_after,
-        "target_real_name": target_real_name,
+        "target_real_name": target_real_name if outcome == AttackOutcome.SUCCEEDED else None,
         "message": message_map.get(outcome, "تمت المعالجة"),
         "attempt_id": attempt.id,
     }

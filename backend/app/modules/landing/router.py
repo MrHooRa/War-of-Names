@@ -50,6 +50,9 @@ async def redirect_landing_link(token: str):
         await session.commit()
 
         destination = link.destination_path or "/landing.html"
+        # Ensure destination points to the actual static file
+        if destination == "/landing":
+            destination = "/landing.html"
         separator = "&" if "?" in destination else "?"
         redirect_url = f"{destination}{separator}ref={link.token}"
 

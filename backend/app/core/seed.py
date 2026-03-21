@@ -375,15 +375,12 @@ SETTING_IDS = {
     "quiz_default_duration": uuid.UUID("00000000-0000-0000-0000-000000000046"),
     "store_max_inventory": uuid.UUID("00000000-0000-0000-0000-000000000047"),
     "protection_full_attack_count": uuid.UUID("00000000-0000-0000-0000-000000000048"),
+    "attack_enabled": uuid.UUID("00000000-0000-0000-0000-000000000049"),
 }
 
 
 async def _seed_settings(session: AsyncSession) -> None:
-    """Seed game setting definitions with default values."""
-    existing = await session.get(SettingDefinition, SETTING_IDS["attack_base_reward"])
-    if existing:
-        return
-
+    """Seed game setting definitions with default values. Adds missing settings on re-run."""
     settings_data = [
         {
             "id": SETTING_IDS["attack_base_reward"],
@@ -457,21 +454,33 @@ async def _seed_settings(session: AsyncSession) -> None:
             "default_value": {"v": 3},
             "description": "عدد الهجمات الناجحة المطلوبة للحماية الكاملة",
         },
+        {
+            "id": SETTING_IDS["attack_enabled"],
+            "key": "attack_enabled",
+            "category": "attack",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": False},
+            "description": "هل الهجمات مفعّلة (يبدأ معطلاً — يفعّله المشرف)",
+        },
     ]
 
+    added = 0
     for sd in settings_data:
+        existing = await session.get(SettingDefinition, sd["id"])
+        if existing:
+            continue
         defn = SettingDefinition(**sd)
         session.add(defn)
+        await session.flush()
 
-    await session.flush()
-
-    # Seed global values matching defaults
-    for sd in settings_data:
+        # Also seed global value for this new setting
         sv = SettingValue(
             setting_definition_id=sd["id"],
             scope=SettingScope.GLOBAL,
             value=sd["default_value"],
         )
         session.add(sv)
+        added += 1
 
-    await session.commit()
+    if added:
+        await session.commit()

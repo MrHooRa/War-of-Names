@@ -174,7 +174,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
               <a href="#privacy" className="hover:text-white transition-all duration-200 ease-in-out">سياسة الخصوصية</a>
             </div>
             <div className="text-sm text-gray-500">
-              جميع الحقوق محفوظة © 2024 حرب الأسماء
+              جميع الحقوق محفوظة © 2026 حرب الأسماء - تطوير سلمان
             </div>
           </div>
         </div>

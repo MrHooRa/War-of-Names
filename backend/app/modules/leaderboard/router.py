@@ -43,7 +43,6 @@ async def get_leaderboard(competition_id: uuid.UUID, account: CurrentAccount):
             "balance": membership.current_balance,
             "protection": membership.protection,
             "is_bankrupt": membership.is_bankrupt,
-            "real_name": acc.real_name if membership.is_bankrupt else None,
         })
 
     return {"success": True, "data": players}
@@ -88,7 +87,6 @@ async def get_player_profile(
             "balance": membership.current_balance,
             "protection": membership.protection,
             "is_bankrupt": membership.is_bankrupt,
-            "real_name": acc.real_name if membership.is_bankrupt else None,
             "exposure": {
                 "successful_attack_count": exposure.successful_attack_count if exposure else 0,
                 "current_reward_stage": exposure.current_reward_stage if exposure else 0,

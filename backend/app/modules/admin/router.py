@@ -36,7 +36,7 @@ from app.core.enums import (
 )
 from app.modules.attacks.models import AttackAttempt
 from app.modules.auth.models import Account
-from app.modules.competitions.models import Competition, CompetitionInvite, Cycle, Membership, Season
+from app.modules.competitions.models import AliasRecord, Competition, CompetitionInvite, Cycle, Membership, Season
 from app.modules.notifications.models import Notification
 from app.modules.quiz.models import AnswerSubmission, Question, QuestionGroup, QuizSession, SessionQuestion
 from app.modules.scoring.models import LedgerEntry
@@ -3490,3 +3490,295 @@ async def list_audit_events(
         })
 
     return {"success": True, "data": data}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BULK PLAYER ACTIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class BulkGivePointsRequest(BaseModel):
+    amount: int
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def clean_reason(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 1:
+            raise ValueError("السبب مطلوب")
+        return v
+
+
+class BulkSetBalanceRequest(BaseModel):
+    amount: int
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def clean_reason(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 1:
+            raise ValueError("السبب مطلوب")
+        return v
+
+
+@router.post("/competitions/{competition_id}/bulk/deactivate-all")
+async def bulk_deactivate_all(competition_id: uuid.UUID, admin: AdminAccount):
+    """Deactivate all active members in a competition."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        result = await session.execute(
+            select(Membership).where(
+                Membership.competition_id == competition_id,
+                Membership.status == MembershipStatus.ACTIVE,
+            )
+        )
+        members = result.scalars().all()
+        count = 0
+        for m in members:
+            m.status = MembershipStatus.SUSPENDED
+            count += 1
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=competition_id,
+            event_type="bulk_deactivate",
+            summary=f"تعطيل جميع الأعضاء: {count} عضو",
+            after_state={"deactivated_count": count},
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"deactivated_count": count},
+        "message": f"تم تعطيل {count} عضو",
+    }
+
+
+@router.post("/competitions/{competition_id}/bulk/give-points")
+async def bulk_give_points(
+    competition_id: uuid.UUID, body: BulkGivePointsRequest, admin: AdminAccount
+):
+    """Give a fixed amount of points to all active members."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        result = await session.execute(
+            select(Membership).where(
+                Membership.competition_id == competition_id,
+                Membership.status == MembershipStatus.ACTIVE,
+            )
+        )
+        members = result.scalars().all()
+        direction = LedgerDirection.CREDIT if body.amount > 0 else LedgerDirection.DEBIT
+        abs_amount = abs(body.amount)
+        count = 0
+
+        for m in members:
+            balance_before = m.current_balance
+            balance_after = balance_before + body.amount
+
+            ledger = LedgerEntry(
+                membership_id=m.id,
+                competition_id=competition_id,
+                entry_type=LedgerEntryType.ADMIN_ADJUSTMENT,
+                amount=abs_amount,
+                direction=direction,
+                balance_before=balance_before,
+                balance_after=balance_after,
+                source_type="bulk_adjustment",
+                reason=body.reason,
+                actor_id=admin.id,
+            )
+            session.add(ledger)
+            m.current_balance = balance_after
+            count += 1
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=competition_id,
+            event_type="bulk_give_points",
+            summary=f"منح {body.amount} نقطة لـ {count} عضو",
+            reason=body.reason,
+            after_state={"amount": body.amount, "affected_count": count},
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"affected_count": count, "amount": body.amount},
+        "message": f"تم منح {body.amount} نقطة لـ {count} عضو",
+    }
+
+
+@router.post("/competitions/{competition_id}/bulk/set-balance")
+async def bulk_set_balance(
+    competition_id: uuid.UUID, body: BulkSetBalanceRequest, admin: AdminAccount
+):
+    """Set all active members to a fixed balance amount."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        result = await session.execute(
+            select(Membership).where(
+                Membership.competition_id == competition_id,
+                Membership.status == MembershipStatus.ACTIVE,
+            )
+        )
+        members = result.scalars().all()
+        count = 0
+
+        for m in members:
+            balance_before = m.current_balance
+            diff = body.amount - balance_before
+            if diff == 0:
+                continue
+
+            direction = LedgerDirection.CREDIT if diff > 0 else LedgerDirection.DEBIT
+            ledger = LedgerEntry(
+                membership_id=m.id,
+                competition_id=competition_id,
+                entry_type=LedgerEntryType.ADMIN_ADJUSTMENT,
+                amount=abs(diff),
+                direction=direction,
+                balance_before=balance_before,
+                balance_after=body.amount,
+                source_type="bulk_set_balance",
+                reason=body.reason,
+                actor_id=admin.id,
+            )
+            session.add(ledger)
+            m.current_balance = body.amount
+            count += 1
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=competition_id,
+            event_type="bulk_set_balance",
+            summary=f"تعيين رصيد {body.amount} لـ {count} عضو",
+            reason=body.reason,
+            after_state={"target_balance": body.amount, "affected_count": count},
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"affected_count": count, "target_balance": body.amount},
+        "message": f"تم تعيين رصيد {body.amount} لـ {count} عضو",
+    }
+
+
+@router.post("/competitions/{competition_id}/bulk/reset-bankrupt")
+async def bulk_reset_bankrupt(competition_id: uuid.UUID, admin: AdminAccount):
+    """Reset all bankrupt players back to non-bankrupt status."""
+    from app.modules.competitions.cycle_service import _clear_bankruptcies
+
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        count = await _clear_bankruptcies(session, competition_id)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=competition_id,
+            event_type="bulk_reset_bankrupt",
+            summary=f"إعادة تعيين الإفلاس: {count} لاعب",
+            after_state={"cleared_count": count},
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"cleared_count": count},
+        "message": f"تم إعادة تعيين {count} لاعب مفلس",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADMIN ALIAS OVERRIDE
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class AdminChangeAliasRequest(BaseModel):
+    new_alias: str
+    reason: str = ""
+
+    @field_validator("new_alias")
+    @classmethod
+    def clean_alias(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 2 or len(v) > 50:
+            raise ValueError("اللقب يجب أن يكون بين 2-50 حرف")
+        return v
+
+
+@router.patch("/players/{membership_id}/alias")
+async def admin_change_alias(
+    membership_id: uuid.UUID, body: AdminChangeAliasRequest, admin: AdminAccount
+):
+    """Admin — override a player's alias. Uniqueness enforced, audit trail recorded."""
+    async with async_session() as session:
+        membership = await session.get(Membership, membership_id)
+        if not membership:
+            raise HTTPException(status_code=404, detail="اللاعب غير موجود")
+
+        # Check uniqueness within competition
+        conflict = await session.execute(
+            select(Membership).where(
+                Membership.competition_id == membership.competition_id,
+                Membership.current_alias == body.new_alias,
+                Membership.id != membership.id,
+            )
+        )
+        if conflict.scalars().first():
+            raise HTTPException(status_code=400, detail="هذا اللقب مستخدم بالفعل في المنافسة")
+
+        old_alias = membership.current_alias
+        membership.current_alias = body.new_alias
+
+        # Create alias record
+        alias_record = AliasRecord(
+            membership_id=membership.id,
+            alias_value=body.new_alias,
+            is_active=True,
+        )
+        session.add(alias_record)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership.id,
+            event_type="alias_changed_by_admin",
+            summary=f"تغيير لقب: {old_alias} → {body.new_alias}",
+            reason=body.reason or "تغيير إداري",
+            before_state={"alias": old_alias},
+            after_state={"alias": body.new_alias},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": {"old_alias": old_alias, "new_alias": body.new_alias},
+        "message": f"تم تغيير اللقب: {old_alias} → {body.new_alias}",
+    }
