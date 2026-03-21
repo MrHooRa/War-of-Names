@@ -2,25 +2,17 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend/src:/frontend/src
-      - ./frontend/public:/frontend/public
-      - ./frontend/index.html:/frontend/index.html
-      - ./frontend/vite.config.js:/frontend/vite.config.js
-      - ./frontend/tailwind.config.js:/frontend/tailwind.config.js
-      - ./frontend/postcss.config.js:/frontend/postcss.config.js
+      - "80:80"
     depends_on:
       api:
         condition: service_healthy
+    restart: unless-stopped
 
   api:
     build: ./backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend/app:/backend/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    expose:
+      - "8000"
     env_file: .env
     depends_on:
       db:
@@ -31,6 +23,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
 
   db:
     image: postgres:16-alpine
@@ -38,8 +31,6 @@ services:
       POSTGRES_DB: ${DB_NAME:-war_of_names}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-    ports:
-      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -47,6 +38,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
 volumes:
   pgdata:
