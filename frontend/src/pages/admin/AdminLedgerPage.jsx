@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+import { formatDateTime } from '../../lib/dates'
 
 const ENTRY_TYPE_LABELS = {
   initial_balance: 'رصيد أولي', question_reward: 'مكافأة سؤال', attack_reward: 'مكافأة هجوم',
@@ -151,7 +152,7 @@ export default function AdminLedgerPage() {
                   </td>
                   <td className="px-4 py-3 text-xs font-bold text-gray-500 max-w-xs truncate">{e.reason || '—'}</td>
                   <td className="px-4 py-3 text-xs font-bold text-gray-400">
-                    {e.created_at ? new Date(e.created_at).toLocaleString('ar-SA') : '—'}
+                    {e.created_at ? formatDateTime(e.created_at) : '—'}
                   </td>
                 </tr>
               ))}

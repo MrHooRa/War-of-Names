@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+import { formatDateTime } from '../../lib/dates'
 
 function StatusBadge({ status }) {
   const colors = {
@@ -117,7 +118,7 @@ export default function AdminAttacksPage() {
                     ) : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-4 py-3 text-xs font-bold text-gray-400">
-                    {a.created_at ? new Date(a.created_at).toLocaleString('ar-SA') : '—'}
+                    {a.created_at ? formatDateTime(a.created_at) : '—'}
                   </td>
                 </tr>
               ))}

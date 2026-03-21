@@ -24,6 +24,7 @@ import NotificationsPage from './pages/NotificationsPage'
 import PlayerProfilePage from './pages/PlayerProfilePage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import RulesPage from './pages/RulesPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 import { AdminCompetitionProvider } from './context/AdminCompetitionContext'
 
@@ -209,6 +210,9 @@ function GameRoutes() {
 
       {/* ── Lobby — standalone dark immersive page ── */}
       <Route path="/lobby" element={<LobbyPage />} />
+
+      {/* ── Catch-all 404 ── */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

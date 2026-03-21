@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
+import { formatDate, formatDateTime } from '../../lib/dates'
 
 const STATUS_LABELS = {
   active: { text: 'نشط', color: 'bg-brand-success/10 text-brand-success', icon: 'lucide:check-circle' },
@@ -170,7 +171,7 @@ export default function AdminAccountsPage() {
                     </td>
                     <td className="px-4 py-3 text-center font-bold text-gray-600 dark:text-gray-400">{a.membership_count}</td>
                     <td className="px-4 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500">
-                      {a.last_login_at ? new Date(a.last_login_at).toLocaleDateString('ar') : '—'}
+                      {a.last_login_at ? formatDate(a.last_login_at) : '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {!a.is_admin && (
@@ -248,13 +249,13 @@ export default function AdminAccountsPage() {
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
                 <div className="text-[10px] font-black text-gray-400 mb-1">تاريخ التسجيل</div>
                 <div className="font-bold text-gray-900 dark:text-white text-sm">
-                  {selectedAccount.created_at ? new Date(selectedAccount.created_at).toLocaleDateString('ar') : '—'}
+                  {selectedAccount.created_at ? formatDate(selectedAccount.created_at) : '—'}
                 </div>
               </div>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
                 <div className="text-[10px] font-black text-gray-400 mb-1">آخر دخول</div>
                 <div className="font-bold text-gray-900 dark:text-white text-sm">
-                  {selectedAccount.last_login_at ? new Date(selectedAccount.last_login_at).toLocaleString('ar') : '—'}
+                  {selectedAccount.last_login_at ? formatDateTime(selectedAccount.last_login_at) : '—'}
                 </div>
               </div>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
@@ -328,7 +329,7 @@ export default function AdminAccountsPage() {
                             <span className={`flex items-center gap-1 ${mst.color} px-1.5 py-0.5 rounded`}>
                               {mst.text}
                             </span>
-                            <span>انضمام: {m.joined_at ? new Date(m.joined_at).toLocaleDateString('ar') : '—'}</span>
+                            <span>انضمام: {m.joined_at ? formatDate(m.joined_at) : '—'}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 text-left">

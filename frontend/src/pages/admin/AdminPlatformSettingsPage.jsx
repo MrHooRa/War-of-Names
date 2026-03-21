@@ -8,6 +8,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
+import { formatDate } from '../../lib/dates'
 
 const CATEGORY_LABELS = {
   attack: 'إعدادات الهجوم',
@@ -486,7 +487,7 @@ export default function AdminPlatformSettingsPage() {
                     {link.last_clicked_at && (
                       <span className="flex items-center gap-1">
                         <iconify-icon icon="lucide:clock" class="text-gray-400"></iconify-icon>
-                        آخر نقرة: {new Date(link.last_clicked_at).toLocaleDateString('ar-SA')}
+                        آخر نقرة: {formatDate(link.last_clicked_at)}
                       </span>
                     )}
                   </div>

@@ -4,59 +4,49 @@ import useStore from '../hooks/useStore'
 import useInventory from '../hooks/useInventory'
 import useBuyItem from '../hooks/useBuyItem'
 import { apiFetch } from '../lib/api'
-
-const RARITY_CONFIG = {
-  common: { label: 'عادي', bg: 'bg-gray-200 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300' },
-  rare: { label: 'نادر', bg: 'bg-gray-800 dark:bg-gray-900', text: 'text-white dark:text-gray-300' },
-  epic: { label: 'ملحمي', bg: 'bg-brand-slate', text: 'text-white' },
-  legendary: { label: 'أسطوري', bg: 'bg-brand-teal dark:bg-brand-slate', text: 'text-white' },
-  mythic: { label: 'فريد', bg: 'bg-brand-orange', text: 'text-white' },
-}
-
-const CATEGORY_ICONS = {
-  weapon: 'mdi:bomb',
-  defense: 'mdi:shield-outline',
-  special: 'mdi:magic-staff',
-}
-
-const CATEGORY_COLORS = {
-  weapon: 'text-brand-orange',
-  defense: 'text-blue-500 dark:text-blue-400',
-  special: 'text-brand-teal dark:text-brand-slate',
-}
+import InventoryItemCard from '../components/InventoryItemCard'
+import { RARITY_CONFIG, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_GLOW } from '../config/rarity'
 
 function StoreItem({ listing, onBuy, buying }) {
   const rarity = RARITY_CONFIG[listing.rarity] || RARITY_CONFIG.common
   const icon = CATEGORY_ICONS[listing.category] || 'lucide:package'
   const iconColor = CATEGORY_COLORS[listing.category] || 'text-gray-500'
+  const glowBg = CATEGORY_GLOW[listing.category] || 'bg-gray-400'
   const isMythic = listing.rarity === 'mythic'
+  const isLegendary = listing.rarity === 'legendary'
+  const outOfStock = listing.stock_remaining !== null && listing.stock_remaining <= 0
 
   return (
-    <div className={`group bg-white dark:bg-brand-card-dark border ${isMythic ? 'border-2 border-brand-orange/20 dark:border-brand-orange/30' : 'border-gray-200 dark:border-gray-700'} rounded-2xl shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-lg dark:hover:shadow-black/20 smooth-transition flex flex-col min-h-[360px] p-5 ${isMythic ? 'sm:col-span-2 xl:col-span-3 xl:w-4/5 xl:mx-auto relative overflow-hidden' : ''}`}>
+    <div className={`group bg-white dark:bg-brand-card-dark border ${rarity.border} ${rarity.ring} ${rarity.glow} rounded-2xl hover:shadow-md dark:hover:shadow-black/20 smooth-transition flex flex-col min-h-[360px] p-5 ${isMythic ? 'sm:col-span-2 xl:col-span-3 xl:w-4/5 xl:mx-auto relative overflow-hidden' : 'relative overflow-hidden'}`}>
+      {/* High-tier ambient glow */}
       {isMythic && (
-        <div className="absolute inset-0 bg-brand-orange opacity-[0.03] dark:opacity-10 blur-3xl rounded-full group-hover:opacity-[0.05] dark:group-hover:opacity-20 smooth-transition"></div>
+        <div className="absolute inset-0 bg-red-500 opacity-[0.03] dark:opacity-[0.06] blur-3xl rounded-full group-hover:opacity-[0.06] dark:group-hover:opacity-[0.12] smooth-transition"></div>
       )}
-      <div className={`flex-1 flex flex-col items-center text-center ${isMythic ? 'relative z-10' : 'relative'}`}>
+      {isLegendary && (
+        <div className="absolute inset-0 bg-amber-400 opacity-[0.02] dark:opacity-[0.04] blur-3xl rounded-full group-hover:opacity-[0.04] dark:group-hover:opacity-[0.08] smooth-transition"></div>
+      )}
+
+      <div className="flex-1 flex flex-col items-center text-center relative z-10">
         {!isMythic && (
           <div className="relative bg-gray-50 dark:bg-gray-800/50 w-full aspect-[4/3] rounded-xl flex items-center justify-center mb-5 overflow-hidden">
-            <div className={`absolute inset-0 ${listing.category === 'weapon' ? 'bg-brand-orange' : listing.category === 'defense' ? 'bg-blue-500' : 'bg-brand-teal'} opacity-5 dark:opacity-[0.03] blur-xl rounded-full group-hover:opacity-15 dark:group-hover:opacity-10 smooth-transition`}></div>
+            <div className={`absolute inset-0 ${glowBg} opacity-5 dark:opacity-[0.03] blur-xl rounded-full group-hover:opacity-15 dark:group-hover:opacity-10 smooth-transition`}></div>
             <iconify-icon icon={icon} class={`text-6xl ${iconColor} group-hover:scale-110 smooth-transition relative z-10`}></iconify-icon>
-            <span className={`absolute top-3 right-3 ${rarity.bg} ${rarity.text} text-[10px] font-black px-2.5 py-1 rounded shadow-sm`}>{rarity.label}</span>
+            <span className={`absolute top-3 right-3 ${rarity.badge} text-[10px] font-black px-2.5 py-1 rounded shadow-sm`}>{rarity.label}</span>
           </div>
         )}
 
         {isMythic && (
           <>
             <div className="mb-6 mt-2 relative">
-              <iconify-icon icon="mdi:sword-cross" class="text-7xl md:text-8xl text-brand-orange group-hover:scale-110 smooth-transition drop-shadow-[0_0_15px_rgba(216,67,21,0.3)]"></iconify-icon>
+              <iconify-icon icon="mdi:sword-cross" class="text-7xl md:text-8xl text-red-500 group-hover:scale-110 smooth-transition drop-shadow-[0_0_15px_rgba(220,38,38,0.3)]"></iconify-icon>
             </div>
             <div className="mb-4">
-              <span className={`text-[10px] font-black ${rarity.bg} ${rarity.text} px-4 py-1.5 rounded-full border border-brand-orange/20`}>{rarity.label}</span>
+              <span className={`text-[10px] font-black ${rarity.badge} px-4 py-1.5 rounded-full border border-red-400/20`}>{rarity.label}</span>
             </div>
           </>
         )}
 
-        <h3 className={`font-heading font-black ${isMythic ? 'text-2xl md:text-3xl' : 'text-xl'} text-gray-900 dark:text-white group-hover:${iconColor} transition-colors`}>
+        <h3 className={`font-heading font-black ${isMythic ? 'text-2xl md:text-3xl' : 'text-xl'} text-gray-900 dark:text-white`}>
           {listing.name}
         </h3>
         <p className={`${isMythic ? 'text-sm md:text-base' : 'text-sm'} font-medium text-gray-500 dark:text-gray-400 mt-2 leading-relaxed px-1 ${isMythic ? 'max-w-lg' : ''}`}>
@@ -68,7 +58,7 @@ function StoreItem({ listing, onBuy, buying }) {
           <div className={`mt-3 w-full space-y-1.5 ${isMythic ? 'max-w-md mx-auto' : ''}`}>
             {listing.effects.map((eff, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-brand-teal/5 dark:bg-brand-slate/10 rounded-lg">
-                <iconify-icon icon="lucide:sparkles" class="text-xs text-brand-teal dark:text-brand-slate flex-shrink-0"></iconify-icon>
+                <iconify-icon icon="lucide:sparkles" class={`text-xs ${rarity.accent} flex-shrink-0`}></iconify-icon>
                 <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{eff}</span>
               </div>
             ))}
@@ -79,80 +69,34 @@ function StoreItem({ listing, onBuy, buying }) {
           <div className="mt-auto pt-5 w-full">
             <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 w-full flex justify-between items-center">
               <span className="text-[11px] font-heading font-bold text-gray-500 dark:text-gray-400 uppercase">المتبقي</span>
-              <span className="text-xs font-bold text-brand-orange">{listing.stock_remaining} وحدة</span>
+              <span className={`text-xs font-bold ${listing.stock_remaining <= 3 ? 'text-brand-danger' : 'text-amber-500'}`}>{listing.stock_remaining} وحدة</span>
             </div>
           </div>
         )}
       </div>
 
+      {/* Buy CTA */}
       <button
         onClick={() => onBuy(listing.listing_id)}
-        disabled={buying || (listing.stock_remaining !== null && listing.stock_remaining <= 0)}
-        className={`btn-press ${isMythic ? 'w-full md:w-2/3 mx-auto bg-brand-orange text-white font-heading font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-orange-700 smooth-transition mt-8 shadow-lg shadow-brand-orange/20 relative z-10' : 'w-full bg-brand-teal dark:bg-brand-slate/20 text-white dark:text-brand-slate font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-slate/30 smooth-transition mt-4 border dark:border-brand-slate/30'} disabled:opacity-50 disabled:cursor-not-allowed`}
+        disabled={buying || outOfStock}
+        className={`btn-press ${isMythic
+          ? 'w-full md:w-2/3 mx-auto bg-gradient-to-r from-red-600 to-amber-500 text-white font-heading font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 hover:from-red-700 hover:to-amber-600 smooth-transition mt-8 shadow-lg shadow-red-500/20 relative z-10'
+          : 'w-full bg-brand-teal text-white dark:bg-brand-teal dark:text-white font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-teal-hover smooth-transition mt-4'
+        } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {buying ? (
           <iconify-icon icon="lucide:loader-2" class="text-lg animate-spin"></iconify-icon>
+        ) : outOfStock ? (
+          <iconify-icon icon="lucide:x-circle" class={isMythic ? 'text-2xl' : 'text-lg'}></iconify-icon>
         ) : (
           <iconify-icon icon="lucide:shopping-cart" class={isMythic ? 'text-2xl' : 'text-lg'}></iconify-icon>
         )}
-        {listing.price.toLocaleString('ar-SA')} نقطة
+        {outOfStock ? 'نفذت الكمية' : `${listing.price.toLocaleString('ar-SA')} نقطة`}
       </button>
     </div>
   )
 }
 
-function InventoryItem({ item, onUse, using }) {
-  const icon = CATEGORY_ICONS[item.category] || 'lucide:package'
-  const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common
-
-  return (
-    <div className="bg-white dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 p-3.5 rounded-xl shadow-sm hover:border-brand-teal dark:hover:border-brand-slate group smooth-transition">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
-          <iconify-icon icon={icon} class={`text-2xl ${CATEGORY_COLORS[item.category] || 'text-gray-500'}`}></iconify-icon>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start">
-            <h4 className="font-heading font-bold text-sm text-gray-900 dark:text-white truncate">{item.name}</h4>
-            <span className={`text-[10px] font-black ${rarity.bg} ${rarity.text} px-2 py-0.5 rounded flex-shrink-0`}>
-              X{item.quantity}
-            </span>
-          </div>
-          <div className="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">
-            {item.status === 'available' ? 'جاهز للاستخدام' : item.status === 'activated' ? 'نشط' : item.status === 'pending' ? 'ينتظر التفعيل...' : item.status}
-          </div>
-        </div>
-      </div>
-
-      {/* Effect summaries */}
-      {item.effects?.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {item.effects.map((eff, i) => (
-            <div key={i} className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
-              <iconify-icon icon="lucide:zap" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
-              {eff}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Use button */}
-      {item.can_use && (
-        <button
-          onClick={() => onUse(item.owned_item_id)}
-          disabled={using}
-          className="mt-2 w-full py-1.5 rounded-lg text-xs font-bold bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate hover:bg-brand-teal/20 dark:hover:bg-brand-slate/30 smooth-transition disabled:opacity-50"
-        >
-          {using ? (
-            <iconify-icon icon="lucide:loader-2" class="animate-spin text-xs"></iconify-icon>
-          ) : (
-            'استخدام'
-          )}
-        </button>
-      )}
-    </div>
-  )
-}
 
 export default function StorePage() {
   const { competitionId } = useCompetitionContext()
@@ -228,7 +172,7 @@ export default function StorePage() {
                     onClick={() => setCategory(c.key)}
                     className={`px-5 md:px-8 py-2.5 rounded-lg font-heading font-bold text-sm whitespace-nowrap smooth-transition ${
                       category === c.key
-                        ? 'bg-brand-teal dark:bg-brand-slate/20 text-white dark:text-brand-slate'
+                        ? 'bg-brand-teal text-white dark:bg-brand-teal dark:text-white'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
                   >
@@ -275,7 +219,7 @@ export default function StorePage() {
               {/* Inventory Header */}
               <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-brand-teal/10 dark:bg-brand-teal/20 text-brand-teal flex items-center justify-center">
                     <iconify-icon icon="lucide:package" class="text-lg"></iconify-icon>
                   </div>
                   <h2 className="font-heading font-black text-lg text-gray-900 dark:text-white">مخزني</h2>
@@ -298,7 +242,7 @@ export default function StorePage() {
                   </div>
                 ) : (
                   inventoryItems.map(item => (
-                    <InventoryItem key={item.owned_item_id} item={item} onUse={handleUseItem} using={usingItem} />
+                    <InventoryItemCard key={item.owned_item_id} item={item} onUse={handleUseItem} using={usingItem} />
                   ))
                 )}
               </div>
@@ -311,7 +255,7 @@ export default function StorePage() {
                 </div>
                 <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-l from-brand-teal to-brand-teal-light dark:from-brand-slate dark:to-brand-slate rounded-full relative overflow-hidden"
+                    className="h-full bg-gradient-to-l from-brand-teal to-brand-teal-light rounded-full relative overflow-hidden"
                     style={{ width: `${Math.min(100, (inventoryItems.length / maxCapacity) * 100)}%` }}
                   >
                     <div className="absolute inset-0 bg-white/20 w-full h-full" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,0.1) 8px, rgba(0,0,0,0.1) 16px)' }}></div>

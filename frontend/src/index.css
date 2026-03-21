@@ -109,7 +109,7 @@
   100% { background-position: 200% 0; }
 }
 .rarity-unique-glow {
-  background: linear-gradient(90deg, #D84315 25%, #FFD700 50%, #D84315 75%);
+  background: linear-gradient(90deg, #DC2626 25%, #F59E0B 50%, #DC2626 75%);
   background-size: 200% 100%;
   animation: shimmer 3s infinite linear;
 }

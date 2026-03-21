@@ -14,6 +14,7 @@ import { useAuthContext } from '../context/AuthContext'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 import CompetitionSwitcher from './CompetitionSwitcher'
 import { apiFetch } from '../lib/api'
+import AnnouncementOverlay from './AnnouncementOverlay'
 
 const LOGO_URL =
   'https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png'
@@ -62,6 +63,8 @@ export default function AppLayout({ activeItem = 'home', children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-brand-light-bg dark:bg-brand-dark-bg transition-colors duration-300">
+      <AnnouncementOverlay />
+
       {/* ===== Desktop Header ===== */}
       <header
         className="sticky top-0 z-50 bg-white dark:bg-brand-card-dark border-b border-gray-200 dark:border-gray-800 p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm"

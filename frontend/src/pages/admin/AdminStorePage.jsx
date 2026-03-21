@@ -3,32 +3,23 @@ import { Link } from 'react-router-dom'
 import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+import { RARITY_ADMIN, RARITY_LABELS, RARITY_DOT_COLORS, RARITY_OPTIONS } from '../../config/rarity'
+import { formatDate } from '../../lib/dates'
 
 /* ────────── Constants ────────── */
 
 const RARITY_COLORS = {
-  common: 'border-gray-300 dark:border-gray-600',
-  rare: 'border-blue-500',
-  epic: 'border-gray-500',
-  legendary: 'border-brand-orange',
-  mythic: 'border-purple-500',
-}
-const RARITY_DOT_COLORS = {
-  common: '#94A3B8', rare: '#0D47A1', epic: '#64748B', legendary: '#D84315', mythic: '#7C3AED',
-}
-const RARITY_LABELS = {
-  common: 'عادي', rare: 'نادر', epic: 'ملحمي', legendary: 'أسطوري', mythic: 'خرافي',
+  common:    RARITY_ADMIN.common.border,
+  rare:      RARITY_ADMIN.rare.border,
+  epic:      RARITY_ADMIN.epic.border,
+  legendary: RARITY_ADMIN.legendary.border,
+  mythic:    RARITY_ADMIN.mythic.border,
 }
 const CATEGORY_LABELS = { weapon: 'سلاح', defense: 'دفاع', special: 'خاص' }
 const USAGE_TYPE_LABELS = { consumable: 'استهلاكي', non_consumable: 'غير استهلاكي', time_limited: 'محدود الوقت', persistent: 'دائم' }
 const STATUS_LABELS = { active: 'نشط', hidden: 'مخفي', expired: 'منتهي', sold_out: 'نفذ', draft: 'مسودة', disabled: 'معطل', archived: 'مؤرشف', consumed: 'مستهلك' }
 const SOURCE_LABELS = { purchase: 'شراء', admin_grant: 'منحة إدارية', reward: 'مكافأة', distribution: 'توزيع' }
 const SCOPE_LABELS = { self: 'الذات', target: 'الهدف', all: 'الجميع' }
-
-const RARITY_OPTIONS = [
-  { value: 'common', label: 'عادي' }, { value: 'rare', label: 'نادر' },
-  { value: 'epic', label: 'ملحمي' }, { value: 'legendary', label: 'أسطوري' }, { value: 'mythic', label: 'خرافي' },
-]
 const CATEGORY_OPTIONS = [
   { value: 'weapon', label: 'سلاح' }, { value: 'defense', label: 'دفاع' }, { value: 'special', label: 'خاص' },
 ]
@@ -47,9 +38,9 @@ function StatusBadge({ status, map }) {
     expired: 'bg-brand-danger/10 text-brand-danger', sold_out: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600',
     draft: 'bg-gray-100 dark:bg-gray-800 text-gray-500', disabled: 'bg-gray-100 dark:bg-gray-800 text-gray-400',
     archived: 'bg-gray-100 dark:bg-gray-800 text-gray-400', consumed: 'bg-gray-100 dark:bg-gray-800 text-gray-400',
-    common: 'bg-gray-100 dark:bg-gray-800 text-gray-500', rare: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600',
-    epic: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300', legendary: 'bg-orange-50 dark:bg-orange-900/20 text-brand-orange',
-    mythic: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600',
+    common: RARITY_ADMIN.common.badge, rare: RARITY_ADMIN.rare.badge,
+    epic: RARITY_ADMIN.epic.badge, legendary: RARITY_ADMIN.legendary.badge,
+    mythic: RARITY_ADMIN.mythic.badge,
   }
   const label = map ? (map[status] || status) : (STATUS_LABELS[status] || status)
   return <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${colors[status] || 'bg-gray-100 text-gray-500'}`}>{label}</span>
@@ -1002,7 +993,7 @@ function OwnershipTab({ ownership, loading }) {
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
                     <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">
-                      {o.acquired_at ? new Date(o.acquired_at).toLocaleDateString('ar-SA') : '—'}
+                      {o.acquired_at ? formatDate(o.acquired_at) : '—'}
                     </td>
                   </tr>
                 ))}

@@ -3,14 +3,9 @@ import { Link } from 'react-router-dom'
 import useDashboard from '../hooks/useDashboard'
 import { apiFetch } from '../lib/api'
 import CycleCountdown from '../components/CycleCountdown'
-
-const RARITY_COLORS = {
-  common: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-  rare: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',
-  epic: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-  legendary: 'bg-orange-50 text-brand-orange dark:bg-orange-900/20 dark:text-orange-400',
-  mythic: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400',
-}
+import InventoryItemCard from '../components/InventoryItemCard'
+import AliasChangeModal from '../components/AliasChangeModal'
+import { formatDate } from '../lib/dates'
 
 export default function DashboardPage() {
   const { data, loading, error } = useDashboard()
@@ -18,13 +13,22 @@ export default function DashboardPage() {
   const [inventory, setInventory] = useState([])
   const [usingItemId, setUsingItemId] = useState(null)
   const [itemMessage, setItemMessage] = useState(null)
+  const [aliasChange, setAliasChange] = useState(null) // { can_change, activation_id }
+  const [showAliasModal, setShowAliasModal] = useState(false)
+
+  function checkAliasPermission(qs) {
+    apiFetch(`/api/me/can-change-alias${qs}`).then(r => {
+      if (r.data) setAliasChange(r.data)
+    }).catch(() => {})
+  }
 
   useEffect(() => {
     if (data) {
       const cid = data.competition_id
       const qs = cid ? `?competition_id=${cid}` : ''
       apiFetch(`/api/me/attacks${qs}`).then(r => { if (r.data) setAttacks(r.data) }).catch(() => {})
-      apiFetch(`/api/me/inventory-details${qs}`).then(r => { if (r.data) setInventory(r.data) }).catch(() => {})
+      apiFetch(`/api/me/inventory${qs}`).then(r => { if (r.data?.items) setInventory(r.data.items) }).catch(() => {})
+      checkAliasPermission(qs)
     }
   }, [data])
 
@@ -36,9 +40,10 @@ export default function DashboardPage() {
       const qs = cid ? `?competition_id=${cid}` : ''
       const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use${qs}`, { method: 'POST' })
       setItemMessage({ type: 'success', text: res.message || 'تم استخدام العنصر بنجاح' })
-      // Refresh inventory
-      const inv = await apiFetch(`/api/me/inventory-details${qs}`)
-      if (inv.data) setInventory(inv.data)
+      // Refresh inventory + alias permission (item may have granted alias change)
+      const inv = await apiFetch(`/api/me/inventory${qs}`)
+      if (inv.data?.items) setInventory(inv.data.items)
+      checkAliasPermission(qs)
     } catch (err) {
       setItemMessage({ type: 'error', text: err.message })
     } finally {
@@ -89,6 +94,16 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <iconify-icon icon="lucide:crown" class="text-amber-500 text-4xl drop-shadow-sm"></iconify-icon>
                 <h1 className="text-4xl lg:text-5xl font-display font-black text-gray-900 dark:text-white tracking-tight">{data.alias}</h1>
+                {aliasChange?.can_change && (
+                  <button
+                    onClick={() => setShowAliasModal(true)}
+                    className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-teal/10 dark:bg-brand-slate/10 text-brand-teal dark:text-brand-slate text-sm font-bold hover:bg-brand-teal/20 dark:hover:bg-brand-slate/20 smooth-transition"
+                    title="لديك صلاحية تغيير اللقب"
+                  >
+                    <iconify-icon icon="lucide:pen-line" class="text-sm"></iconify-icon>
+                    غيّر لقبك
+                  </button>
+                )}
               </div>
             </div>
 
@@ -141,12 +156,12 @@ export default function DashboardPage() {
                 مفلس — لا يمكن الهجوم
               </div>
             ) : data.protection === 'full' ? (
-              <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+              <Link to="/leaderboard" id="btn-start-battle" className="btn-press w-full md:w-auto bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
                 <iconify-icon icon="lucide:shield-check" class="text-3xl"></iconify-icon>
                 محمي — الساحة
               </Link>
             ) : (
-              <Link to="/lobby" id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+              <Link to="/leaderboard" id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
                 <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
                 ابدأ الهجوم
               </Link>
@@ -217,7 +232,7 @@ export default function DashboardPage() {
                             {isAttacker ? `هجوم على ${atk.opponent_alias}` : `هجوم من ${atk.opponent_alias}`}
                           </div>
                           <div className="text-xs text-gray-400">
-                            {atk.created_at ? new Date(atk.created_at).toLocaleDateString('ar-SA') : ''}
+                            {formatDate(atk.created_at)}
                           </div>
                         </div>
                       </div>
@@ -265,36 +280,19 @@ export default function DashboardPage() {
                 <p>المخزن فارغ — زُر المتجر واشترِ أدوات القتال!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {inventory.slice(0, 6).map(item => (
-                  <div key={item.id} className="flex flex-col gap-2 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-black ${RARITY_COLORS[item.rarity] || RARITY_COLORS.common}`}>
-                        {item.rarity}
-                      </span>
-                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{item.name}</span>
-                    </div>
-                    {item.status === 'available' && (
-                      <button
-                        onClick={() => handleUseItem(item.owned_item_id || item.id)}
-                        disabled={usingItemId === (item.owned_item_id || item.id)}
-                        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate hover:bg-brand-teal/20 dark:hover:bg-brand-slate/20 smooth-transition disabled:opacity-50"
-                      >
-                        {usingItemId === (item.owned_item_id || item.id) ? (
-                          <iconify-icon icon="lucide:loader-2" class="text-xs animate-spin"></iconify-icon>
-                        ) : (
-                          <iconify-icon icon="lucide:zap" class="text-xs"></iconify-icon>
-                        )}
-                        استخدام
-                      </button>
-                    )}
-                    {item.status === 'activated' && (
-                      <span className="w-full text-center text-[10px] font-black text-brand-success">مُفعّل</span>
-                    )}
-                  </div>
+                  <InventoryItemCard
+                    key={item.owned_item_id}
+                    item={item}
+                    onUse={handleUseItem}
+                    using={usingItemId === item.owned_item_id}
+                    compact
+                  />
                 ))}
                 {inventory.length > 6 && (
-                  <Link to="/store" className="flex items-center justify-center p-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-bold text-brand-teal dark:text-brand-slate hover:bg-brand-teal/5 smooth-transition">
+                  <Link to="/store" className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm font-heading font-bold text-brand-teal dark:text-brand-slate hover:bg-brand-teal/5 dark:hover:bg-brand-slate/5 smooth-transition gap-2 min-h-[140px]">
+                    <iconify-icon icon="lucide:package" class="text-2xl"></iconify-icon>
                     +{inventory.length - 6} عنصر آخر
                   </Link>
                 )}
@@ -365,6 +363,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Alias Change Modal */}
+      {showAliasModal && aliasChange?.activation_id && (
+        <AliasChangeModal
+          activationId={aliasChange.activation_id}
+          currentAlias={data.alias}
+          competitionId={data.competition_id}
+          onClose={() => setShowAliasModal(false)}
+          onSuccess={() => {
+            setShowAliasModal(false)
+            setAliasChange(null)
+            window.location.reload()
+          }}
+        />
+      )}
     </div>
   )
 }

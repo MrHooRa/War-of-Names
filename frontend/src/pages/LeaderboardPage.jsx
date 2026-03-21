@@ -51,7 +51,15 @@ function PlayerRow({ player, myMembershipId }) {
         {/* Rank + mobile alias */}
         <div className="col-span-1 flex items-center gap-4">
           <RankBadge rank={player.rank} />
-          <Link to={`/players/${player.membership_id}`} className="md:hidden font-heading text-lg font-black text-gray-900 dark:text-white hover:text-brand-teal dark:hover:text-brand-slate smooth-transition">{player.alias}</Link>
+          <div className="md:hidden">
+            <Link to={`/players/${player.membership_id}`} className={`font-heading text-lg font-black hover:text-brand-teal dark:hover:text-brand-slate smooth-transition ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>{player.alias}</Link>
+            {player.is_bankrupt && player.real_name && (
+              <p className="text-[11px] font-bold text-red-400 dark:text-red-500 flex items-center gap-1">
+                <iconify-icon icon="lucide:eye" class="text-[10px]"></iconify-icon>
+                {player.real_name}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Avatar + alias (desktop) */}
@@ -70,6 +78,12 @@ function PlayerRow({ player, myMembershipId }) {
             <Link to={`/players/${player.membership_id}`} className={`font-heading font-black text-lg hover:text-brand-teal dark:hover:text-brand-slate smooth-transition block ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
               {player.alias}
             </Link>
+            {player.is_bankrupt && player.real_name && (
+              <p className="text-[11px] font-bold text-red-400 dark:text-red-500 flex items-center gap-1">
+                <iconify-icon icon="lucide:eye" class="text-[10px]"></iconify-icon>
+                {player.real_name}
+              </p>
+            )}
             {isSelf && <p className="text-[11px] font-bold text-brand-teal dark:text-brand-slate">أنت</p>}
           </div>
         </div>

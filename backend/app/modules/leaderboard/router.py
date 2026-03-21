@@ -14,7 +14,7 @@ from app.core.auth import get_current_account
 from app.core.database import async_session
 from app.modules.attacks.models import AttackAttempt, AttackExposure
 from app.modules.auth.models import Account
-from app.modules.competitions.models import Membership
+from app.modules.competitions.models import Cycle, Membership, Season
 
 router = APIRouter(prefix="/api/competitions/{competition_id}", tags=["leaderboard"])
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
@@ -36,14 +36,18 @@ async def get_leaderboard(competition_id: uuid.UUID, account: CurrentAccount):
 
     players = []
     for rank, (membership, acc) in enumerate(rows, start=1):
-        players.append({
+        entry = {
             "rank": rank,
             "membership_id": str(membership.id),
             "alias": membership.current_alias or acc.username,
             "balance": membership.current_balance,
             "protection": membership.protection,
             "is_bankrupt": membership.is_bankrupt,
-        })
+        }
+        # Game rule: bankrupt players have their real identity exposed
+        if membership.is_bankrupt:
+            entry["real_name"] = acc.real_name
+        players.append(entry)
 
     return {"success": True, "data": players}
 
@@ -61,10 +65,22 @@ async def get_player_profile(
 
         acc = await session.get(Account, membership.account_id)
 
-        # Exposure
+        # Find current active cycle for this competition
+        active_cycle_result = await session.execute(
+            select(Cycle)
+            .join(Season, Cycle.season_id == Season.id)
+            .where(Season.competition_id == competition_id, Cycle.status == "active")
+            .limit(1)
+        )
+        active_cycle = active_cycle_result.scalars().first()
+
+        # Exposure (scoped to active cycle when available)
+        exposure_filters = [AttackExposure.membership_id == membership_id]
+        if active_cycle:
+            exposure_filters.append(AttackExposure.cycle_id == active_cycle.id)
         exp_result = await session.execute(
             select(AttackExposure)
-            .where(AttackExposure.membership_id == membership_id)
+            .where(*exposure_filters)
             .order_by(AttackExposure.updated_at.desc())
             .limit(1)
         )
@@ -79,14 +95,21 @@ async def get_player_profile(
         )
         recent_attacks = atk_result.scalars().all()
 
-    return {
-        "success": True,
-        "data": {
+    profile_data = {
             "membership_id": str(membership.id),
             "alias": membership.current_alias or acc.username,
             "balance": membership.current_balance,
             "protection": membership.protection,
             "is_bankrupt": membership.is_bankrupt,
+    }
+    # Game rule: bankrupt players have their real identity exposed
+    if membership.is_bankrupt:
+        profile_data["real_name"] = acc.real_name
+
+    return {
+        "success": True,
+        "data": {
+            **profile_data,
             "exposure": {
                 "successful_attack_count": exposure.successful_attack_count if exposure else 0,
                 "current_reward_stage": exposure.current_reward_stage if exposure else 0,

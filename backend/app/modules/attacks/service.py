@@ -397,10 +397,13 @@ async def get_attack_preview(
             "target_current_stage": 0,
         }
 
-    # Get exposure to determine current reward stage
+    # Get exposure to determine current reward stage (scoped to current cycle)
+    exposure_filters = [AttackExposure.membership_id == target_membership_id]
+    if cycle_id:
+        exposure_filters.append(AttackExposure.cycle_id == cycle_id)
     result = await session.execute(
         select(AttackExposure).where(
-            AttackExposure.membership_id == target_membership_id,
+            *exposure_filters,
         ).order_by(AttackExposure.updated_at.desc()).limit(1)
     )
     exposure = result.scalars().first()

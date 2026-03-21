@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+import { formatDateTime } from '../../lib/dates'
 
 const TYPE_CONFIG = {
   ATTACK_SUCCESS: { icon: 'lucide:swords', color: 'text-brand-success', bg: 'bg-brand-success/10', label: 'هجوم ناجح' },
@@ -132,7 +133,7 @@ export default function AdminNotificationsPage() {
                         {n.recipient_username}
                       </span>
                     )}
-                    <span>{n.created_at ? new Date(n.created_at).toLocaleString('ar-SA') : '—'}</span>
+                    <span>{n.created_at ? formatDateTime(n.created_at) : '—'}</span>
                   </div>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
+import { formatDate } from '../../lib/dates'
 
 function StatusBadge({ status }) {
   const colors = {
@@ -166,7 +167,7 @@ export default function AdminPlayersPage() {
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={a.status} /></td>
                     <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{a.membership_count}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400 font-bold">{a.created_at ? new Date(a.created_at).toLocaleDateString('ar-SA') : '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 font-bold">{a.created_at ? formatDate(a.created_at) : '—'}</td>
                     <td className="px-4 py-3">
                       {!a.is_admin && (
                         <div className="flex items-center gap-1">

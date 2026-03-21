@@ -15,6 +15,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
+import { formatDate, formatDateTime } from '../../lib/dates'
 
 const ENTRY_TYPE_LABELS = {
   initial_balance: 'رصيد أولي', question_reward: 'مكافأة سؤال', attack_reward: 'مكافأة هجوم',
@@ -38,12 +39,14 @@ const ITEM_STATUS_LABELS = {
   expired: { text: 'منتهي', color: 'bg-red-100/50 text-red-400 dark:bg-red-900/10 dark:text-red-400' },
 }
 
+import { RARITY_ADMIN } from '../../config/rarity'
+
 const RARITY_COLORS = {
-  common: 'border-gray-300 dark:border-gray-600',
-  rare: 'border-blue-400',
-  epic: 'border-gray-500',
-  legendary: 'border-brand-orange',
-  mythic: 'border-purple-500',
+  common:    RARITY_ADMIN.common.border,
+  rare:      RARITY_ADMIN.rare.border,
+  epic:      RARITY_ADMIN.epic.border,
+  legendary: RARITY_ADMIN.legendary.border,
+  mythic:    RARITY_ADMIN.mythic.border,
 }
 
 const PROTECTION_OPTIONS = [
@@ -401,7 +404,7 @@ export default function AdminPlayerDetailPage() {
                         <span>{item.rarity}</span>
                         <span>{item.source_type === 'admin_grant' ? 'منحة إدارية' : item.source_type === 'purchase' ? 'شراء' : item.source_type}</span>
                         {item.uses_remaining != null && <span>استخدامات: {item.uses_remaining}</span>}
-                        {item.expires_at && <span>ينتهي: {new Date(item.expires_at).toLocaleDateString('ar')}</span>}
+                        {item.expires_at && <span>ينتهي: {formatDate(item.expires_at)}</span>}
                       </div>
                     </div>
                   </div>
@@ -437,7 +440,7 @@ export default function AdminPlayerDetailPage() {
                   <div className="min-w-0">
                     <div className="font-bold text-gray-700 dark:text-gray-300">{ENTRY_TYPE_LABELS[le.entry_type] || le.entry_type}</div>
                     {le.reason && <div className="text-[11px] text-gray-400 truncate">{le.reason}</div>}
-                    <div className="text-[10px] text-gray-400">{le.created_at ? new Date(le.created_at).toLocaleString('ar') : ''}</div>
+                    <div className="text-[10px] text-gray-400">{le.created_at ? formatDateTime(le.created_at) : ''}</div>
                   </div>
                   <div className="text-left flex-shrink-0 mr-3">
                     <div className={`font-heading font-black ${le.direction === 'credit' ? 'text-brand-success' : 'text-brand-danger'}`}>

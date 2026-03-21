@@ -18,6 +18,7 @@ import { useParams, Link } from 'react-router-dom'
 import usePlayerProfile from '../hooks/usePlayerProfile'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 import AttackModal from '../components/AttackModal'
+import { formatDate } from '../lib/dates'
 
 const PROTECTION_LABELS = {
   none: { label: 'نشط', color: 'emerald' },
@@ -103,6 +104,13 @@ export default function PlayerProfilePage() {
               <ProtectionBadge type={profile.protection} />
             )}
           </div>
+          {/* Bankrupt: real identity revealed */}
+          {profile.is_bankrupt && profile.real_name && (
+            <div className="flex items-center gap-2 text-sm font-bold text-red-400 dark:text-red-500">
+              <iconify-icon icon="lucide:eye" class="text-base"></iconify-icon>
+              <span>الهوية الحقيقية: <span className="text-red-500 dark:text-red-400">{profile.real_name}</span></span>
+            </div>
+          )}
 
           <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm font-bold text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
@@ -124,7 +132,7 @@ export default function PlayerProfilePage() {
               ملفي الشخصي
             </span>
             <Link
-              to="/settings"
+              to="/account"
               className="text-xs font-bold text-gray-400 hover:text-brand-teal dark:hover:text-brand-slate smooth-transition flex items-center gap-1"
             >
               <iconify-icon icon="lucide:settings" class="text-xs"></iconify-icon>
@@ -193,7 +201,7 @@ export default function PlayerProfilePage() {
                     <iconify-icon icon={atk.outcome === 'succeeded' ? 'lucide:zap' : 'lucide:shield'}></iconify-icon>
                   </div>
                   <span className="text-sm font-bold text-gray-600 dark:text-gray-300">
-                    {atk.outcome === 'succeeded' ? 'هجوم ناجح — تكشّف' : 'هجوم فاشل — نجا'}
+                    {atk.outcome === 'succeeded' ? 'هجوم ناجح — أنكشف!' : 'هجوم فاشل — نجا'}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-sm font-bold">
@@ -201,7 +209,7 @@ export default function PlayerProfilePage() {
                     <span className="text-red-500">-{atk.reward_amount}</span>
                   )}
                   <span className="text-gray-300 dark:text-gray-600 text-xs">
-                    {new Date(atk.executed_at).toLocaleDateString('ar-SA')}
+                    {formatDate(atk.executed_at)}
                   </span>
                 </div>
               </div>

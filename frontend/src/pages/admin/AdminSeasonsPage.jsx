@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+import { formatDate } from '../../lib/dates'
 
 const STATUS_COLORS = {
   draft: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
@@ -636,7 +637,7 @@ export default function AdminSeasonsPage() {
                       <div className="font-heading font-black text-lg text-gray-900 dark:text-white">{season.name}</div>
                       <div className="text-xs font-bold text-gray-400 dark:text-gray-500 flex items-center gap-2 flex-wrap">
                         <StatusBadge status={season.status} />
-                        {season.starts_at && <span>بدأ: {new Date(season.starts_at).toLocaleDateString('ar')}</span>}
+                        {season.starts_at && <span>بدأ: {formatDate(season.starts_at)}</span>}
                         <span>{season.cycles?.length || 0} دورة</span>
                         {activeCycle && (
                           <span className="text-brand-success flex items-center gap-1">
@@ -724,8 +725,8 @@ export default function AdminSeasonsPage() {
                               </div>
                               <div className="text-xs font-bold text-gray-400 flex items-center gap-2 flex-wrap">
                                 <StatusBadge status={cycle.status} />
-                                {cycle.starts_at && <span>بدأ: {new Date(cycle.starts_at).toLocaleDateString('ar')}</span>}
-                                {cycle.ends_at && <span>انتهى: {new Date(cycle.ends_at).toLocaleDateString('ar')}</span>}
+                                {cycle.starts_at && <span>بدأ: {formatDate(cycle.starts_at)}</span>}
+                                {cycle.ends_at && <span>انتهى: {formatDate(cycle.ends_at)}</span>}
                               </div>
                             </div>
                           </div>
