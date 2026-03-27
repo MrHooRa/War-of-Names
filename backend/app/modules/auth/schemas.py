@@ -52,6 +52,7 @@ class TokenResponse(BaseModel):
     username: str
     real_name: str
     is_admin: bool = False
+    is_owner: bool = False
 
 
 class MeResponse(BaseModel):
@@ -59,3 +60,4 @@ class MeResponse(BaseModel):
     username: str
     real_name: str
     is_admin: bool = False
+    is_owner: bool = False

@@ -55,6 +55,7 @@ from app.modules.competitions.invite_service import (
 )
 from app.modules.quiz.excel_service import export_questions_to_excel, import_questions_from_excel
 from app.modules.store.effect_config import validate_effect, generate_effect_summary, get_effect_types_schema
+from app.modules.admin.json_engine import export_competition_config, import_competition_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 AdminAccount = Annotated[Account, Depends(get_admin_account)]
@@ -2613,6 +2614,7 @@ async def list_accounts(admin: AdminAccount):
                 "real_name": a.real_name,
                 "status": a.status,
                 "is_admin": a.is_admin,
+                "is_owner": a.is_owner,
                 "membership_count": mem_count,
                 "created_at": a.created_at.isoformat() if a.created_at else None,
                 "last_login_at": a.last_login_at.isoformat() if a.last_login_at else None,
@@ -2713,6 +2715,7 @@ async def get_account_detail(account_id: uuid.UUID, admin: AdminAccount):
             "real_name": acct.real_name,
             "status": acct.status,
             "is_admin": acct.is_admin,
+            "is_owner": acct.is_owner,
             "created_at": acct.created_at.isoformat() if acct.created_at else None,
             "last_login_at": acct.last_login_at.isoformat() if acct.last_login_at else None,
             "notification_count": notif_count,
@@ -3971,3 +3974,70 @@ async def export_questions(group_id: uuid.UUID, admin: AdminAccount):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# JSON CONFIG ENGINE — EXPORT / IMPORT
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/competitions/{competition_id}/export-config")
+async def export_config(competition_id: uuid.UUID, admin: AdminAccount):
+    """Export a full competition configuration as JSON (items, listings, settings)."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        config = await export_competition_config(session, competition_id)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=competition_id,
+            event_type="config_exported",
+            summary=f"تصدير إعدادات المنافسة: {comp.name}",
+        )
+        await session.commit()
+
+    return {"success": True, "data": config, "message": "تم تصدير إعدادات المنافسة بنجاح"}
+
+
+class ImportConfigRequest(BaseModel):
+    """JSON config payload for competition import."""
+    version: str
+    competition: dict | None = None
+    items: list[dict] = []
+    store_listings: list[dict] = []
+    settings: dict = {}
+
+
+@router.post("/competitions/{competition_id}/import-config")
+async def import_config(competition_id: uuid.UUID, body: ImportConfigRequest, admin: AdminAccount):
+    """Import a JSON configuration into a competition (items, listings, settings)."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        config = body.model_dump()
+        result = await import_competition_config(session, competition_id, config, admin.id)
+
+        if result["errors"] and result["items_created"] == 0 and result["listings_created"] == 0 and result["settings_updated"] == 0:
+            # Pure validation failure — nothing was created
+            raise HTTPException(status_code=422, detail={
+                "errors": result["errors"],
+                "message": "فشل استيراد الإعدادات — تحقق من صحة البيانات",
+            })
+
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result,
+        "message": (
+            f"تم الاستيراد: {result['items_created']} عنصر، "
+            f"{result['listings_created']} عرض متجر، "
+            f"{result['settings_updated']} إعداد"
+        ),
+    }

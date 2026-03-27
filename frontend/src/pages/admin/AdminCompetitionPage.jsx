@@ -51,6 +51,13 @@ export default function AdminCompetitionPage() {
 
   const [submitting, setSubmitting] = useState(false)
 
+  // Import config modal
+  const [showImport, setShowImport] = useState(false)
+  const [importFile, setImportFile] = useState(null)
+  const [importPreview, setImportPreview] = useState(null)
+  const [importError, setImportError] = useState(null)
+  const [importing, setImporting] = useState(false)
+
   function showMsg(msg) {
     setActionMsg(msg)
     setTimeout(() => setActionMsg(null), 3000)
@@ -131,6 +138,67 @@ export default function AdminCompetitionPage() {
     setEditDesc(detail.description || '')
     setEditVisibility(detail.visibility || 'private')
     setShowEdit(true)
+  }
+
+  async function handleExportConfig() {
+    try {
+      const json = await apiFetch(`/api/admin/competitions/${selectedId}/export-config`)
+      const blob = new Blob([JSON.stringify(json.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${selected?.name || 'config'}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      showMsg('تم تصدير الإعدادات')
+    } catch (err) {
+      showMsg(`خطأ: ${err.message}`)
+    }
+  }
+
+  function handleImportFileChange(e) {
+    setImportError(null)
+    setImportPreview(null)
+    const file = e.target.files?.[0]
+    if (!file) { setImportFile(null); return }
+    setImportFile(file)
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        setImportPreview({
+          items: Array.isArray(data.items) ? data.items.length : 0,
+          listings: Array.isArray(data.listings) ? data.listings.length : 0,
+          settings: data.settings ? Object.keys(data.settings).length : 0,
+        })
+      } catch {
+        setImportError('ملف JSON غير صالح')
+        setImportPreview(null)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  async function handleImportConfig() {
+    if (!importFile || !importPreview) return
+    setImporting(true)
+    setImportError(null)
+    try {
+      const text = await importFile.text()
+      const data = JSON.parse(text)
+      await apiFetch(`/api/admin/competitions/${selectedId}/import-config`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+      showMsg('تم استيراد الإعدادات بنجاح')
+      setShowImport(false)
+      setImportFile(null)
+      setImportPreview(null)
+      loadDetail()
+    } catch (err) {
+      setImportError(err.message || 'خطأ في الاستيراد')
+    }
+    setImporting(false)
   }
 
   async function handleEditCompetition() {
@@ -256,6 +324,22 @@ export default function AdminCompetitionPage() {
             >
               <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
               تعديل
+            </button>
+            <button
+              onClick={handleExportConfig}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 smooth-transition"
+              title="تصدير الإعدادات (JSON)"
+            >
+              <iconify-icon icon="lucide:download" class="text-sm"></iconify-icon>
+              تصدير
+            </button>
+            <button
+              onClick={() => { setShowImport(true); setImportFile(null); setImportPreview(null); setImportError(null) }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 smooth-transition"
+              title="استيراد إعدادات (JSON)"
+            >
+              <iconify-icon icon="lucide:upload" class="text-sm"></iconify-icon>
+              استيراد
             </button>
             <button
               onClick={() => setShowCreate(true)}
@@ -467,6 +551,7 @@ export default function AdminCompetitionPage() {
       {/* ══ Modals ══ */}
       {renderCreateModal()}
       {renderEditModal()}
+      {renderImportModal()}
     </div>
   )
 
@@ -498,6 +583,70 @@ export default function AdminCompetitionPage() {
               {creating ? 'جارٍ الإنشاء...' : 'إنشاء'}
             </button>
             <button onClick={() => setShowCreate(false)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderImportModal() {
+    if (!showImport) return null
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowImport(false)}>
+        <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+          <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
+            <iconify-icon icon="lucide:upload" class="text-purple-500"></iconify-icon>
+            استيراد إعدادات (JSON)
+          </h3>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">اختر ملف JSON</label>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportFileChange}
+              className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-purple-50 file:text-purple-600 dark:file:bg-purple-900/30 dark:file:text-purple-400"
+            />
+          </div>
+
+          {importPreview && (
+            <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-black text-gray-700 dark:text-gray-200 mb-2">محتويات الملف:</p>
+              <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                <iconify-icon icon="lucide:box" class="text-brand-teal"></iconify-icon>
+                العناصر: {importPreview.items}
+              </div>
+              <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                <iconify-icon icon="lucide:shopping-bag" class="text-blue-500"></iconify-icon>
+                العروض: {importPreview.listings}
+              </div>
+              <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                <iconify-icon icon="lucide:settings" class="text-amber-500"></iconify-icon>
+                الإعدادات: {importPreview.settings}
+              </div>
+            </div>
+          )}
+
+          {importError && (
+            <p className="text-brand-danger text-sm font-bold text-center py-3 bg-red-500/10 rounded-xl border border-red-500/20">{importError}</p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={handleImportConfig}
+              disabled={importing || !importPreview}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-heading font-black smooth-transition disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {importing ? (
+                <>
+                  <iconify-icon icon="lucide:loader-2" class="text-base animate-spin"></iconify-icon>
+                  جارٍ الاستيراد...
+                </>
+              ) : (
+                'استيراد'
+              )}
+            </button>
+            <button onClick={() => setShowImport(false)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
           </div>
         </div>
       </div>

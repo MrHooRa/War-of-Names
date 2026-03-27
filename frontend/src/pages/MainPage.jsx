@@ -44,7 +44,7 @@ function ImmersiveBackground({ centerGlowRef }) {
 }
 
 /* ── Header strip (status + icons) ── */
-function MinimalHeader({ isAuthenticated, onLogout, username, isAdmin }) {
+function MinimalHeader({ isAuthenticated, onLogout, username, isAdmin, isOwner }) {
   return (
     <header
       className="relative z-30 w-full p-6 flex justify-between items-center pointer-events-none"
@@ -57,7 +57,17 @@ function MinimalHeader({ isAuthenticated, onLogout, username, isAdmin }) {
       <div className="flex gap-4 pointer-events-auto">
         {isAuthenticated && (
           <>
-            {isAdmin && (
+            {isOwner && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-2 h-12 px-5 rounded-2xl bg-purple-500/15 border border-purple-400/30 text-purple-400 hover:bg-purple-500/25 hover:border-purple-400/50 transition-colors backdrop-blur-md"
+                title="لوحة المالك"
+              >
+                <iconify-icon icon="lucide:crown" class="text-xl"></iconify-icon>
+                <span className="text-sm font-black">لوحة المالك</span>
+              </Link>
+            )}
+            {isAdmin && !isOwner && (
               <Link
                 to="/admin"
                 className="flex items-center gap-2 h-12 px-5 rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-400 hover:bg-amber-500/25 hover:border-amber-400/50 transition-colors backdrop-blur-md"
@@ -435,6 +445,7 @@ export default function MainPage() {
         onLogout={handleLogout}
         username={currentUser?.username}
         isAdmin={currentUser?.is_admin}
+        isOwner={currentUser?.is_owner}
       />
 
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-4 py-12 md:py-8">

@@ -117,8 +117,16 @@ export default function AppLayout({ activeItem = 'home', children }) {
               <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
             </button>
 
+            {/* Owner Panel Link */}
+            {currentUser?.is_owner && (
+              <Link to="/admin" className="flex items-center gap-2 h-11 px-4 bg-purple-500/15 dark:bg-purple-500/20 border border-purple-500/30 dark:border-purple-400/30 rounded-xl text-purple-600 dark:text-purple-400 hover:bg-purple-500/25 dark:hover:bg-purple-500/30 smooth-transition hover:-translate-y-0.5 shadow-sm" title="لوحة المالك">
+                <iconify-icon icon="lucide:crown" class="text-xl"></iconify-icon>
+                <span className="text-sm font-black hidden sm:inline">لوحة المالك</span>
+              </Link>
+            )}
+
             {/* Admin Panel Link */}
-            {currentUser?.is_admin && (
+            {currentUser?.is_admin && !currentUser?.is_owner && (
               <Link to="/admin" className="flex items-center gap-2 h-11 px-4 bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-400/30 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 dark:hover:bg-amber-500/30 smooth-transition hover:-translate-y-0.5 shadow-sm" title="لوحة التحكم">
                 <iconify-icon icon="lucide:shield-check" class="text-xl"></iconify-icon>
                 <span className="text-sm font-black hidden sm:inline">لوحة التحكم</span>

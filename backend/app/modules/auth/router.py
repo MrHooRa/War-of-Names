@@ -41,6 +41,7 @@ async def register(body: RegisterRequest):
             username=account.username,
             real_name=account.real_name,
             is_admin=account.is_admin,
+            is_owner=account.is_owner,
         ).model_dump(),
     }
 
@@ -65,6 +66,7 @@ async def login(body: LoginRequest):
             username=account.username,
             real_name=account.real_name,
             is_admin=account.is_admin,
+            is_owner=account.is_owner,
         ).model_dump(),
     }
 
@@ -78,6 +80,7 @@ async def get_me(account: CurrentAccount):
             username=account.username,
             real_name=account.real_name,
             is_admin=account.is_admin,
+            is_owner=account.is_owner,
         ).model_dump(),
     }
 

@@ -95,9 +95,15 @@ async def _seed_system_account(session: AsyncSession) -> None:
 async def _seed_admin_account(session: AsyncSession) -> None:
     existing = await session.get(Account, SEED_ADMIN_ACCOUNT_ID)
     if existing:
-        # Ensure admin flag is set even on re-runs
+        # Ensure admin + owner flags are set even on re-runs
+        changed = False
         if not existing.is_admin:
             existing.is_admin = True
+            changed = True
+        if not existing.is_owner:
+            existing.is_owner = True
+            changed = True
+        if changed:
             await session.commit()
         return
     account = Account(
@@ -107,6 +113,7 @@ async def _seed_admin_account(session: AsyncSession) -> None:
         password_hash=hash_password("Admin1234!"),
         status=AccountStatus.ACTIVE,
         is_admin=True,
+        is_owner=True,
     )
     session.add(account)
     await session.commit()

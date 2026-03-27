@@ -23,6 +23,7 @@ export function AuthProvider({ children }) {
       username: tokenData.username,
       real_name: tokenData.real_name,
       is_admin: tokenData.is_admin || false,
+      is_owner: tokenData.is_owner || false,
     }))
     setToken(tokenData.token)
     setCurrentUser({
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
       username: tokenData.username,
       real_name: tokenData.real_name,
       is_admin: tokenData.is_admin || false,
+      is_owner: tokenData.is_owner || false,
     })
   }, [])
 
