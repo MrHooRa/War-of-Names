@@ -71,22 +71,80 @@ async def _resolve_membership(session, account_id, competition_id: str | None = 
 # ── Endpoints ────────────────────────────────────────────────────────────
 
 
-@router.get("/api/quiz/active")
-async def get_active_quiz(account: CurrentAccount, competition_id: str | None = None):
-    """Get the currently open quiz session with its questions (no correct answers)."""
+@router.get("/api/quiz/sessions")
+async def list_active_sessions(account: CurrentAccount, competition_id: str | None = None):
+    """List all open quiz sessions for the player's competition."""
     async with async_session() as session:
         membership, _competition = await _resolve_membership(
             session, account.id, competition_id
         )
         now = datetime.utcnow()
 
-        # Find open quiz session for this competition
         quiz_result = await session.execute(
             select(QuizSession).where(
                 QuizSession.competition_id == membership.competition_id,
                 QuizSession.status == SessionStatus.OPEN,
-            ).limit(1)
+            ).order_by(QuizSession.created_at.desc())
         )
+        sessions_list = []
+        for quiz in quiz_result.scalars().all():
+            # Skip sessions outside time window
+            if quiz.starts_at and now < quiz.starts_at:
+                continue
+            if quiz.ends_at and now > quiz.ends_at:
+                continue
+
+            # Count answers for this player
+            ans_result = await session.execute(
+                select(func.count()).select_from(AnswerSubmission).where(
+                    AnswerSubmission.membership_id == membership.id,
+                    AnswerSubmission.session_id == quiz.id,
+                )
+            )
+            answered = ans_result.scalar() or 0
+
+            # Count total questions
+            q_result = await session.execute(
+                select(func.count()).select_from(SessionQuestion).where(
+                    SessionQuestion.session_id == quiz.id,
+                )
+            )
+            total = q_result.scalar() or 0
+
+            sessions_list.append({
+                "session_id": str(quiz.id),
+                "title": quiz.title,
+                "total_questions": total,
+                "answered_count": answered,
+                "completed": answered >= total,
+                "answer_duration_seconds": quiz.answer_duration_seconds,
+                "ends_at": quiz.ends_at.isoformat() if quiz.ends_at else None,
+            })
+
+    return {"success": True, "data": sessions_list}
+
+
+@router.get("/api/quiz/active")
+async def get_active_quiz(account: CurrentAccount, competition_id: str | None = None, session_id: str | None = None):
+    """Get a specific quiz session (or the first open one) with questions."""
+    async with async_session() as session:
+        membership, _competition = await _resolve_membership(
+            session, account.id, competition_id
+        )
+        now = datetime.utcnow()
+
+        # Find specific or first open quiz session
+        query = select(QuizSession).where(
+            QuizSession.competition_id == membership.competition_id,
+            QuizSession.status == SessionStatus.OPEN,
+        )
+        if session_id:
+            try:
+                query = query.where(QuizSession.id == uuid.UUID(session_id))
+            except ValueError:
+                pass
+        query = query.limit(1)
+        quiz_result = await session.execute(query)
         quiz = quiz_result.scalars().first()
         if not quiz:
             return {"success": True, "data": None, "message": "لا توجد جلسة أسئلة نشطة حالياً"}

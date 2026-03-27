@@ -1,6 +1,6 @@
 /**
- * Fetches the active quiz session with questions.
- * Returns: { quiz, loading, error, refetch }
+ * Fetches quiz sessions and active quiz data.
+ * Returns: { quiz, sessions, loading, error, refetch, selectSession }
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -9,23 +9,34 @@ import { apiFetch } from '../lib/api'
 const STORAGE_KEY = 'won_active_competition'
 
 export default function useQuiz() {
-  const [state, setState] = useState({ quiz: null, loading: true, error: null })
+  const [state, setState] = useState({ quiz: null, sessions: [], loading: true, error: null })
 
-  const fetchData = useCallback(async () => {
-    setState(s => ({ ...s, loading: true, error: null }))
-    try {
-      const activeComp = localStorage.getItem(STORAGE_KEY)
-      const url = activeComp
-        ? `/api/quiz/active?competition_id=${activeComp}`
-        : '/api/quiz/active'
-      const json = await apiFetch(url)
-      setState({ quiz: json.data ?? null, loading: false, error: null })
-    } catch (err) {
-      setState({ quiz: null, loading: false, error: err.message })
-    }
+  const fetchSessions = useCallback(async () => {
+    const activeComp = localStorage.getItem(STORAGE_KEY)
+    const url = activeComp
+      ? `/api/quiz/sessions?competition_id=${activeComp}`
+      : '/api/quiz/sessions'
+    const json = await apiFetch(url)
+    return json.data ?? []
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  const fetchQuiz = useCallback(async (sessionId) => {
+    setState(s => ({ ...s, loading: true, error: null }))
+    try {
+      const sessions = await fetchSessions()
+      const activeComp = localStorage.getItem(STORAGE_KEY)
+      const qs = sessionId ? `&session_id=${sessionId}` : ''
+      const url = activeComp
+        ? `/api/quiz/active?competition_id=${activeComp}${qs}`
+        : `/api/quiz/active${qs ? '?' + qs.slice(1) : ''}`
+      const json = await apiFetch(url)
+      setState({ quiz: json.data ?? null, sessions, loading: false, error: null })
+    } catch (err) {
+      setState(s => ({ ...s, quiz: null, loading: false, error: err.message }))
+    }
+  }, [fetchSessions])
 
-  return { ...state, refetch: fetchData }
+  useEffect(() => { fetchQuiz() }, [fetchQuiz])
+
+  return { ...state, refetch: fetchQuiz, selectSession: (id) => fetchQuiz(id) }
 }

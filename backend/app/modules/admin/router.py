@@ -38,6 +38,7 @@ from app.modules.attacks.models import AttackAttempt
 from app.modules.auth.models import Account
 from app.modules.competitions.models import AliasRecord, Competition, CompetitionInvite, Cycle, Membership, Season
 from app.modules.notifications.models import Notification
+from app.modules.notifications.service import create_notification
 from app.modules.quiz.models import AnswerSubmission, Question, QuestionGroup, QuizSession, SessionQuestion
 from app.modules.scoring.models import LedgerEntry
 from app.modules.settings.models import SettingDefinition, SettingValue
@@ -1155,15 +1156,15 @@ async def remove_player_bankruptcy(membership_id: uuid.UUID, admin: AdminAccount
         )
 
         # Notify the player
-        notif = Notification(
+        await create_notification(
+            session,
             recipient_id=membership.account_id,
-            membership_id=membership_id,
             notification_type=NotificationType.ADMIN_CHANGE,
             title="تم إلغاء الإفلاس",
             message="قام المشرف بإلغاء حالة الإفلاس عنك. أنت الآن نشط مجدداً!",
-            competition_id=membership.competition_id,
+            membership_id=membership_id,
+            deep_link="/dashboard",
         )
-        session.add(notif)
 
         await session.commit()
 

@@ -6,7 +6,7 @@ import useSubmitAnswer from '../hooks/useSubmitAnswer'
 const OPTION_LETTERS = ['أ', 'ب', 'ج', 'د']
 
 export default function QuizPage() {
-  const { quiz, loading, error } = useQuiz()
+  const { quiz, sessions, loading, error, selectSession } = useQuiz()
   const { submitting, result: answerResult, submitAnswer } = useSubmitAnswer()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedOption, setSelectedOption] = useState(null)
@@ -97,6 +97,58 @@ export default function QuizPage() {
     return (
       <div className="flex-1 flex items-center justify-center py-20">
         <iconify-icon icon="lucide:loader-2" class="text-4xl text-brand-teal dark:text-brand-slate animate-spin"></iconify-icon>
+      </div>
+    )
+  }
+
+  // Multiple sessions available — show picker
+  if (!quiz && sessions.length > 0) {
+    return (
+      <div className="flex-1 w-full max-w-2xl mx-auto px-4 py-12 space-y-6">
+        <div className="text-center mb-8">
+          <iconify-icon icon="lucide:brain" class="text-5xl text-amber-500 mb-4"></iconify-icon>
+          <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">جلسات الأسئلة</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-bold mt-2">اختر الجلسة التي تريد المشاركة فيها</p>
+        </div>
+        <div className="space-y-3">
+          {sessions.map(s => (
+            <button
+              key={s.session_id}
+              onClick={() => selectSession(s.session_id)}
+              disabled={s.completed}
+              className={`w-full bg-white dark:bg-brand-card-dark border rounded-2xl p-5 flex items-center justify-between smooth-transition ${
+                s.completed
+                  ? 'border-gray-200 dark:border-gray-800 opacity-60 cursor-default'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-brand-teal dark:hover:border-brand-slate hover:shadow-md cursor-pointer'
+              }`}
+            >
+              <div className="flex items-center gap-4 text-right">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
+                  s.completed
+                    ? 'bg-brand-success/10 text-brand-success'
+                    : 'bg-amber-500/10 text-amber-500'
+                }`}>
+                  <iconify-icon icon={s.completed ? 'lucide:check-circle' : 'lucide:play-circle'}></iconify-icon>
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-gray-900 dark:text-white">{s.title}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {s.total_questions} سؤال • {s.answer_duration_seconds}ث لكل سؤال
+                    {s.completed && ' • مكتملة ✓'}
+                  </p>
+                </div>
+              </div>
+              {!s.completed && s.answered_count > 0 && (
+                <span className="text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg">
+                  {s.answered_count}/{s.total_questions}
+                </span>
+              )}
+              {!s.completed && (
+                <iconify-icon icon="lucide:chevron-left" class="text-xl text-gray-300 dark:text-gray-600"></iconify-icon>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
     )
   }

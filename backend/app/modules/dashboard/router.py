@@ -134,7 +134,8 @@ async def get_dashboard(account: CurrentAccount, competition_id: str | None = No
         unread_notif = (await session.execute(
             select(func.count()).where(
                 Notification.recipient_id == account.id,
-                Notification.is_read == False,
+                Notification.is_read == False,  # noqa: E712
+                Notification.membership_id == membership.id,
             )
         )).scalar() or 0
 
