@@ -12,7 +12,8 @@ export default function QuizPage() {
   const [selectedOption, setSelectedOption] = useState(null)
   const [totalEarned, setTotalEarned] = useState(0)
   const [answered, setAnswered] = useState({})
-  const [timer, setTimer] = useState(0)
+  const [timer, setTimer] = useState(-1)
+  const [timedOut, setTimedOut] = useState(false)
   const timerRef = useRef(null)
 
   const questions = quiz?.questions ?? []
@@ -41,6 +42,7 @@ export default function QuizPage() {
   // Timer countdown
   useEffect(() => {
     if (!currentQ || answered[currentQ.session_question_id]) return
+    setTimedOut(false)
     const duration = quiz?.answer_duration_seconds || 30
     setTimer(duration)
     timerRef.current = setInterval(() => {
@@ -55,8 +57,18 @@ export default function QuizPage() {
     return () => clearInterval(timerRef.current)
   }, [currentIndex, currentQ, answered, quiz?.answer_duration_seconds])
 
+  // Auto-advance when time runs out
+  useEffect(() => {
+    if (timer !== 0 || !currentQ || answered[currentQ.session_question_id] || timedOut) return
+    setTimedOut(true)
+    const autoAdvanceTimer = setTimeout(() => {
+      handleNext()
+    }, 2000)
+    return () => clearTimeout(autoAdvanceTimer)
+  }, [timer, currentQ, answered, timedOut]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleAnswer(option) {
-    if (!currentQ || submitting || answered[currentQ.session_question_id]) return
+    if (!currentQ || submitting || answered[currentQ.session_question_id] || timedOut) return
     setSelectedOption(option)
     clearInterval(timerRef.current)
 
@@ -70,9 +82,13 @@ export default function QuizPage() {
   }
 
   function handleNext() {
+    setTimedOut(false)
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex(prev => prev + 1)
       setSelectedOption(null)
+    } else {
+      // Last question — advance past to show completion screen
+      setCurrentIndex(totalQuestions)
     }
   }
 
@@ -113,7 +129,7 @@ export default function QuizPage() {
   }
 
   const currentResult = answered[currentQ?.session_question_id]
-  const timerPercent = (timer / (quiz.answer_duration_seconds || 30)) * 100
+  const timerPercent = (Math.max(0, timer) / (quiz.answer_duration_seconds || 30)) * 100
   const circumference = 2 * Math.PI * 28
 
   return (
@@ -144,7 +160,7 @@ export default function QuizPage() {
       {/* Question Card */}
       <div className="w-full relative">
         {/* Timer */}
-        {!currentResult && (
+        {!currentResult && !timedOut && (
           <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
             <div className="relative w-16 h-16 bg-white dark:bg-brand-card-dark rounded-full shadow-md border-2 border-gray-300 dark:border-gray-700 flex items-center justify-center">
               <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -157,7 +173,7 @@ export default function QuizPage() {
                   style={{ transition: 'stroke-dashoffset 1s linear' }}
                 />
               </svg>
-              <span className="font-display text-xl font-black text-gray-900 dark:text-white">{timer}</span>
+              <span className="font-display text-xl font-black text-gray-900 dark:text-white">{Math.max(0, timer)}</span>
             </div>
           </div>
         )}
@@ -196,7 +212,7 @@ export default function QuizPage() {
                 <button
                   key={i}
                   onClick={() => handleAnswer(option)}
-                  disabled={!!currentResult || submitting}
+                  disabled={!!currentResult || submitting || timedOut}
                   className={`btn-press group relative flex items-center justify-between p-5 rounded-2xl smooth-transition text-right shadow-sm ${classes} disabled:cursor-default`}
                 >
                   <span className={`font-heading text-lg font-bold ${currentResult && isCorrect ? 'text-brand-success' : currentResult && isWrong ? 'text-brand-danger' : 'text-gray-800 dark:text-gray-300'}`}>
@@ -217,6 +233,17 @@ export default function QuizPage() {
           </div>
         </div>
       </div>
+
+      {/* Timed out feedback */}
+      {timedOut && !currentResult && (
+        <div className="mt-8 flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3 text-amber-500 font-heading font-black text-xl">
+            <iconify-icon icon="lucide:timer-off" class="text-2xl"></iconify-icon>
+            انتهى الوقت!
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-bold">سيتم الانتقال للسؤال التالي تلقائياً...</p>
+        </div>
+      )}
 
       {/* Next / Result feedback */}
       {currentResult && (

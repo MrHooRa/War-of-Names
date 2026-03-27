@@ -198,6 +198,20 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* Quiz Quick Access */}
+      <Link to="/quiz" className="block bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md smooth-transition group">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 rounded-xl flex items-center justify-center">
+            <iconify-icon icon="lucide:brain" class="text-2xl"></iconify-icon>
+          </div>
+          <div>
+            <h3 className="font-heading font-bold text-gray-900 dark:text-white">جلسة الأسئلة</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">أجب واكسب نقاط إضافية</p>
+          </div>
+          <iconify-icon icon="lucide:chevron-left" class="text-xl text-gray-300 dark:text-gray-600 mr-auto group-hover:text-amber-500 smooth-transition"></iconify-icon>
+        </div>
+      </Link>
+
       {/* 3. Secondary Content Grid (2/3 + 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 

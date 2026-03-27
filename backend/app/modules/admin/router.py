@@ -1614,6 +1614,8 @@ async def list_quiz_sessions(admin: AdminAccount):
 class UpdateQuizSessionRequest(BaseModel):
     status: str | None = None
     title: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
 
 
 @router.patch("/quiz-sessions/{session_id}")
@@ -1628,6 +1630,10 @@ async def update_quiz_session(session_id: uuid.UUID, body: UpdateQuizSessionRequ
             qs.status = body.status
         if body.title is not None:
             qs.title = body.title
+        if body.starts_at is not None:
+            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')) if body.starts_at else None
+        if body.ends_at is not None:
+            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')) if body.ends_at else None
         after = {"status": str(qs.status), "title": qs.title}
         await write_audit(
             session,
@@ -1750,6 +1756,8 @@ class CreateQuizSessionRequest(BaseModel):
     source_group_id: uuid.UUID
     answer_duration_seconds: int = 30
     session_type: str = "timed_window"
+    starts_at: str | None = None  # ISO datetime string
+    ends_at: str | None = None    # ISO datetime string
 
 
 @router.post("/quiz-sessions", status_code=201)
@@ -1783,6 +1791,8 @@ async def create_quiz_session(body: CreateQuizSessionRequest, admin: AdminAccoun
             source_group_id=body.source_group_id,
             created_by=admin.id,
         )
+        qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')) if body.starts_at else None
+        qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')) if body.ends_at else None
         session.add(qs)
         await session.flush()
 

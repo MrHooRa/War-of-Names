@@ -246,7 +246,7 @@ async def submit_answer(
             await create_notification(
                 session,
                 recipient_id=account.id,
-                notification_type=NotificationType.QUIZ_OPENED,
+                notification_type=NotificationType.GENERAL,
                 title="إجابة صحيحة!",
                 message=f"حصلت على {points} نقطة من جلسة الأسئلة",
                 membership_id=membership.id,
@@ -279,6 +279,7 @@ async def submit_answer(
         "success": True,
         "data": {
             "is_correct": is_correct,
+            "correct_answer": str(correct_answer),
             "points_awarded": points,
             "balance_after": balance_after,
             "answered_count": answered_count,

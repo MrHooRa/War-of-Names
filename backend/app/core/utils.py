@@ -7,6 +7,13 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
+from app.config import PLATFORM_TZ
+
+
+def now_riyadh() -> datetime:
+    """Return the current datetime in Riyadh timezone (Asia/Riyadh, UTC+3)."""
+    return datetime.now(PLATFORM_TZ)
+
 
 def jsonb_safe(obj: Any) -> Any:
     """Recursively convert Python objects to JSON-serializable equivalents.

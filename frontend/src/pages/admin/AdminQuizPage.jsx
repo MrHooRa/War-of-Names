@@ -366,26 +366,34 @@ function QuestionModal({ question, groups, onClose, onSuccess }) {
 }
 
 // ─── Create Quiz Session Modal ────────────────────────────────────────────────
-function CreateSessionModal({ groups, onClose, onSuccess }) {
+function CreateSessionModal({ groups, competitionId, onClose, onSuccess }) {
   const [title, setTitle] = useState('')
   const [sourceGroupId, setSourceGroupId] = useState('')
   const [answerDuration, setAnswerDuration] = useState(30)
+  const [startsAt, setStartsAt] = useState('')
+  const [endsAt, setEndsAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
   async function handleSubmit() {
     if (!title.trim()) { setError('عنوان الجلسة مطلوب'); return }
     if (!sourceGroupId) { setError('اختر مجموعة الأسئلة'); return }
+    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+      setError('وقت الانتهاء يجب أن يكون بعد وقت البدء'); return
+    }
     setSubmitting(true); setError(null)
     try {
+      const payload = {
+        competition_id: competitionId,
+        title: title.trim(),
+        source_group_id: sourceGroupId,
+        answer_duration_seconds: Number(answerDuration),
+      }
+      if (startsAt) payload.starts_at = new Date(startsAt).toISOString()
+      if (endsAt) payload.ends_at = new Date(endsAt).toISOString()
       await apiFetch('/api/admin/quiz-sessions', {
         method: 'POST',
-        body: JSON.stringify({
-          competition_id: selectedId,
-          title: title.trim(),
-          source_group_id: sourceGroupId,
-          answer_duration_seconds: Number(answerDuration),
-        }),
+        body: JSON.stringify(payload),
       })
       onSuccess('تم إنشاء الجلسة بنجاح')
     } catch (err) {
@@ -416,6 +424,27 @@ function CreateSessionModal({ groups, onClose, onSuccess }) {
       <div>
         <FieldLabel>مدة الإجابة (ثانية)</FieldLabel>
         <TextInput type="number" value={answerDuration} onChange={v => setAnswerDuration(v)} placeholder="30" min="5" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <FieldLabel>وقت البدء</FieldLabel>
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={e => setStartsAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/30 smooth-transition"
+          />
+        </div>
+        <div>
+          <FieldLabel>وقت الانتهاء</FieldLabel>
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={e => setEndsAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/30 smooth-transition"
+          />
+        </div>
       </div>
 
       <ModalActions onCancel={onClose} onSubmit={handleSubmit} submitLabel="إنشاء الجلسة" submitting={submitting} />
@@ -834,7 +863,7 @@ export default function AdminQuizPage() {
       )}
 
       {showCreateSession && (
-        <CreateSessionModal groups={groups} onClose={() => setShowCreateSession(false)} onSuccess={handleSessionCreated} />
+        <CreateSessionModal groups={groups} competitionId={selectedId} onClose={() => setShowCreateSession(false)} onSuccess={handleSessionCreated} />
       )}
 
       {deletingSession && (
