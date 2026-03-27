@@ -1631,9 +1631,9 @@ async def update_quiz_session(session_id: uuid.UUID, body: UpdateQuizSessionRequ
         if body.title is not None:
             qs.title = body.title
         if body.starts_at is not None:
-            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')) if body.starts_at else None
+            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')).replace(tzinfo=None) if body.starts_at else None
         if body.ends_at is not None:
-            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')) if body.ends_at else None
+            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')).replace(tzinfo=None) if body.ends_at else None
         after = {"status": str(qs.status), "title": qs.title}
         await write_audit(
             session,
@@ -1791,8 +1791,10 @@ async def create_quiz_session(body: CreateQuizSessionRequest, admin: AdminAccoun
             source_group_id=body.source_group_id,
             created_by=admin.id,
         )
-        qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')) if body.starts_at else None
-        qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')) if body.ends_at else None
+        if body.starts_at:
+            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')).replace(tzinfo=None)
+        if body.ends_at:
+            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')).replace(tzinfo=None)
         session.add(qs)
         await session.flush()
 
