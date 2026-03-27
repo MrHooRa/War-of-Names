@@ -304,35 +304,32 @@ async def remove_ip_ban(ban_id: uuid.UUID, owner: OwnerAccount):
 
 @router.get("/backup")
 async def trigger_backup(owner: OwnerAccount):
-    """Trigger a pg_dump and return the result as a gzipped download."""
-    import asyncio
+    """Export all tables as JSON backup (gzipped download)."""
+    from app.core.database import engine
+    from sqlalchemy import text, inspect
 
-    cmd = (
-        f"pg_dump -h {settings.db_host} -p {settings.db_port} "
-        f"-U {settings.db_user} -d {settings.db_name} --no-password"
-    )
-    env = {"PGPASSWORD": settings.db_password}
+    backup_data = {"exported_at": datetime.utcnow().isoformat(), "tables": {}}
 
-    try:
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env={**__import__("os").environ, **env},
+    async with engine.connect() as conn:
+        # Get all table names
+        table_names = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_table_names()
         )
-        stdout, stderr = await proc.communicate()
+        for table in sorted(table_names):
+            try:
+                result = await conn.execute(text(f'SELECT * FROM "{table}"'))
+                rows = [dict(row._mapping) for row in result.fetchall()]
+                # Convert non-serializable types
+                from app.core.utils import jsonb_safe
+                backup_data["tables"][table] = jsonb_safe(rows)
+            except Exception:
+                backup_data["tables"][table] = []
 
-        if proc.returncode != 0:
-            raise HTTPException(
-                status_code=500,
-                detail=f"pg_dump failed: {stderr.decode(errors='replace')[:500]}",
-            )
-    except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="pg_dump not found on server")
-
-    compressed = gzip.compress(stdout)
+    import json
+    raw = json.dumps(backup_data, ensure_ascii=False, default=str).encode("utf-8")
+    compressed = gzip.compress(raw)
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"war_of_names_backup_{timestamp}.sql.gz"
+    filename = f"war_of_names_backup_{timestamp}.json.gz"
 
     async def _stream():
         yield compressed
