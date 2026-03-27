@@ -24,6 +24,8 @@ import NotificationsPage from './pages/NotificationsPage'
 import PlayerProfilePage from './pages/PlayerProfilePage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import RulesPage from './pages/RulesPage'
+import TermsPage from './pages/TermsPage'
+import PrivacyPage from './pages/PrivacyPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 import { AdminCompetitionProvider } from './context/AdminCompetitionContext'
@@ -83,6 +85,10 @@ function GameRoutes() {
           </AuthLayout>
         }
       />
+
+      {/* ── Public legal pages (no auth required) ── */}
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       {/* ── Invite link (public, handles auth redirect internally) ── */}
       <Route path="/invite/:token" element={<InviteLinkPage />} />
