@@ -761,12 +761,17 @@ export default function AdminQuizPage() {
 
       {/* Groups Tab */}
       {tab === 'groups' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {groups?.map(g => (
-            <div key={g.id} className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
+        <div className="space-y-4">
+          {groups?.map(g => {
+            const groupQuestions = questions?.filter(q => q.group_id === g.id) || []
+            const activeCount = groupQuestions.filter(q => q.status === 'active').length
+            const totalScore = groupQuestions.reduce((sum, q) => sum + (q.score_value || 0), 0)
+
+            return (
+            <div key={g.id} className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
               {editingGroup?.id === g.id ? (
                 /* Inline Edit Mode */
-                <div className="space-y-3">
+                <div className="p-5 space-y-3">
                   <input
                     type="text"
                     value={editGroupTitle}
@@ -800,40 +805,79 @@ export default function AdminQuizPage() {
                   </div>
                 </div>
               ) : (
-                /* Display Mode */
                 <>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-heading font-black text-gray-900 dark:text-white">{g.title}</h3>
+                  {/* Group Header */}
+                  <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate flex items-center justify-center shrink-0">
+                        <iconify-icon icon="lucide:folder-open" class="text-xl"></iconify-icon>
+                      </div>
+                      <div>
+                        <h3 className="font-heading font-black text-gray-900 dark:text-white">{g.title}</h3>
+                        {g.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{g.description}</p>}
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={g.status} />
-                      <button
-                        onClick={() => openEditGroup(g)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition"
-                        title="تعديل"
-                      >
+                      <button onClick={() => openEditGroup(g)} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل">
                         <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
                       </button>
                       {g.status !== 'archived' && (
-                        <button
-                          onClick={() => handleArchiveGroup(g.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition"
-                          title="أرشفة"
-                        >
+                        <button onClick={() => handleArchiveGroup(g.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="أرشفة">
                           <iconify-icon icon="lucide:archive" class="text-sm"></iconify-icon>
                         </button>
                       )}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-500 mb-3">{g.description}</p>
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
-                    <span>{g.question_count} سؤال</span>
+
+                  {/* Group Stats */}
+                  <div className="px-5 py-3 flex flex-wrap gap-4 text-xs font-bold border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
+                    <span className="flex items-center gap-1.5 text-brand-teal dark:text-brand-slate">
+                      <iconify-icon icon="lucide:hash" class="text-sm"></iconify-icon>
+                      {g.question_count || groupQuestions.length} سؤال
+                    </span>
+                    <span className="flex items-center gap-1.5 text-brand-success">
+                      <iconify-icon icon="lucide:check-circle" class="text-sm"></iconify-icon>
+                      {activeCount} نشط
+                    </span>
+                    <span className="flex items-center gap-1.5 text-amber-500">
+                      <iconify-icon icon="lucide:star" class="text-sm"></iconify-icon>
+                      {totalScore} نقطة إجمالية
+                    </span>
                   </div>
+
+                  {/* Questions Preview */}
+                  {groupQuestions.length > 0 ? (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {groupQuestions.slice(0, 5).map((q, idx) => (
+                        <div key={q.id} className="px-5 py-3 flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 text-[10px] font-black flex items-center justify-center shrink-0">{idx + 1}</span>
+                          <span className="flex-1 text-sm font-bold text-gray-700 dark:text-gray-300 truncate">{q.prompt}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${q.question_type === 'true_false' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'}`}>
+                            {q.question_type === 'true_false' ? 'ص/خ' : 'متعدد'}
+                          </span>
+                          <span className="text-xs font-heading font-black text-gray-400">{q.score_value}pt</span>
+                        </div>
+                      ))}
+                      {groupQuestions.length > 5 && (
+                        <div className="px-5 py-2 text-center text-xs text-gray-400 font-bold">
+                          +{groupQuestions.length - 5} سؤال آخر
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="px-5 py-6 text-center text-sm text-gray-400">
+                      <iconify-icon icon="lucide:file-question" class="text-2xl mb-2 block"></iconify-icon>
+                      لا توجد أسئلة — أضف أسئلة من تبويب "الأسئلة"
+                    </div>
+                  )}
                 </>
               )}
             </div>
-          ))}
+            )
+          })}
           {(!groups || groups.length === 0) && (
-            <div className="text-center py-12 text-gray-400 font-bold col-span-2">لا توجد مجموعات</div>
+            <div className="text-center py-12 text-gray-400 font-bold">لا توجد مجموعات</div>
           )}
         </div>
       )}
