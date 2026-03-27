@@ -73,7 +73,14 @@ async def lifespan(app: FastAPI):
     async with async_session() as session:
         await seed(session)
 
+    # Start background scheduler (cycle transitions, quiz lifecycle, expirations)
+    from app.core.scheduler import start_scheduler, stop_scheduler
+    start_scheduler()
+
     yield
+
+    # Shutdown
+    stop_scheduler()
     await engine.dispose()
 
 
@@ -111,6 +118,14 @@ app.include_router(announcements_router)
 @app.get("/health")
 async def health():
     return {"status": "ok", "environment": settings.app_env}
+
+
+@app.get("/health/scheduler")
+async def health_scheduler():
+    from app.core.scheduler import scheduler
+    jobs = [{"id": j.id, "next_run": j.next_run_time.isoformat() if j.next_run_time else None}
+            for j in scheduler.get_jobs()]
+    return {"status": "running" if scheduler.running else "stopped", "jobs": jobs}
 
 
 @app.get("/health/db")
