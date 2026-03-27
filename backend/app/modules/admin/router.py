@@ -42,6 +42,7 @@ from app.modules.notifications.service import create_notification
 from app.modules.quiz.models import AnswerSubmission, Question, QuestionGroup, QuizSession, SessionQuestion
 from app.modules.scoring.models import LedgerEntry
 from app.modules.settings.models import SettingDefinition, SettingValue
+from app.modules.settings.service import get_setting
 from app.modules.store.models import ItemDefinition, ItemEffect, OwnedItem, StoreListing
 from app.modules.audit.service import write_audit
 from app.modules.competitions.invite_service import (
@@ -1142,26 +1143,54 @@ async def remove_player_bankruptcy(membership_id: uuid.UUID, admin: AdminAccount
 
         membership.is_bankrupt = False
 
+        # Grant default starting balance if player has 0 or negative balance
+        balance_granted = 0
+        if membership.current_balance <= 0:
+            default_balance = await get_setting(
+                session, "initial_balance",
+                competition_id=membership.competition_id,
+            ) or 1000
+            balance_before = membership.current_balance
+            membership.current_balance = default_balance
+            balance_granted = default_balance
+
+            # Record in ledger
+            ledger = LedgerEntry(
+                membership_id=membership.id,
+                competition_id=membership.competition_id,
+                entry_type=LedgerEntryType.ADMIN_ADJUSTMENT,
+                amount=default_balance - balance_before,
+                direction=LedgerDirection.CREDIT,
+                balance_before=balance_before,
+                balance_after=default_balance,
+                source_type="bankruptcy_removal",
+                reason="رصيد ابتدائي بعد إلغاء الإفلاس",
+            )
+            session.add(ledger)
+
         await write_audit(
             session,
             actor_id=admin.id,
             subject_type="membership",
             subject_id=membership.id,
             event_type="bankruptcy_removed",
-            summary="إلغاء إفلاس اللاعب يدوياً بواسطة المشرف",
-            before_state={"is_bankrupt": True},
-            after_state={"is_bankrupt": False},
+            summary=f"إلغاء إفلاس اللاعب يدوياً — الرصيد الجديد: {membership.current_balance}",
+            before_state={"is_bankrupt": True, "balance": membership.current_balance - balance_granted},
+            after_state={"is_bankrupt": False, "balance": membership.current_balance},
             related_type="competition",
             related_id=membership.competition_id,
         )
 
         # Notify the player
+        msg = "قام المشرف بإلغاء حالة الإفلاس عنك. أنت الآن نشط مجدداً!"
+        if balance_granted > 0:
+            msg += f" وتم منحك {balance_granted} نقطة كرصيد ابتدائي."
         await create_notification(
             session,
             recipient_id=membership.account_id,
             notification_type=NotificationType.ADMIN_CHANGE,
             title="تم إلغاء الإفلاس",
-            message="قام المشرف بإلغاء حالة الإفلاس عنك. أنت الآن نشط مجدداً!",
+            message=msg,
             membership_id=membership_id,
             deep_link="/dashboard",
         )

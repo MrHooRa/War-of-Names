@@ -22,6 +22,45 @@ from app.modules.landing.router import router as landing_router
 from app.modules.announcements.router import router as announcements_router
 
 
+async def _normalize_enum_values(conn):
+    """Normalize ALL UPPERCASE enum values to lowercase across ALL tables.
+
+    pg_enum() uses enum VALUES (lowercase) as PG labels.
+    Discovers all columns that use custom enum types and converts any
+    UPPERCASE values to lowercase.
+    """
+    from sqlalchemy import text
+
+    # Find all columns using custom enum types
+    result = await conn.execute(text("""
+        SELECT c.table_name, c.column_name, c.udt_name
+        FROM information_schema.columns c
+        JOIN pg_type t ON t.typname = c.udt_name
+        WHERE t.typtype = 'e'
+        AND c.table_schema = 'public'
+        ORDER BY c.table_name, c.column_name
+    """))
+    columns = result.fetchall()
+
+    # Cache enum labels per type
+    enum_cache = {}
+    for table, column, enum_name in columns:
+        if enum_name not in enum_cache:
+            r = await conn.execute(text(
+                f"SELECT enumlabel FROM pg_enum WHERE enumtypid = "
+                f"(SELECT oid FROM pg_type WHERE typname = '{enum_name}')"
+            ))
+            enum_cache[enum_name] = {row[0] for row in r.fetchall()}
+
+        labels = enum_cache[enum_name]
+        for label in list(labels):
+            lower = label.lower()
+            if label != lower and lower in labels:
+                await conn.execute(text(
+                    f'UPDATE "{table}" SET "{column}" = \'{lower}\' WHERE "{column}" = \'{label}\''
+                ))
+
+
 async def _apply_schema_patches(conn):
     """Apply incremental schema patches that create_all cannot handle.
 
@@ -43,6 +82,31 @@ async def _apply_schema_patches(conn):
         "ALTER TYPE owned_item_status ADD VALUE IF NOT EXISTS 'pending'"
     ))
 
+    # 003: Add lowercase enum values for ALL PostgreSQL enum types.
+    # create_all generates UPPERCASE labels (enum NAMES), but pg_enum() now
+    # uses lowercase VALUES. Both must exist so data can be normalized.
+    # Auto-discover all custom enum types and add lowercase for each UPPERCASE label.
+    enum_types_result = await conn.execute(text(
+        "SELECT t.typname, e.enumlabel FROM pg_type t "
+        "JOIN pg_enum e ON e.enumtypid = t.oid "
+        "WHERE t.typtype = 'e' ORDER BY t.typname"
+    ))
+    # Group labels by type
+    from collections import defaultdict
+    type_labels = defaultdict(set)
+    for typname, label in enum_types_result.fetchall():
+        type_labels[typname].add(label)
+
+    # For each type, add lowercase version of each UPPERCASE label
+    for typname, labels in type_labels.items():
+        for label in list(labels):
+            lower = label.lower()
+            if label != lower and lower not in labels:
+                await conn.execute(text(
+                    f"ALTER TYPE {typname} ADD VALUE IF NOT EXISTS '{lower}'"
+                ))
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,6 +117,14 @@ async def lifespan(app: FastAPI):
     # Apply schema patches that create_all cannot handle (enum additions, constraint changes)
     async with engine.begin() as conn:
         await _apply_schema_patches(conn)
+
+    # Normalize enum values to UPPERCASE (SQLAlchemy uses enum NAMES which are uppercase)
+    # Must be separate transaction — PG requires COMMIT after ALTER TYPE ADD VALUE
+    try:
+        async with engine.begin() as conn:
+            await _normalize_enum_values(conn)
+    except Exception:
+        pass  # Already normalized or not needed
 
     # Seed game_info if empty
     async with async_session() as session:
