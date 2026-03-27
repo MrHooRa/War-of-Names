@@ -18,9 +18,11 @@ const LOCALE = 'ar-SA'
 function parseUTC(isoOrDate) {
   if (!isoOrDate) return null
   if (isoOrDate instanceof Date) return isoOrDate
-  // Append Z if no timezone indicator present (backend naive UTC timestamps)
+  // Append Z if no timezone indicator at the END of the string.
+  // Must not match date separators (2026-03-27 has dashes mid-string).
   const s = String(isoOrDate)
-  const d = new Date(s.match(/[Z+\-]\d|[Z]$/) ? s : s + 'Z')
+  const hasTimezone = /Z$|[+-]\d{2}:\d{2}$|[+-]\d{4}$/.test(s)
+  const d = new Date(hasTimezone ? s : s + 'Z')
   return isNaN(d.getTime()) ? null : d
 }
 
