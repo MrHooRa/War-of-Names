@@ -209,7 +209,7 @@ function GameRoutes() {
       </Route>
 
       {/* ── Lobby — standalone dark immersive page ── */}
-      <Route path="/lobby" element={<LobbyPage />} />
+      <Route path="/lobby" element={<ProtectedRoute><LobbyPage /></ProtectedRoute>} />
 
       {/* ── Catch-all 404 ── */}
       <Route path="*" element={<NotFoundPage />} />

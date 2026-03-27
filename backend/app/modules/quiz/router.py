@@ -209,6 +209,15 @@ async def submit_answer(
         session.add(submission)
         await session.flush()
 
+        # Re-check session time to prevent TOCTOU race
+        now_final = datetime.utcnow()
+        if quiz.ends_at and now_final > quiz.ends_at:
+            await session.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="انتهت مهلة جلسة الأسئلة — لا يمكن تقديم إجابات بعد انتهاء الوقت",
+            )
+
         # Award points via ledger if correct
         balance_after = membership.current_balance
         if is_correct and points > 0:

@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ username: '', real_name: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -110,7 +111,7 @@ export default function RegisterPage() {
                     <iconify-icon icon="lucide:lock" class="text-lg"></iconify-icon>
                   </div>
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     id="password"
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
@@ -118,8 +119,8 @@ export default function RegisterPage() {
                     required
                     className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3.5 pr-11 pl-12 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:focus:border-brand-slate dark:focus:ring-brand-slate/20 transition-all text-gray-800 dark:text-white placeholder:text-gray-400"
                   />
-                  <button type="button" className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 hover:text-brand-teal transition-colors">
-                    <iconify-icon icon="lucide:eye" class="text-lg"></iconify-icon>
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 hover:text-brand-teal transition-colors">
+                    <iconify-icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} class="text-lg"></iconify-icon>
                   </button>
                 </div>
               </div>

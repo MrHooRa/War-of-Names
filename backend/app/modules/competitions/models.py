@@ -112,7 +112,10 @@ class Cycle(Base):
 
 class Membership(Base):
     __tablename__ = "memberships"
-    __table_args__ = (UniqueConstraint("account_id", "competition_id", name="uq_membership"),)
+    __table_args__ = (
+        UniqueConstraint("account_id", "competition_id", name="uq_membership"),
+        CheckConstraint("current_balance >= 0", name="chk_balance_non_negative"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
     account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)

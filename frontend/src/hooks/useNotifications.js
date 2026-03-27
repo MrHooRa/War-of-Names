@@ -36,6 +36,7 @@ export default function useNotifications() {
           n.id === notificationId ? { ...n, is_read: true } : n
         ),
       }))
+      window.dispatchEvent(new CustomEvent('notifications-updated'))
     } catch { /* ignore */ }
   }, [])
 
@@ -46,6 +47,7 @@ export default function useNotifications() {
         ...s,
         notifications: s.notifications.map(n => ({ ...n, is_read: true })),
       }))
+      window.dispatchEvent(new CustomEvent('notifications-updated'))
     } catch { /* ignore */ }
   }, [])
 

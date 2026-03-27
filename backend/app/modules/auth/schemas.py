@@ -27,6 +27,10 @@ class RegisterRequest(BaseModel):
         v = v.strip()
         if len(v) < 2 or len(v) > 100:
             raise ValueError("الاسم الحقيقي يجب أن يكون بين 2-100 حرف")
+        # Strip HTML tags for defense-in-depth
+        import re as _re
+        if _re.search(r"<[^>]+>", v):
+            raise ValueError("الاسم لا يمكن أن يحتوي على رموز HTML")
         return v
 
     @field_validator("password")

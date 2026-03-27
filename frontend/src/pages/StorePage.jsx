@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 import useStore from '../hooks/useStore'
 import useInventory from '../hooks/useInventory'
@@ -81,7 +81,7 @@ function StoreItem({ listing, onBuy, buying }) {
         disabled={buying || outOfStock}
         className={`btn-press ${isMythic
           ? 'w-full md:w-2/3 mx-auto bg-gradient-to-r from-red-600 to-amber-500 text-white font-heading font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 hover:from-red-700 hover:to-amber-600 smooth-transition mt-8 shadow-lg shadow-red-500/20 relative z-10'
-          : 'w-full bg-brand-teal text-white dark:bg-brand-teal dark:text-white font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-teal-hover smooth-transition mt-4'
+          : 'w-full bg-brand-teal text-white dark:bg-brand-slate dark:text-white font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-slate/80 smooth-transition mt-4'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {buying ? (
@@ -107,13 +107,21 @@ export default function StorePage() {
   const [category, setCategory] = useState('all')
   const [usingItem, setUsingItem] = useState(false)
 
+  useEffect(() => {
+    if (buyError) {
+      setToast(buyError)
+      const timer = setTimeout(() => setToast(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [buyError])
+
   async function handleBuy(listingId) {
     const result = await buyItem(listingId)
     if (result) {
-      setToast(result.message)
+      setToast(result.message || 'تم الشراء بنجاح')
       refetchInventory()
-      setTimeout(() => setToast(null), 3000)
     }
+    setTimeout(() => setToast(null), 3000)
   }
 
   async function handleUseItem(ownedItemId) {
@@ -172,7 +180,7 @@ export default function StorePage() {
                     onClick={() => setCategory(c.key)}
                     className={`px-5 md:px-8 py-2.5 rounded-lg font-heading font-bold text-sm whitespace-nowrap smooth-transition ${
                       category === c.key
-                        ? 'bg-brand-teal text-white dark:bg-brand-teal dark:text-white'
+                        ? 'bg-brand-teal text-white dark:bg-brand-slate dark:text-white'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
                   >
@@ -219,7 +227,7 @@ export default function StorePage() {
               {/* Inventory Header */}
               <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-brand-teal/10 dark:bg-brand-teal/20 text-brand-teal flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate flex items-center justify-center">
                     <iconify-icon icon="lucide:package" class="text-lg"></iconify-icon>
                   </div>
                   <h2 className="font-heading font-black text-lg text-gray-900 dark:text-white">مخزني</h2>

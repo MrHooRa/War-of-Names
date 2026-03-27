@@ -19,9 +19,12 @@ export async function apiFetch(path, options = {}) {
     let data = null
     try {
       const err = await res.json()
-      if (typeof err.detail === 'object' && err.detail !== null) {
+      if (Array.isArray(err.detail)) {
+        // Pydantic validation errors — strip "Value error, " prefix
+        detail = err.detail.map(e => e.msg.replace(/^Value error, /, '')).join('، ')
+      } else if (typeof err.detail === 'object' && err.detail !== null) {
         data = err.detail
-        detail = err.detail.errors?.join('، ') || JSON.stringify(err.detail)
+        detail = err.detail.message || err.detail.errors?.join('، ') || JSON.stringify(err.detail)
       } else {
         detail = err.detail || err.message || detail
       }

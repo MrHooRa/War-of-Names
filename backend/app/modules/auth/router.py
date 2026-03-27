@@ -1,5 +1,6 @@
 """Auth endpoints: register, login, me, update profile."""
 
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -96,6 +97,8 @@ async def update_profile(body: UpdateProfileRequest, account: CurrentAccount):
         if body.real_name is not None:
             if len(body.real_name.strip()) < 2:
                 raise HTTPException(status_code=400, detail="الاسم الحقيقي يجب أن يكون حرفين على الأقل")
+            if re.search(r"<[^>]+>", body.real_name.strip()):
+                raise HTTPException(status_code=400, detail="الاسم لا يمكن أن يحتوي على رموز HTML")
             acct.real_name = body.real_name.strip()
 
         if body.new_password:

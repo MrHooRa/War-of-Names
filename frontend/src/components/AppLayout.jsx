@@ -50,15 +50,20 @@ export default function AppLayout({ activeItem = 'home', children }) {
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    const activeComp = localStorage.getItem('won_active_competition')
-    const url = activeComp
-      ? `/api/me/notifications?competition_id=${activeComp}`
-      : '/api/me/notifications'
-    apiFetch(url)
-      .then(r => {
-        if (r.data) setUnreadCount(r.data.filter(n => !n.is_read).length)
-      })
-      .catch(() => {})
+    function fetchCount() {
+      const activeComp = localStorage.getItem('won_active_competition')
+      const url = activeComp
+        ? `/api/me/notifications?competition_id=${activeComp}`
+        : '/api/me/notifications'
+      apiFetch(url)
+        .then(r => {
+          if (r.data) setUnreadCount(r.data.filter(n => !n.is_read).length)
+        })
+        .catch(() => {})
+    }
+    fetchCount()
+    window.addEventListener('notifications-updated', fetchCount)
+    return () => window.removeEventListener('notifications-updated', fetchCount)
   }, [])
 
   return (
@@ -105,6 +110,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
             {/* Theme Toggle */}
             <button
               onClick={toggleDarkMode}
+              aria-label="تبديل الوضع الداكن"
               className="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm"
             >
               <iconify-icon icon="lucide:moon" class="dark:hidden"></iconify-icon>
@@ -119,10 +125,10 @@ export default function AppLayout({ activeItem = 'home', children }) {
             )}
 
             {/* Notifications */}
-            <Link to="/notifications" className="relative w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm">
+            <Link to="/notifications" aria-label="الإشعارات" className="relative w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm">
               <iconify-icon icon="lucide:bell"></iconify-icon>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-brand-danger text-white text-[10px] font-black rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-brand-danger text-white ring-2 ring-white dark:ring-brand-dark-bg text-[10px] font-black rounded-full flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -143,6 +149,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
               onClick={() => { logout(); navigate('/login') }}
               className="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-brand-danger/10 hover:text-brand-danger dark:hover:bg-brand-danger/20 smooth-transition hover:-translate-y-0.5 shadow-sm"
               title="تسجيل الخروج"
+              aria-label="تسجيل الخروج"
             >
               <iconify-icon icon="lucide:log-out"></iconify-icon>
             </button>
@@ -160,7 +167,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
 
       {/* ===== Footer — from templates 02, 05, 06 ===== */}
       <footer
-        className="bg-footer-pattern py-12 px-6 mt-8"
+        className="bg-footer-pattern py-12 pb-24 md:pb-12 px-6 mt-8"
         style={{ viewTransitionName: 'footer' }}
       >
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
@@ -217,6 +224,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
         <button
           onClick={() => navigate('/lobby')}
           id="mobile-nav-attack"
+          aria-label="ساحة المعركة"
           className="flex flex-col items-center justify-center w-12 h-12 bg-brand-teal text-white dark:bg-brand-orange/80 rounded-full -mt-6 border-[3px] border-brand-light-bg dark:border-brand-dark-bg shadow-sm smooth-transition active:scale-95"
         >
           <iconify-icon icon="lucide:swords" class="text-2xl"></iconify-icon>

@@ -182,8 +182,15 @@ async def buy_item(
 ):
     """Purchase an item from the store."""
     async with async_session() as session:
-        # Get membership
-        membership = await _get_membership(session, account.id, competition_id)
+        # Get membership with row lock to prevent concurrent balance races
+        membership_result = await session.execute(
+            select(Membership).where(
+                Membership.account_id == account.id,
+                Membership.competition_id == competition_id,
+                Membership.status == MembershipStatus.ACTIVE,
+            ).with_for_update()
+        )
+        membership = membership_result.scalars().first()
         if not membership:
             raise HTTPException(status_code=403, detail="أنت لست عضواً في هذه المنافسة")
 
@@ -208,8 +215,11 @@ async def buy_item(
                 detail=f"المخزون ممتلئ ({current_count}/{max_capacity}). استخدم أو تخلص من عنصر أولاً",
             )
 
-        # Get listing
-        listing = await session.get(StoreListing, listing_id)
+        # Get listing with row lock to prevent stock oversell
+        listing_result = await session.execute(
+            select(StoreListing).where(StoreListing.id == listing_id).with_for_update()
+        )
+        listing = listing_result.scalars().first()
         if not listing or str(listing.competition_id) != str(competition_id):
             raise HTTPException(status_code=404, detail="العنصر غير متوفر")
 
@@ -243,7 +253,7 @@ async def buy_item(
                     detail=f"لقد بلغت الحد الأقصى للشراء ({listing.max_per_participant})",
                 )
 
-        # Check balance
+        # Check balance (safe: membership row is locked)
         if membership.current_balance < listing.price:
             raise HTTPException(
                 status_code=400,

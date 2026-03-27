@@ -1,6 +1,7 @@
 """FastAPI router for the attack engine."""
 
 import uuid
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,6 +14,7 @@ from app.modules.attacks.schemas import (
     AttackExecuteRequest,
     AttackPreviewRequest,
 )
+from app.modules.attacks.models import AttackAttempt
 from app.modules.attacks.service import execute_attack, get_attack_preview
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Cycle, Membership, Season
@@ -89,6 +91,23 @@ async def execute_attack_endpoint(
         membership = await _get_membership(session, account.id, competition_id)
         if not membership:
             raise HTTPException(status_code=403, detail="أنت لست عضواً في هذه المنافسة")
+
+        # Bug fix: prevent self-attack (DB has chk_attack_self but hitting it causes 500)
+        if str(membership.id) == str(body.target_membership_id):
+            raise HTTPException(status_code=400, detail="لا يمكنك مهاجمة نفسك")
+
+        # Prevent rapid duplicate submissions (same attacker+target+guess within 5 seconds)
+        recent_cutoff = datetime.utcnow() - timedelta(seconds=5)
+        dup_result = await session.execute(
+            select(AttackAttempt).where(
+                AttackAttempt.attacker_id == membership.id,
+                AttackAttempt.target_id == body.target_membership_id,
+                AttackAttempt.guessed_account_id == body.guessed_account_id,
+                AttackAttempt.created_at >= recent_cutoff,
+            ).limit(1)
+        )
+        if dup_result.scalars().first():
+            raise HTTPException(status_code=429, detail="انتظر قليلاً قبل تكرار نفس الهجوم")
 
         season, cycle = await _get_active_season_cycle(session, competition_id)
         if not season or not cycle:

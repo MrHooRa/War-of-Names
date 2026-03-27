@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     cors_origin: str = "http://localhost:5173"
 
-    jwt_secret: str = "change-me-in-production-please"
+    jwt_secret: str = "change-me-in-production-please"  # Override via JWT_SECRET env var
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
 
     @property
