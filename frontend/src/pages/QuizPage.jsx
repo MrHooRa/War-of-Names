@@ -10,7 +10,6 @@ export default function QuizPage() {
   const { submitting, result: answerResult, submitAnswer } = useSubmitAnswer()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedOption, setSelectedOption] = useState(null)
-  const [totalEarned, setTotalEarned] = useState(0)
   const [answered, setAnswered] = useState({})
   const [timer, setTimer] = useState(-1)
   const [timedOut, setTimedOut] = useState(false)
@@ -18,6 +17,8 @@ export default function QuizPage() {
 
   const questions = quiz?.questions ?? []
   const totalQuestions = questions.length
+  // Compute total earned from answered map (survives re-renders, not incremental state)
+  const totalEarned = Object.values(answered).reduce((sum, a) => sum + (a?.points_awarded || 0), 0)
 
   // Seed answered state from server-reported already_answered flags & skip to first unanswered
   useEffect(() => {
@@ -57,15 +58,23 @@ export default function QuizPage() {
     return () => clearInterval(timerRef.current)
   }, [currentIndex, currentQ, answered, quiz?.answer_duration_seconds])
 
-  // Auto-advance when time runs out
+  // Auto-advance when time runs out — use ref so cleanup doesn't cancel it
+  const autoAdvanceRef = useRef(null)
   useEffect(() => {
     if (timer !== 0 || !currentQ || answered[currentQ.session_question_id] || timedOut) return
     setTimedOut(true)
-    const autoAdvanceTimer = setTimeout(() => {
-      handleNext()
+    autoAdvanceRef.current = setTimeout(() => {
+      setTimedOut(false)
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex(prev => prev + 1)
+        setSelectedOption(null)
+      } else {
+        setCurrentIndex(totalQuestions)
+      }
     }, 2000)
-    return () => clearTimeout(autoAdvanceTimer)
-  }, [timer, currentQ, answered, timedOut]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timer]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Clean up only on unmount
+  useEffect(() => () => clearTimeout(autoAdvanceRef.current), [])
 
   async function handleAnswer(option) {
     if (!currentQ || submitting || answered[currentQ.session_question_id] || timedOut) return
@@ -75,9 +84,6 @@ export default function QuizPage() {
     const data = await submitAnswer(quiz.session_id, currentQ.session_question_id, option)
     if (data) {
       setAnswered(prev => ({ ...prev, [currentQ.session_question_id]: data }))
-      if (data.is_correct) {
-        setTotalEarned(prev => prev + data.points_awarded)
-      }
     }
   }
 
