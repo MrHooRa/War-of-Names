@@ -160,7 +160,7 @@ export default function OwnerDashboardPage() {
   const fetchAll = useCallback(async () => {
     try {
       const [statsRes, adminsRes, bansRes] = await Promise.all([
-        apiFetch('/api/owner/stats'),
+        apiFetch('/api/owner/dashboard'),
         apiFetch('/api/owner/admins'),
         apiFetch('/api/owner/ip-bans'),
       ])
