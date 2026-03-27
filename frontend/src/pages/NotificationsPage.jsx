@@ -19,7 +19,12 @@ const TYPE_COLORS = {
   quiz_opened: 'text-amber-500',
 }
 
-
+const PRIORITY_STYLES = {
+  URGENT: 'border-r-4 border-r-red-500 bg-red-50/60 dark:bg-red-900/10',
+  HIGH:   'border-r-4 border-r-orange-400',
+  NORMAL: '',
+  LOW:    'opacity-80',
+}
 
 export default function NotificationsPage() {
   const { notifications, loading, error, unreadCount, markRead, markAllRead } = useNotifications()
@@ -76,12 +81,13 @@ export default function NotificationsPage() {
         {notifications.map(n => {
           const icon = TYPE_ICONS[n.type] || TYPE_ICONS.general
           const color = TYPE_COLORS[n.type] || 'text-gray-400'
+          const priorityCls = PRIORITY_STYLES[n.priority] || ''
 
           return (
             <button
               key={n.id}
               onClick={() => !n.is_read && markRead(n.id)}
-              className={`w-full text-right flex items-start gap-4 p-5 rounded-2xl border smooth-transition ${
+              className={`w-full text-right flex items-start gap-4 p-5 rounded-2xl border smooth-transition ${priorityCls} ${
                 n.is_read
                   ? 'bg-gray-50 dark:bg-gray-800/30 border-gray-100 dark:border-gray-800 opacity-70'
                   : 'bg-white dark:bg-brand-card-dark border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md'

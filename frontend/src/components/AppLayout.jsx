@@ -119,8 +119,9 @@ export default function AppLayout({ activeItem = 'home', children }) {
 
             {/* Admin Panel Link */}
             {currentUser?.is_admin && (
-              <Link to="/admin" className="w-11 h-11 bg-brand-teal/10 dark:bg-brand-slate/20 border border-brand-teal/20 dark:border-brand-slate/30 flex items-center justify-center rounded-xl text-xl text-brand-teal dark:text-brand-slate hover:bg-brand-teal/20 dark:hover:bg-brand-slate/30 smooth-transition hover:-translate-y-0.5 shadow-sm" title="لوحة التحكم">
-                <iconify-icon icon="lucide:shield-check"></iconify-icon>
+              <Link to="/admin" className="flex items-center gap-2 h-11 px-4 bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-400/30 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 dark:hover:bg-amber-500/30 smooth-transition hover:-translate-y-0.5 shadow-sm" title="لوحة التحكم">
+                <iconify-icon icon="lucide:shield-check" class="text-xl"></iconify-icon>
+                <span className="text-sm font-black hidden sm:inline">لوحة التحكم</span>
               </Link>
             )}
 
