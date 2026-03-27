@@ -1128,6 +1128,48 @@ async def update_player_protection(membership_id: uuid.UUID, body: AdminPlayerPr
     return {"success": True, "message": f"تم تحديث الحماية إلى: {labels.get(body.protection, body.protection)}"}
 
 
+@router.patch("/players/{membership_id}/remove-bankruptcy")
+async def remove_player_bankruptcy(membership_id: uuid.UUID, admin: AdminAccount):
+    """Remove bankruptcy status from a single player."""
+    async with async_session() as session:
+        membership = await session.get(Membership, membership_id)
+        if not membership:
+            raise HTTPException(status_code=404, detail="اللاعب غير موجود")
+
+        if not membership.is_bankrupt:
+            raise HTTPException(status_code=400, detail="اللاعب ليس مفلساً")
+
+        membership.is_bankrupt = False
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership.id,
+            event_type="bankruptcy_removed",
+            summary="إلغاء إفلاس اللاعب يدوياً بواسطة المشرف",
+            before_state={"is_bankrupt": True},
+            after_state={"is_bankrupt": False},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
+
+        # Notify the player
+        notif = Notification(
+            recipient_id=membership.account_id,
+            membership_id=membership_id,
+            notification_type=NotificationType.ADMIN_CHANGE,
+            title="تم إلغاء الإفلاس",
+            message="قام المشرف بإلغاء حالة الإفلاس عنك. أنت الآن نشط مجدداً!",
+            competition_id=membership.competition_id,
+        )
+        session.add(notif)
+
+        await session.commit()
+
+    return {"success": True, "message": "تم إلغاء حالة الإفلاس بنجاح"}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # INVENTORY MANAGEMENT (admin grant / revoke items)
 # ═══════════════════════════════════════════════════════════════════════════

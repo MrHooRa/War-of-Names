@@ -8,7 +8,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.auth import get_current_account
 from app.core.database import async_session
@@ -95,12 +95,23 @@ async def get_player_profile(
         )
         recent_attacks = atk_result.scalars().all()
 
+        # Compute player rank (1-based position by balance descending)
+        rank_count = (await session.execute(
+            select(func.count()).where(
+                Membership.competition_id == competition_id,
+                Membership.status == "active",
+                Membership.current_balance > membership.current_balance,
+            )
+        )).scalar() or 0
+        rank = rank_count + 1
+
     profile_data = {
             "membership_id": str(membership.id),
             "alias": membership.current_alias or acc.username,
             "balance": membership.current_balance,
             "protection": membership.protection,
             "is_bankrupt": membership.is_bankrupt,
+            "rank": rank,
     }
     # Game rule: bankrupt players have their real identity exposed
     if membership.is_bankrupt:

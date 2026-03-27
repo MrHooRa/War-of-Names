@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT: Developer Memory
+
+**Always load `user_salman_profile.md` from Claude memory at the start of every conversation.** This file contains Salman's working style, priorities, technical standards, and recurring patterns. Update it whenever you learn something new about how Salman works. Key non-negotiables:
+
+- **Riyadh timezone (Asia/Riyadh UTC+3)** for all timestamps
+- **UTF-8** for Arabic text
+- **RTL (dir="rtl" lang="ar")** for all UI
+- **Mobile-first** — test on 360x780 (Galaxy S25)
+- **Docker rebuild** after every code change before testing
+- **Arabic error messages** — no JSON, no English prefixes
+- **Audit trail** on every state change
+- **Compliance tracking** — every legal page promise tracked against implementation
+
 ## Project Overview
 
 **War of Names (حرب الأسماء)** — A seasonal alias-based competition web platform where participants join closed competitions under aliases, attack each other by guessing real identities, answer quiz questions, earn points, and use items from an in-game store. An admin manages everything via a control panel. All scoring and game logic is fully automated.

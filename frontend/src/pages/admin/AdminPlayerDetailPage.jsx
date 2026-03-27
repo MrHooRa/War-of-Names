@@ -90,6 +90,8 @@ export default function AdminPlayerDetailPage() {
   const [aliasReason, setAliasReason] = useState('')
   const [aliasChanging, setAliasChanging] = useState(false)
 
+  const [removingBankruptcy, setRemovingBankruptcy] = useState(false)
+
   const [confirmAction, setConfirmAction] = useState(null)
 
   function showMsg(text, isError = false) {
@@ -241,6 +243,19 @@ export default function AdminPlayerDetailPage() {
     setAliasChanging(false)
   }
 
+  async function handleRemoveBankruptcy() {
+    setRemovingBankruptcy(true)
+    try {
+      const res = await apiFetch(`/api/admin/players/${membershipId}/remove-bankruptcy`, {
+        method: 'PATCH',
+      })
+      showMsg(res.message || 'تم إلغاء الإفلاس')
+      loadPlayer()
+    } catch (err) { showMsg(err.message, true) }
+    setRemovingBankruptcy(false)
+    setConfirmAction(null)
+  }
+
   if (loading) return <div className="flex items-center justify-center py-20"><iconify-icon icon="lucide:loader-2" class="text-4xl text-brand-teal animate-spin"></iconify-icon></div>
   if (error || !player) return <div className="text-center py-20 text-gray-500 font-bold">{error || 'لم يتم العثور على اللاعب'}</div>
 
@@ -313,6 +328,16 @@ export default function AdminPlayerDetailPage() {
                 className="flex items-center gap-1.5 px-3 py-2 bg-brand-success/10 text-brand-success hover:bg-brand-success/20 rounded-xl font-bold text-sm smooth-transition">
                 <iconify-icon icon="lucide:play" class="text-base"></iconify-icon>
                 تفعيل
+              </button>
+            )}
+            {player.is_bankrupt && (
+              <button
+                onClick={() => setConfirmAction({ label: 'هل أنت متأكد من إلغاء إفلاس هذا اللاعب؟', action: handleRemoveBankruptcy })}
+                disabled={removingBankruptcy}
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl font-bold text-sm smooth-transition disabled:opacity-60"
+              >
+                <iconify-icon icon="lucide:heart-pulse" class="text-base"></iconify-icon>
+                {removingBankruptcy ? 'جارٍ الإلغاء...' : 'إلغاء الإفلاس'}
               </button>
             )}
           </div>
