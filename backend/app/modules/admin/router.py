@@ -2,9 +2,11 @@
 
 import uuid
 from datetime import datetime
+from io import BytesIO
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select, update, case, literal
 from sqlalchemy.orm import selectinload
@@ -51,6 +53,7 @@ from app.modules.competitions.invite_service import (
     get_invite_state,
     regenerate_invite,
 )
+from app.modules.quiz.excel_service import export_questions_to_excel, import_questions_from_excel
 from app.modules.store.effect_config import validate_effect, generate_effect_summary, get_effect_types_schema
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -3889,3 +3892,82 @@ async def admin_change_alias(
         "data": {"old_alias": old_alias, "new_alias": body.new_alias},
         "message": f"تم تغيير اللقب: {old_alias} → {body.new_alias}",
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUESTIONS EXCEL IMPORT / EXPORT
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.post("/questions/import")
+async def import_questions(
+    admin: AdminAccount,
+    file: UploadFile = File(...),
+    group_id: uuid.UUID = Form(...),
+):
+    """Import questions from an Excel file into a question group."""
+    # Validate file type
+    if file.content_type not in (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "application/octet-stream",
+    ):
+        raise HTTPException(status_code=400, detail="نوع الملف غير مدعوم — يرجى رفع ملف Excel (.xlsx)")
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="الملف فارغ")
+
+    async with async_session() as session:
+        # Verify the group exists
+        group = await session.get(QuestionGroup, group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="مجموعة الأسئلة غير موجودة")
+
+        result = await import_questions_from_excel(session, file_bytes, group_id)
+
+        # Audit trail
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question_group",
+            subject_id=group_id,
+            event_type="questions_imported",
+            summary=f"استيراد أسئلة من Excel — {result['imported']} من {result['total_rows']} صف",
+            after_state=result,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result,
+        "message": f"تم استيراد {result['imported']} سؤال من أصل {result['total_rows']}",
+    }
+
+
+@router.get("/questions/groups/{group_id}/export")
+async def export_questions(group_id: uuid.UUID, admin: AdminAccount):
+    """Export all active questions in a group to an Excel file."""
+    async with async_session() as session:
+        group = await session.get(QuestionGroup, group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="مجموعة الأسئلة غير موجودة")
+
+        excel_bytes = await export_questions_to_excel(session, group_id)
+
+        # Audit trail
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question_group",
+            subject_id=group_id,
+            event_type="questions_exported",
+            summary=f"تصدير أسئلة مجموعة: {group.title}",
+        )
+        await session.commit()
+
+    filename = f"questions_{group_id}.xlsx"
+    return StreamingResponse(
+        BytesIO(excel_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

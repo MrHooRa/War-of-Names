@@ -365,6 +365,97 @@ function QuestionModal({ question, groups, onClose, onSuccess }) {
   )
 }
 
+// ─── Import Questions from Excel Modal ────────────────────────────────────────
+function ImportModal({ groups, onClose, onSuccess }) {
+  const [file, setFile] = useState(null)
+  const [groupId, setGroupId] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+
+  async function handleImport() {
+    if (!file || !groupId) { setError('اختر ملف ومجموعة'); return }
+    setImporting(true); setError(null); setResult(null)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('group_id', groupId)
+    const token = localStorage.getItem('won_token')
+    try {
+      const res = await fetch('/api/admin/questions/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.success) {
+        setResult(data.data)
+        onSuccess(`تم استيراد ${data.data.imported} سؤال`)
+      } else {
+        setError(data.detail || 'فشل الاستيراد')
+      }
+    } catch (err) { setError(err.message) }
+    setImporting(false)
+  }
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <ModalTitle icon="lucide:upload">استيراد أسئلة من Excel</ModalTitle>
+      {error && <div className="bg-brand-danger/10 text-brand-danger px-3 py-2 rounded-xl text-sm font-bold">{error}</div>}
+
+      {result && (
+        <div className="space-y-2">
+          <div className="bg-brand-success/10 text-brand-success px-3 py-2 rounded-xl text-sm font-bold">
+            تم استيراد {result.imported} سؤال بنجاح
+          </div>
+          {result.errors && result.errors.length > 0 && (
+            <div className="bg-brand-danger/10 rounded-xl p-3 space-y-1 max-h-40 overflow-y-auto">
+              <p className="text-xs font-black text-brand-danger mb-1">أخطاء ({result.errors.length}):</p>
+              {result.errors.map((err, i) => (
+                <p key={i} className="text-xs text-brand-danger/80">{err}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <FieldLabel>المجموعة *</FieldLabel>
+        <SelectInput value={groupId} onChange={setGroupId}>
+          <option value="">-- اختر المجموعة --</option>
+          {groups?.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+        </SelectInput>
+      </div>
+
+      <div>
+        <FieldLabel>ملف Excel *</FieldLabel>
+        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:border-brand-teal dark:hover:border-brand-slate smooth-transition bg-gray-50 dark:bg-gray-800">
+          <div className="flex flex-col items-center justify-center gap-1">
+            <iconify-icon icon="lucide:file-spreadsheet" class={`text-2xl ${file ? 'text-brand-success' : 'text-gray-400'}`}></iconify-icon>
+            {file ? (
+              <span className="text-sm font-bold text-brand-success">{file.name}</span>
+            ) : (
+              <span className="text-sm font-bold text-gray-400">اختر ملف .xlsx أو .xls</span>
+            )}
+          </div>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={e => setFile(e.target.files?.[0] || null)}
+          />
+        </label>
+      </div>
+
+      <ModalActions
+        onCancel={onClose}
+        onSubmit={handleImport}
+        submitLabel={importing ? 'جاري الاستيراد...' : 'استيراد'}
+        submitting={importing}
+      />
+    </ModalOverlay>
+  )
+}
+
 // ─── Create Quiz Session Modal ────────────────────────────────────────────────
 function CreateSessionModal({ groups, competitionId, onClose, onSuccess }) {
   const [title, setTitle] = useState('')
@@ -469,6 +560,7 @@ export default function AdminQuizPage() {
   const [showCreateSession, setShowCreateSession] = useState(false)
   const [deletingSession, setDeletingSession] = useState(null) // session object or null
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null) // group object for inline editing
   const [editGroupTitle, setEditGroupTitle] = useState('')
   const [editGroupDesc, setEditGroupDesc] = useState('')
@@ -580,6 +672,35 @@ export default function AdminQuizPage() {
     }
   }
 
+  async function handleExportGroup(groupId, groupTitle) {
+    const activeComp = localStorage.getItem('won_active_competition')
+    const qs = activeComp ? `?competition_id=${activeComp}` : ''
+    const token = localStorage.getItem('won_token')
+    try {
+      const res = await fetch(`/api/admin/questions/groups/${groupId}/export${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) { setActionMsg('فشل التصدير'); setTimeout(() => setActionMsg(null), 3000); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${groupTitle}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setActionMsg(`خطأ: ${err.message}`)
+      setTimeout(() => setActionMsg(null), 3000)
+    }
+  }
+
+  function handleImportSuccess(msg) {
+    setShowImportModal(false)
+    showSuccess(msg)
+    refetchQuestions()
+    refetchGroups()
+  }
+
   const loading = tab === 'sessions' ? loadingSessions : tab === 'questions' ? loadingQuestions : loadingGroups
 
   if (!selected) {
@@ -631,7 +752,18 @@ export default function AdminQuizPage() {
 
         {/* Create Buttons */}
         {tab === 'sessions' && <CreateButton icon="lucide:plus" label="إنشاء جلسة" onClick={() => setShowCreateSession(true)} />}
-        {tab === 'questions' && <CreateButton icon="lucide:plus" label="إنشاء سؤال" onClick={() => setShowCreateQuestion(true)} />}
+        {tab === 'questions' && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl px-4 py-2.5 font-heading font-black text-sm smooth-transition hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              <iconify-icon icon="lucide:upload" class="text-base"></iconify-icon>
+              استيراد من Excel
+            </button>
+            <CreateButton icon="lucide:plus" label="إنشاء سؤال" onClick={() => setShowCreateQuestion(true)} />
+          </div>
+        )}
         {tab === 'groups' && <CreateButton icon="lucide:plus" label="إنشاء مجموعة" onClick={() => setShowCreateGroup(true)} />}
       </div>
 
@@ -819,6 +951,13 @@ export default function AdminQuizPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={g.status} />
+                      <button
+                        onClick={() => handleExportGroup(g.id, g.title)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition"
+                        title="تصدير Excel"
+                      >
+                        <iconify-icon icon="lucide:download" class="text-sm"></iconify-icon>
+                      </button>
                       <button onClick={() => openEditGroup(g)} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل">
                         <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
                       </button>
@@ -883,6 +1022,10 @@ export default function AdminQuizPage() {
       )}
 
       {/* ─── Modals ─────────────────────────────────────────────────────────── */}
+
+      {showImportModal && (
+        <ImportModal groups={groups} onClose={() => setShowImportModal(false)} onSuccess={handleImportSuccess} />
+      )}
 
       {showCreateGroup && (
         <CreateGroupModal onClose={() => setShowCreateGroup(false)} onSuccess={handleGroupCreated} />
