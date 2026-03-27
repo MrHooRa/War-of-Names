@@ -20,6 +20,7 @@ from app.modules.admin.router import router as admin_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.landing.router import router as landing_router
 from app.modules.announcements.router import router as announcements_router
+from app.modules.owner.router import router as owner_router
 
 
 async def _normalize_enum_values(conn):
@@ -187,6 +188,7 @@ app.include_router(notifications_router)
 app.include_router(admin_router)
 app.include_router(landing_router)
 app.include_router(announcements_router)
+app.include_router(owner_router)
 
 
 # --- Health ---

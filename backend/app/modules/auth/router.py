@@ -139,3 +139,34 @@ async def update_profile(body: UpdateProfileRequest, account: CurrentAccount):
         await session.commit()
 
     return {"success": True, "message": "تم تحديث الملف الشخصي بنجاح"}
+
+
+@router.post("/me/request-deletion", status_code=201)
+async def request_account_deletion(account: CurrentAccount):
+    """Request account deletion — creates an audit event for owner review."""
+    async with async_session() as session:
+        # Check if a pending deletion request already exists
+        from sqlalchemy import select
+        from app.modules.audit.models import AuditEvent
+
+        existing = await session.execute(
+            select(AuditEvent).where(
+                AuditEvent.actor_id == account.id,
+                AuditEvent.event_type == "deletion_requested",
+            ).limit(1)
+        )
+        if existing.scalars().first():
+            raise HTTPException(status_code=400, detail="لديك طلب حذف معلق بالفعل")
+
+        await write_audit(
+            session,
+            actor_id=account.id,
+            actor_type=AuditActorType.PARTICIPANT,
+            subject_type="account",
+            subject_id=account.id,
+            event_type="deletion_requested",
+            summary=f"طلب حذف الحساب: {account.username}",
+        )
+        await session.commit()
+
+    return {"success": True, "message": "تم تقديم طلب حذف الحساب. سيتم مراجعته من قبل الإدارة"}

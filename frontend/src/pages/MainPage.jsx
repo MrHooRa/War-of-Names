@@ -59,7 +59,7 @@ function MinimalHeader({ isAuthenticated, onLogout, username, isAdmin, isOwner }
           <>
             {isOwner && (
               <Link
-                to="/admin"
+                to="/owner"
                 className="flex items-center gap-2 h-12 px-5 rounded-2xl bg-purple-500/15 border border-purple-400/30 text-purple-400 hover:bg-purple-500/25 hover:border-purple-400/50 transition-colors backdrop-blur-md"
                 title="لوحة المالك"
               >

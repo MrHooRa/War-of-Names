@@ -86,3 +86,4 @@ from app.modules.settings.models import SettingDefinition, SettingValue  # noqa:
 from app.modules.media.models import ExportArtifact, ImportJob, MediaAsset  # noqa: E402, F401
 from app.modules.landing.models import LandingLink  # noqa: E402, F401
 from app.modules.announcements.models import Announcement  # noqa: E402, F401
+from app.modules.owner.models import IPBan  # noqa: E402, F401

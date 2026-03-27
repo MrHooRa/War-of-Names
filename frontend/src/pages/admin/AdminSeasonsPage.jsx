@@ -669,6 +669,22 @@ export default function AdminSeasonsPage() {
                         {operatingSeason === season.id ? 'جارٍ الإنهاء...' : 'إنهاء الموسم'}
                       </button>
                     )}
+                    {(season.status === 'completed' || season.status === 'paused') && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm('هل أنت متأكد من أرشفة هذا الموسم؟ سيتم إخفاؤه من الواجهات النشطة.')) return
+                          try {
+                            await apiFetch(`/api/admin/seasons/${season.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'archived' }) })
+                            setResultBanner({ title: 'تم أرشفة الموسم بنجاح' })
+                            refetchSeasons()
+                          } catch (err) { setResultBanner({ title: err.message }) }
+                        }}
+                        className="text-xs font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1"
+                      >
+                        <iconify-icon icon="lucide:archive" class="text-xs"></iconify-icon>
+                        أرشفة
+                      </button>
+                    )}
                     <button
                       onClick={() => { setShowCycleForm(season.id); setNewCycleLabel('') }}
                       className="text-xs font-bold text-brand-teal dark:text-brand-slate hover:bg-brand-teal/10 dark:hover:bg-brand-slate/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1"

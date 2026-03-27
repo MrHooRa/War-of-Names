@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
+import OwnerRoute from './components/OwnerRoute'
 import AppLayout from './components/AppLayout'
 import AdminLayout from './components/AdminLayout'
 import AuthLayout from './components/AuthLayout'
@@ -29,6 +30,9 @@ import PrivacyPage from './pages/PrivacyPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 import { AdminCompetitionProvider } from './context/AdminCompetitionContext'
+
+import OwnerLayout from './pages/owner/OwnerLayout'
+import OwnerDashboardPage from './pages/owner/OwnerDashboardPage'
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminCompetitionPage from './pages/admin/AdminCompetitionPage'
@@ -212,6 +216,11 @@ function GameRoutes() {
         <Route path="ledger" element={<AdminLedgerPage />} />
         <Route path="notifications" element={<AdminNotificationsPage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
+      </Route>
+
+      {/* ── Owner Panel ── */}
+      <Route path="/owner" element={<OwnerRoute><OwnerLayout /></OwnerRoute>}>
+        <Route index element={<OwnerDashboardPage />} />
       </Route>
 
       {/* ── Lobby — standalone dark immersive page ── */}
