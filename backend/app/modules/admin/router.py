@@ -1645,6 +1645,29 @@ async def update_quiz_session(session_id: uuid.UUID, body: UpdateQuizSessionRequ
             before_state=before,
             after_state=after,
         )
+
+        # ── QUIZ_OPENED notification: when status transitions to "open" ──
+        if body.status == "open" and before["status"] != "open":
+            members_result = await session.execute(
+                select(Membership).where(
+                    Membership.competition_id == qs.competition_id,
+                    Membership.status == MembershipStatus.ACTIVE,
+                )
+            )
+            for m in members_result.scalars().all():
+                notif = Notification(
+                    recipient_id=m.account_id,
+                    membership_id=m.id,
+                    notification_type=NotificationType.QUIZ_OPENED,
+                    title="جلسة أسئلة جديدة!",
+                    message=f"تم فتح جلسة أسئلة: {qs.title}",
+                    priority=NotificationPriority.HIGH,
+                    reference_type="quiz_session",
+                    reference_id=qs.id,
+                    deep_link="/quiz",
+                )
+                session.add(notif)
+
         await session.commit()
     return {"success": True, "message": "تم تحديث جلسة الأسئلة"}
 

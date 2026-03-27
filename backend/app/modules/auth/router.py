@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 from app.core.auth import create_access_token, get_current_account, hash_password, verify_password
 from app.core.database import async_session
+from app.core.enums import AuditActorType
+from app.modules.audit.service import write_audit
 from app.modules.auth.models import Account
 from app.modules.auth.schemas import LoginRequest, MeResponse, RegisterRequest, TokenResponse
 from app.modules.auth.service import authenticate, register_account
@@ -94,12 +96,17 @@ async def update_profile(body: UpdateProfileRequest, account: CurrentAccount):
         if not acct:
             raise HTTPException(status_code=404, detail="الحساب غير موجود")
 
+        # Capture before-state for audit
+        before_state = {"real_name": acct.real_name}
+        changes = []
+
         if body.real_name is not None:
             if len(body.real_name.strip()) < 2:
                 raise HTTPException(status_code=400, detail="الاسم الحقيقي يجب أن يكون حرفين على الأقل")
             if re.search(r"<[^>]+>", body.real_name.strip()):
                 raise HTTPException(status_code=400, detail="الاسم لا يمكن أن يحتوي على رموز HTML")
             acct.real_name = body.real_name.strip()
+            changes.append("real_name")
 
         if body.new_password:
             if not body.current_password:
@@ -109,6 +116,22 @@ async def update_profile(body: UpdateProfileRequest, account: CurrentAccount):
             if len(body.new_password) < 6:
                 raise HTTPException(status_code=400, detail="كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل")
             acct.password_hash = hash_password(body.new_password)
+            changes.append("password")
+
+        # Audit trail for profile update
+        if changes:
+            after_state = {"real_name": acct.real_name, "fields_changed": changes}
+            await write_audit(
+                session,
+                actor_id=account.id,
+                actor_type=AuditActorType.PARTICIPANT,
+                subject_type="account",
+                subject_id=account.id,
+                event_type="profile_updated",
+                summary=f"تحديث الملف الشخصي: {', '.join(changes)}",
+                before_state=before_state,
+                after_state=after_state,
+            )
 
         await session.commit()
 

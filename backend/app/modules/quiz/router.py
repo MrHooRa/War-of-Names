@@ -12,6 +12,7 @@ from app.core.auth import get_current_account
 from app.core.database import async_session
 from app.core.enums import (
     AnswerEvalStatus,
+    AuditActorType,
     LedgerDirection,
     LedgerEntryType,
     MembershipStatus,
@@ -20,6 +21,7 @@ from app.core.enums import (
 )
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Competition, Membership
+from app.modules.audit.service import write_audit
 from app.modules.notifications.service import create_notification
 from app.modules.quiz.models import AnswerSubmission, QuizSession, SessionQuestion
 from app.modules.scoring.models import LedgerEntry
@@ -272,6 +274,20 @@ async def submit_answer(
             )
         )
         answered_count = answered_q.scalar()
+
+        # Audit trail for quiz answer submission
+        await write_audit(
+            session,
+            actor_id=account.id,
+            actor_type=AuditActorType.PARTICIPANT,
+            subject_type="quiz_answer",
+            subject_id=submission.id,
+            event_type="quiz_answer_submitted",
+            summary=f"إجابة {'صحيحة' if is_correct else 'خاطئة'} — {points} نقطة",
+            after_state={"is_correct": is_correct, "points": points, "session_id": str(session_id)},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
 
         await session.commit()
 
