@@ -1212,10 +1212,24 @@ function StoreListingsTab({ listings, items, competitionId, refetchListings, fla
                       }`}>
                       {l.status === 'active' ? 'إخفاء' : 'تفعيل'}
                     </button>
-                    <button onClick={() => setDeletingListing(l)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="حذف">
-                      <iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon>
-                    </button>
+                    {l.status !== 'hidden' ? (
+                      <button onClick={() => setDeletingListing(l)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="إخفاء">
+                        <iconify-icon icon="lucide:eye-off" class="text-sm"></iconify-icon>
+                      </button>
+                    ) : (
+                      <button onClick={async () => {
+                        if (!confirm(`حذف نهائي لعرض "${l.item_name}"؟\n\nلا يمكن التراجع عن هذا!`)) return
+                        try {
+                          await apiFetch(`/api/admin/store/listings/${l.listing_id}/permanent`, { method: 'DELETE' })
+                          flashMessage('تم الحذف النهائي')
+                          refetchListings()
+                        } catch (err) { flashMessage(err.message) }
+                      }}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="حذف نهائي">
+                        <iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon>
+                      </button>
+                    )}
                   </div>
                 </div>
 

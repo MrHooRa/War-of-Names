@@ -2361,12 +2361,19 @@ async def permanently_delete_item(item_id: uuid.UUID, admin: AdminAccount):
             )
 
         item_name = item.name
-        # Delete effects, listings, owned items (consumed/expired), then the item itself
-        await session.execute(select(ItemEffect).where(ItemEffect.item_definition_id == item_id))
+        # Delete in FK order: activations → owned_items → listings → effects → item
         from sqlalchemy import delete
-        await session.execute(delete(ItemEffect).where(ItemEffect.item_definition_id == item_id))
-        await session.execute(delete(StoreListing).where(StoreListing.item_definition_id == item_id))
+        from app.modules.store.models import ItemActivation
+        # Get owned item IDs for this item definition
+        owned_ids_result = await session.execute(
+            select(OwnedItem.id).where(OwnedItem.item_definition_id == item_id)
+        )
+        owned_ids = [r[0] for r in owned_ids_result.all()]
+        if owned_ids:
+            await session.execute(delete(ItemActivation).where(ItemActivation.owned_item_id.in_(owned_ids)))
         await session.execute(delete(OwnedItem).where(OwnedItem.item_definition_id == item_id))
+        await session.execute(delete(StoreListing).where(StoreListing.item_definition_id == item_id))
+        await session.execute(delete(ItemEffect).where(ItemEffect.item_definition_id == item_id))
         await session.delete(item)
 
         await write_audit(
@@ -2447,6 +2454,28 @@ async def delete_store_listing(listing_id: uuid.UUID, admin: AdminAccount):
         )
         await session.commit()
     return {"success": True, "message": "تم إخفاء العنصر من المتجر"}
+
+
+@router.delete("/store/listings/{listing_id}/permanent")
+async def permanently_delete_listing(listing_id: uuid.UUID, admin: AdminAccount):
+    """Permanently delete a store listing from the database."""
+    async with async_session() as session:
+        listing = await session.get(StoreListing, listing_id)
+        if not listing:
+            raise HTTPException(status_code=404, detail="العرض غير موجود")
+        if listing.status == ListingStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="لا يمكن حذف عرض نشط — أخفه أولاً")
+
+        from sqlalchemy import delete as sa_delete
+        await write_audit(
+            session, actor_id=admin.id, subject_type="store_listing", subject_id=listing_id,
+            event_type="listing_deleted_permanently",
+            summary=f"حذف نهائي لعرض متجر (السعر: {listing.price})",
+            before_state={"status": listing.status, "price": listing.price},
+        )
+        await session.delete(listing)
+        await session.commit()
+    return {"success": True, "message": "تم حذف العرض نهائياً"}
 
 
 @router.get("/store/ownership")
