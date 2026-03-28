@@ -446,6 +446,9 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
     price: listing?.price ?? '',
     total_stock: listing?.total_stock ?? '',
     max_per_participant: listing?.max_per_participant ?? '',
+    status: listing?.status || 'active',
+    available_from: listing?.available_from || '',
+    available_until: listing?.available_until || '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -504,9 +507,15 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
       if (isEdit) {
         const patch = {}
         if (Number(form.price) !== listing.price) patch.price = Number(form.price)
-        if (form.total_stock !== '' && form.total_stock !== null) {
-          if (Number(form.total_stock) !== listing.total_stock) patch.total_stock = Number(form.total_stock)
+        if (form.total_stock !== '' && form.total_stock !== null && Number(form.total_stock) !== listing.total_stock) {
+          patch.total_stock = Number(form.total_stock)
         }
+        if (form.max_per_participant !== '' && form.max_per_participant !== null) {
+          patch.max_per_participant = Number(form.max_per_participant)
+        }
+        if (form.status !== listing.status) patch.status = form.status
+        if (form.available_from) patch.available_from = new Date(form.available_from).toISOString()
+        if (form.available_until) patch.available_until = new Date(form.available_until).toISOString()
         if (Object.keys(patch).length > 0) {
           await apiFetch(`/api/admin/store/listings/${listing.listing_id}`, { method: 'PATCH', body: JSON.stringify(patch) })
         }
@@ -535,15 +544,13 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
           {error && <div className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
           {bulkProgress && <div className="bg-brand-teal/10 text-brand-teal px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><iconify-icon icon="lucide:loader-2" class="animate-spin text-sm"></iconify-icon>{bulkProgress}</div>}
 
-          {!isEdit && (
-            <JsonEditorToggle
-              mode={mode} onModeChange={setMode}
-              jsonValue={jsonStr} onJsonChange={v => { setJsonStr(v); setJsonError(null) }}
-              template={LISTING_TEMPLATE} templateLabel="قالب عرض"
-              bulkTemplate={LISTING_BULK_TEMPLATE}
-              error={jsonError}
-            />
-          )}
+          <JsonEditorToggle
+            mode={mode} onModeChange={setMode}
+            jsonValue={jsonStr} onJsonChange={v => { setJsonStr(v); setJsonError(null) }}
+            template={LISTING_TEMPLATE} templateLabel="قالب عرض"
+            bulkTemplate={isEdit ? null : LISTING_BULK_TEMPLATE}
+            error={jsonError}
+          />
 
           {mode === 'form' && (
             <>
@@ -574,12 +581,31 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
                   <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">المخزون الكلي</label>
                   <input type="number" min="1" value={form.total_stock} onChange={e => updateField('total_stock', e.target.value)} className={inputClass} placeholder="غير محدود" />
                 </div>
-                {!isEdit && (
-                  <div>
-                    <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد لكل لاعب</label>
-                    <input type="number" min="1" value={form.max_per_participant} onChange={e => updateField('max_per_participant', e.target.value)} className={inputClass} placeholder="غير محدود" />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد لكل لاعب</label>
+                  <input type="number" min="1" value={form.max_per_participant} onChange={e => updateField('max_per_participant', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                </div>
+              </div>
+              {isEdit && (
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحالة</label>
+                  <select value={form.status} onChange={e => updateField('status', e.target.value)} className={inputClass}>
+                    <option value="active">نشط</option>
+                    <option value="hidden">مخفي</option>
+                    <option value="expired">منتهي</option>
+                    <option value="sold_out">نفذ المخزون</option>
+                  </select>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">متاح من</label>
+                  <input type="datetime-local" value={form.available_from} onChange={e => updateField('available_from', e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">متاح حتى</label>
+                  <input type="datetime-local" value={form.available_until} onChange={e => updateField('available_until', e.target.value)} className={inputClass} />
+                </div>
               </div>
             </>
           )}
