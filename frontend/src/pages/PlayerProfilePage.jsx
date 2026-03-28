@@ -203,7 +203,9 @@ export default function PlayerProfilePage() {
           <div className="text-sm font-black mt-2">
             {profile.exposure.max_attacks_reached
               ? <span className="text-purple-500">محمي</span>
-              : <span className="text-emerald-500">مكشوف</span>
+              : profile.exposure.successful_attack_count > 0
+                ? <span className="text-brand-orange">مكشوف</span>
+                : <span className="text-emerald-500">مجهول الهوية</span>
             }
           </div>
         </div>

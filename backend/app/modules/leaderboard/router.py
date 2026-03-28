@@ -34,8 +34,18 @@ async def get_leaderboard(competition_id: uuid.UUID, account: CurrentAccount):
         )
         rows = result.all()
 
+        # Batch-fetch successful attack counts per membership
+        from app.modules.attacks.models import AttackExposure
+        membership_ids = [m.id for m, _ in rows]
+        exposure_result = await session.execute(
+            select(AttackExposure.membership_id, AttackExposure.successful_attack_count)
+            .where(AttackExposure.membership_id.in_(membership_ids))
+        )
+        exposure_map = dict(exposure_result.all())
+
     players = []
     for rank, (membership, acc) in enumerate(rows, start=1):
+        attacks_received = exposure_map.get(membership.id, 0)
         entry = {
             "rank": rank,
             "membership_id": str(membership.id),
@@ -43,6 +53,7 @@ async def get_leaderboard(competition_id: uuid.UUID, account: CurrentAccount):
             "balance": membership.current_balance,
             "protection": membership.protection,
             "is_bankrupt": membership.is_bankrupt,
+            "attacks_received": attacks_received,
         }
         # Game rule: bankrupt players have their real identity exposed
         if membership.is_bankrupt:

@@ -16,7 +16,7 @@ function RankBadge({ rank }) {
   return <div className="w-11 h-11 bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 flex items-center justify-center rounded-xl font-display font-black text-xl">{rank}</div>
 }
 
-function StatusBadge({ protection, is_bankrupt }) {
+function StatusBadge({ protection, is_bankrupt, attacks_received = 0 }) {
   if (is_bankrupt) return (
     <span className="bg-red-50 text-red-500 dark:bg-red-900/10 dark:text-red-400 px-3 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5">
       <iconify-icon icon="lucide:ghost"></iconify-icon> مفلس
@@ -28,13 +28,18 @@ function StatusBadge({ protection, is_bankrupt }) {
     </span>
   )
   if (protection === 'partial') return (
-    <span className="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 px-3 py-1 rounded-md text-[11px] font-bold">
-      محمي جزئياً
+    <span className="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 px-3 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5">
+      <iconify-icon icon="lucide:shield-half"></iconify-icon> محمي جزئياً
+    </span>
+  )
+  if (attacks_received > 0) return (
+    <span className="bg-orange-50 text-brand-orange dark:bg-orange-900/20 dark:text-orange-400 px-3 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5">
+      <iconify-icon icon="lucide:eye"></iconify-icon> مكشوف
     </span>
   )
   return (
-    <span className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 px-3 py-1 rounded-md text-[11px] font-bold flex items-center gap-2">
-      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> نشط
+    <span className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 px-3 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5">
+      <iconify-icon icon="lucide:eye-off"></iconify-icon> مجهول الهوية
     </span>
   )
 }
@@ -98,7 +103,7 @@ function PlayerRow({ player, myMembershipId }) {
 
         {/* Status */}
         <div className="col-span-2 flex justify-center">
-          <StatusBadge protection={player.protection} is_bankrupt={player.is_bankrupt} />
+          <StatusBadge protection={player.protection} is_bankrupt={player.is_bankrupt} attacks_received={player.attacks_received || 0} />
         </div>
 
         {/* Rank number placeholder (no attack count from leaderboard) */}
