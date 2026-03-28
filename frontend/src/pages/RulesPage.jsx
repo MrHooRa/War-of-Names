@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 
 const SECTIONS = [
   {
@@ -166,6 +167,10 @@ export default function RulesPage() {
     <div
       className="flex-1 w-full relative overflow-hidden bg-brand-light-bg dark:bg-[#0a0d14]"
     >
+      <Helmet>
+        <title>قواعد حرب الأسماء — كل ما تحتاج معرفته للعب والفوز</title>
+        <meta name="description" content="تعرف على قواعد حرب الأسماء: نظام الهجوم، الحماية، الإفلاس، المتجر، الأسئلة، والمواسم. دليل اللاعب الشامل." />
+      </Helmet>
       {/* Dark-mode gradient overlay */}
       <div className="hidden dark:block absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, #0a0d14 0%, #111827 50%, #0a0d14 100%)' }}></div>
 

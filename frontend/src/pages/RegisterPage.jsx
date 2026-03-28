@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useAuth from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
 
@@ -44,6 +45,10 @@ export default function RegisterPage() {
 
   return (
     <div className="flex-1 flex flex-col items-center px-4 pb-20">
+      <Helmet>
+        <title>إنشاء حساب — حرب الأسماء</title>
+        <meta name="description" content="أنشئ حسابك في حرب الأسماء وابدأ رحلة المنافسة. التسجيل مجاني." />
+      </Helmet>
       <div className="w-full max-w-lg">
 
         {/* Progress Indicator */}

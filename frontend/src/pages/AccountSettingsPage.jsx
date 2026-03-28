@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { useAuthContext } from '../context/AuthContext'
 import { apiFetch } from '../lib/api'
 
@@ -66,6 +67,7 @@ export default function AccountSettingsPage() {
 
   return (
     <div className="flex-1 w-full max-w-2xl mx-auto px-4 py-8 md:py-14 space-y-6">
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       <div>
         <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">إعدادات الحساب</h1>

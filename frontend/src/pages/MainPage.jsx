@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useAuth from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
 
@@ -439,6 +440,10 @@ export default function MainPage() {
       className="min-h-screen flex flex-col relative"
       style={{ backgroundColor: '#0a0d14', color: '#FFFFFF', overflowX: 'hidden', WebkitFontSmoothing: 'antialiased' }}
     >
+      <Helmet>
+        <title>حرب الأسماء — أقوى لعبة تنافسية عربية</title>
+        <meta name="description" content="اكشف الأقنعة، هاجم الخصوم، واربح النقاط في أقوى منافسة موسمية عربية. انضم الآن!" />
+      </Helmet>
       <ImmersiveBackground centerGlowRef={centerGlowRef} />
       <MinimalHeader
         isAuthenticated={isAuthenticated}

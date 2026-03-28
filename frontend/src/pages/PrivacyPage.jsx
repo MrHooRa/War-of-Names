@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 
 const LAST_UPDATED = '2026-03-27'
 
@@ -253,6 +254,10 @@ const SECTIONS = [
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-brand-light-bg dark:bg-brand-dark-bg bg-pattern-main font-body transition-colors duration-300">
+      <Helmet>
+        <title>سياسة الخصوصية — حرب الأسماء</title>
+        <meta name="description" content="كيف نجمع ونستخدم ونحمي بياناتك. ملتزمون بنظام حماية البيانات الشخصية السعودي (PDPL)." />
+      </Helmet>
 
       {/* Header */}
       <header className="w-full pt-12 pb-6 flex justify-center">
