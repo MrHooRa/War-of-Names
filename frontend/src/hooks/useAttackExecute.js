@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { trackEvent } from '../lib/analytics'
 
 export default function useAttackExecute(competitionId) {
   const navigate = useNavigate()
@@ -25,6 +26,7 @@ export default function useAttackExecute(competitionId) {
         }),
       })
       const result = json.data
+      trackEvent('attack_executed', { outcome: result.outcome })
 
       if (result.outcome === 'succeeded') {
         navigate('/battle/victory', { state: result })
