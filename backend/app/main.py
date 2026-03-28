@@ -88,6 +88,11 @@ async def _apply_schema_patches(conn):
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS is_owner BOOLEAN DEFAULT FALSE"
     ))
 
+    # 007: Add consent_at column to accounts table (PDPL compliance)
+    await conn.execute(text(
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS consent_at TIMESTAMP WITHOUT TIME ZONE"
+    ))
+
     # 003: Add lowercase enum values for ALL PostgreSQL enum types.
     # create_all generates UPPERCASE labels (enum NAMES), but pg_enum() now
     # uses lowercase VALUES. Both must exist so data can be normalized.

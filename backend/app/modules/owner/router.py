@@ -12,7 +12,7 @@ from sqlalchemy import func, or_, select
 
 from app.core.auth import get_current_account, hash_password
 from app.core.database import async_session, check_db_connection
-from app.core.enums import AccountStatus, AuditActorType, CompetitionStatus
+from app.core.enums import AccountStatus, AuditActorType, CompetitionStatus, LedgerDirection
 from app.core.middleware import invalidate_ip_ban_cache
 from app.config import settings
 from app.modules.attacks.models import AttackAttempt
@@ -832,5 +832,66 @@ async def export_user_data(account_id: uuid.UUID, owner: OwnerAccount):
             "quiz_answers": quiz_answers,
             "notifications": notifications,
             "ledger_entries": ledger_entries,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. LEDGER INTEGRITY CHECK
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/ledger-check")
+async def check_ledger_integrity(owner: OwnerAccount):
+    """Verify ledger integrity: sum(credits) - sum(debits) should equal current_balance per player."""
+    async with async_session() as session:
+        # Get all memberships with their current balance
+        memberships_result = await session.execute(
+            select(Membership)
+        )
+        memberships = memberships_result.scalars().all()
+
+        mismatches = []
+        total_checked = 0
+
+        for mem in memberships:
+            total_checked += 1
+
+            # Sum credits
+            credit_result = await session.execute(
+                select(func.coalesce(func.sum(LedgerEntry.amount), 0)).where(
+                    LedgerEntry.membership_id == mem.id,
+                    LedgerEntry.direction == LedgerDirection.CREDIT,
+                )
+            )
+            total_credits = credit_result.scalar()
+
+            # Sum debits
+            debit_result = await session.execute(
+                select(func.coalesce(func.sum(LedgerEntry.amount), 0)).where(
+                    LedgerEntry.membership_id == mem.id,
+                    LedgerEntry.direction == LedgerDirection.DEBIT,
+                )
+            )
+            total_debits = debit_result.scalar()
+
+            expected_balance = total_credits - total_debits
+
+            if expected_balance != mem.current_balance:
+                mismatches.append({
+                    "membership_id": str(mem.id),
+                    "alias": mem.current_alias or "—",
+                    "expected": expected_balance,
+                    "actual": mem.current_balance,
+                    "difference": expected_balance - mem.current_balance,
+                })
+
+    healthy = total_checked - len(mismatches)
+
+    return {
+        "success": True,
+        "data": {
+            "total_checked": total_checked,
+            "healthy": healthy,
+            "mismatches": mismatches,
         },
     }

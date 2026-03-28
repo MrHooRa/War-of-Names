@@ -10,6 +10,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [agreed, setAgreed] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -131,11 +132,29 @@ export default function RegisterPage() {
                 </p>
               )}
 
+              {/* PDPL Consent */}
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="consent"
+                  checked={agreed}
+                  onChange={e => setAgreed(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal"
+                />
+                <label htmlFor="consent" className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  بالتسجيل، أوافق على{' '}
+                  <Link to="/terms" className="text-brand-teal dark:text-brand-slate hover:underline">شروط الاستخدام</Link>
+                  {' '}و{' '}
+                  <Link to="/privacy" className="text-brand-teal dark:text-brand-slate hover:underline">سياسة الخصوصية</Link>
+                  ، وأقرّ بأن الاسم الحقيقي المُدخل يُستخدم كجزء من آلية اللعبة.
+                </label>
+              </div>
+
               {/* Submit Action */}
               <div className="pt-4">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !agreed}
                   className="btn-press w-full bg-brand-teal hover:bg-brand-teal-hover text-white dark:bg-brand-slate dark:hover:bg-brand-slate/80 py-4 rounded-xl font-heading font-black text-lg shadow-lg shadow-brand-teal/20 hover:shadow-md transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                 >
                   {loading ? (

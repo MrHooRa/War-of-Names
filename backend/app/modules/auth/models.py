@@ -24,6 +24,7 @@ class Account(Base):
     is_admin: Mapped[bool] = mapped_column(default=False)
     is_owner: Mapped[bool] = mapped_column(default=False)
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="ar")
+    consent_at: Mapped[datetime | None] = mapped_column()
     last_login_at: Mapped[datetime | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)

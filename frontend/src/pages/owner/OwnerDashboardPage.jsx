@@ -383,6 +383,8 @@ export default function OwnerDashboardPage() {
   const [actionMsg, setActionMsg] = useState(null)
   const [accountSearch, setAccountSearch] = useState('')
   const [showAllAccounts, setShowAllAccounts] = useState(false)
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [ledgerResult, setLedgerResult] = useState(null)
   const [openDropdown, setOpenDropdown] = useState(null)
   const dropdownRef = useRef(null)
 
@@ -517,6 +519,19 @@ export default function OwnerDashboardPage() {
       flash('success', 'تم تحميل النسخة الاحتياطية')
     } catch (err) {
       flash('error', err.message)
+    }
+  }
+
+  async function handleLedgerCheck() {
+    setLedgerLoading(true)
+    setLedgerResult(null)
+    try {
+      const res = await apiFetch('/api/owner/ledger-check')
+      setLedgerResult(res.data)
+    } catch (err) {
+      flash('error', err.message)
+    } finally {
+      setLedgerLoading(false)
     }
   }
 
@@ -956,6 +971,23 @@ export default function OwnerDashboardPage() {
           </div>
         </button>
 
+        <button
+          onClick={handleLedgerCheck}
+          disabled={ledgerLoading}
+          className="flex items-center gap-4 bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-5 shadow-sm hover:shadow-md smooth-transition group hover:-translate-y-0.5 text-right disabled:opacity-50"
+        >
+          <div className="w-12 h-12 bg-brand-success/10 dark:bg-brand-success/20 rounded-xl flex items-center justify-center group-hover:bg-brand-success/20 smooth-transition">
+            {ledgerLoading
+              ? <iconify-icon icon="lucide:loader-2" class="text-2xl text-brand-success animate-spin"></iconify-icon>
+              : <iconify-icon icon="lucide:scale" class="text-2xl text-brand-success"></iconify-icon>
+            }
+          </div>
+          <div>
+            <h3 className="font-heading font-black text-gray-900 dark:text-white">فحص سلامة السجل المالي</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">مطابقة الأرصدة مع حركات السجل</p>
+          </div>
+        </button>
+
         <Link
           to="/admin"
           className="flex items-center gap-4 bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-5 shadow-sm hover:shadow-md smooth-transition group hover:-translate-y-0.5"
@@ -969,6 +1001,63 @@ export default function OwnerDashboardPage() {
           </div>
         </Link>
       </section>
+
+      {/* ═══ 7. Ledger Integrity Results ═══ */}
+      {ledgerResult && (
+        <section className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                ledgerResult.mismatches.length === 0
+                  ? 'bg-brand-success/10 text-brand-success'
+                  : 'bg-brand-danger/10 text-brand-danger'
+              }`}>
+                <iconify-icon icon={ledgerResult.mismatches.length === 0 ? 'lucide:check-circle-2' : 'lucide:alert-triangle'} class="text-xl"></iconify-icon>
+              </div>
+              <div>
+                <h3 className="font-heading font-black text-gray-900 dark:text-white">نتيجة فحص السجل المالي</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  تم فحص {ledgerResult.total_checked} عضوية — {ledgerResult.healthy} سليمة
+                  {ledgerResult.mismatches.length > 0 && ` — ${ledgerResult.mismatches.length} غير متطابقة`}
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setLedgerResult(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 smooth-transition">
+              <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+            </button>
+          </div>
+
+          {ledgerResult.mismatches.length === 0 ? (
+            <div className="flex items-center gap-3 bg-brand-success/5 border border-brand-success/20 rounded-xl p-4">
+              <iconify-icon icon="lucide:shield-check" class="text-2xl text-brand-success"></iconify-icon>
+              <p className="text-sm font-bold text-brand-success">جميع الأرصدة متطابقة مع السجل المالي</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                    <th className={TH_CLS}>الاسم المستعار</th>
+                    <th className={TH_CLS}>الرصيد المتوقع</th>
+                    <th className={TH_CLS}>الرصيد الفعلي</th>
+                    <th className={TH_CLS}>الفرق</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledgerResult.mismatches.map(m => (
+                    <tr key={m.membership_id} className="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                      <td className="px-6 py-3 font-bold text-gray-900 dark:text-white">{m.alias}</td>
+                      <td className="px-6 py-3 text-gray-600 dark:text-gray-400 font-mono" dir="ltr">{m.expected}</td>
+                      <td className="px-6 py-3 text-gray-600 dark:text-gray-400 font-mono" dir="ltr">{m.actual}</td>
+                      <td className="px-6 py-3 font-mono font-bold text-brand-danger" dir="ltr">{m.difference > 0 ? '+' : ''}{m.difference}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ═══ Modals ═══ */}
 

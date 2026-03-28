@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import useNotifications from '../hooks/useNotifications'
 import { timeAgo } from '../lib/dates'
 
@@ -27,7 +28,14 @@ const PRIORITY_STYLES = {
 }
 
 export default function NotificationsPage() {
-  const { notifications, loading, error, unreadCount, markRead, markAllRead } = useNotifications()
+  const { notifications, loading, error, unreadCount, total, hasMore, loadMore, markRead, markAllRead } = useNotifications()
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  async function handleLoadMore() {
+    setLoadingMore(true)
+    await loadMore()
+    setLoadingMore(false)
+  }
 
   if (loading) {
     return (
@@ -114,6 +122,28 @@ export default function NotificationsPage() {
           )
         })}
       </div>
+
+      {/* Pagination info + Load More */}
+      {notifications.length > 0 && (
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <p className="text-sm font-bold text-gray-400 dark:text-gray-500">
+            عرض {notifications.length} من {total} إشعار
+          </p>
+          {hasMore && (
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="flex items-center gap-2 bg-brand-teal/10 dark:bg-brand-slate/10 text-brand-teal dark:text-brand-slate hover:bg-brand-teal/20 dark:hover:bg-brand-slate/20 px-6 py-2.5 rounded-xl font-heading font-black text-sm smooth-transition disabled:opacity-50"
+            >
+              {loadingMore
+                ? <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
+                : <iconify-icon icon="lucide:chevrons-down"></iconify-icon>
+              }
+              تحميل المزيد
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -10,6 +10,18 @@ export default function AccountSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
+  const [deletionRequested, setDeletionRequested] = useState(false)
+
+  async function handleRequestDeletion() {
+    if (!confirm('هل أنت متأكد من طلب حذف حسابك؟ هذا الإجراء لا يمكن التراجع عنه.')) return
+    try {
+      await apiFetch('/api/auth/me/request-deletion', { method: 'POST' })
+      setDeletionRequested(true)
+    } catch (err) {
+      // Already requested or error
+      setDeletionRequested(true)
+    }
+  }
 
   async function handleSaveProfile(e) {
     e.preventDefault()
@@ -170,6 +182,21 @@ export default function AccountSettingsPage() {
           </button>
         </div>
       </form>
+
+      {/* Danger Zone */}
+      <div className="mt-10 border-t border-red-200 dark:border-red-900/30 pt-8">
+        <h2 className="text-lg font-heading font-black text-brand-danger mb-2">منطقة الخطر</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          بمجرد طلب حذف الحساب، سيتم مراجعته من قبل الإدارة. هذا الإجراء لا يمكن التراجع عنه.
+        </p>
+        <button
+          onClick={handleRequestDeletion}
+          disabled={deletionRequested}
+          className="bg-brand-danger/10 text-brand-danger border border-brand-danger/20 hover:bg-brand-danger/20 px-6 py-3 rounded-xl font-bold smooth-transition disabled:opacity-50"
+        >
+          {deletionRequested ? 'تم إرسال طلب الحذف' : 'طلب حذف الحساب'}
+        </button>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 """Account registration and authentication service."""
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +31,7 @@ async def register_account(
         real_name=real_name,
         password_hash=hash_password(password),
         status=AccountStatus.ACTIVE,
+        consent_at=datetime.utcnow(),
     )
     session.add(account)
     await session.flush()  # ensure account.id is available for audit

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app.core.auth import get_current_account
 from app.core.database import async_session
@@ -22,6 +22,8 @@ CurrentAccount = Annotated[Account, Depends(get_current_account)]
 async def list_notifications(
     account: CurrentAccount,
     competition_id: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
 ):
     """List notifications for the current user, newest first.
     When competition_id is provided, returns only notifications for that
@@ -54,7 +56,12 @@ async def list_notifications(
             except ValueError:
                 pass
 
-        query = query.order_by(Notification.created_at.desc()).limit(50)
+        # Count total matching notifications (reuse the same filters from query)
+        count_query = query.with_only_columns(func.count()).order_by(None)
+        total_count = await session.execute(count_query)
+        total = total_count.scalar()
+
+        query = query.order_by(Notification.created_at.desc()).limit(limit).offset(offset)
         result = await session.execute(query)
         rows = result.scalars().all()
 
@@ -70,7 +77,13 @@ async def list_notifications(
             "created_at": n.created_at.isoformat() if n.created_at else None,
         })
 
-    return {"success": True, "data": notifications}
+    return {
+        "success": True,
+        "data": notifications,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.post("/api/me/notifications/{notification_id}/read")
