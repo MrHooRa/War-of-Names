@@ -272,6 +272,15 @@ export default function TermsPage() {
       <Helmet>
         <title>شروط الاستخدام — حرب الأسماء</title>
         <meta name="description" content="شروط وأحكام استخدام منصة حرب الأسماء. تخضع المنصة لأنظمة المملكة العربية السعودية." />
+        <meta property="og:title" content="شروط الاستخدام — حرب الأسماء" />
+        <meta property="og:description" content="شروط وأحكام استخدام منصة حرب الأسماء. تخضع المنصة لأنظمة المملكة العربية السعودية." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="شروط الاستخدام — حرب الأسماء" />
+        <meta name="twitter:description" content="شروط وأحكام استخدام منصة حرب الأسماء" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/terms" />
       </Helmet>
 
       {/* Header */}

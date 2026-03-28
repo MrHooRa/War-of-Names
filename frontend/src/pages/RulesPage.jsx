@@ -170,6 +170,15 @@ export default function RulesPage() {
       <Helmet>
         <title>قواعد حرب الأسماء — كل ما تحتاج معرفته للعب والفوز</title>
         <meta name="description" content="تعرف على قواعد حرب الأسماء: نظام الهجوم، الحماية، الإفلاس، المتجر، الأسئلة، والمواسم. دليل اللاعب الشامل." />
+        <meta property="og:title" content="قواعد حرب الأسماء" />
+        <meta property="og:description" content="تعرف على نظام الهجوم والحماية والإفلاس والمتجر" />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="قواعد حرب الأسماء" />
+        <meta name="twitter:description" content="تعرف على نظام الهجوم والحماية والإفلاس والمتجر" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/rules" />
       </Helmet>
       {/* Dark-mode gradient overlay */}
       <div className="hidden dark:block absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, #0a0d14 0%, #111827 50%, #0a0d14 100%)' }}></div>

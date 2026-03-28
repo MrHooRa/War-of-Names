@@ -48,6 +48,15 @@ export default function RegisterPage() {
       <Helmet>
         <title>إنشاء حساب — حرب الأسماء</title>
         <meta name="description" content="أنشئ حسابك في حرب الأسماء وابدأ رحلة المنافسة. التسجيل مجاني." />
+        <meta property="og:title" content="إنشاء حساب — حرب الأسماء" />
+        <meta property="og:description" content="أنشئ حسابك في حرب الأسماء وابدأ رحلة المنافسة. التسجيل مجاني." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="إنشاء حساب — حرب الأسماء" />
+        <meta name="twitter:description" content="أنشئ حسابك في حرب الأسماء وابدأ رحلة المنافسة" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/register" />
       </Helmet>
       <div className="w-full max-w-lg">
 

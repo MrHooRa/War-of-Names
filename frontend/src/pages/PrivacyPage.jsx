@@ -257,6 +257,15 @@ export default function PrivacyPage() {
       <Helmet>
         <title>سياسة الخصوصية — حرب الأسماء</title>
         <meta name="description" content="كيف نجمع ونستخدم ونحمي بياناتك. ملتزمون بنظام حماية البيانات الشخصية السعودي (PDPL)." />
+        <meta property="og:title" content="سياسة الخصوصية — حرب الأسماء" />
+        <meta property="og:description" content="كيف نجمع ونستخدم ونحمي بياناتك. ملتزمون بنظام حماية البيانات الشخصية السعودي (PDPL)." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="سياسة الخصوصية — حرب الأسماء" />
+        <meta name="twitter:description" content="كيف نجمع ونستخدم ونحمي بياناتك" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/privacy" />
       </Helmet>
 
       {/* Header */}

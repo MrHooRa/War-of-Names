@@ -41,6 +41,15 @@ export default function LoginPage() {
       <Helmet>
         <title>تسجيل الدخول — حرب الأسماء</title>
         <meta name="description" content="سجّل دخولك إلى حرب الأسماء وانضم لساحة المعركة." />
+        <meta property="og:title" content="تسجيل الدخول — حرب الأسماء" />
+        <meta property="og:description" content="سجّل دخولك إلى حرب الأسماء وانضم لساحة المعركة." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="تسجيل الدخول — حرب الأسماء" />
+        <meta name="twitter:description" content="سجّل دخولك إلى حرب الأسماء وانضم لساحة المعركة" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/login" />
       </Helmet>
       <div className="w-full max-w-lg">
 
