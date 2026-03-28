@@ -2,6 +2,7 @@ import { useState } from 'react'
 import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+import JsonEditorToggle, { parseJsonInput } from '../../components/admin/JsonEditorToggle'
 
 function StatusBadge({ status }) {
   const colors = {
@@ -167,6 +168,22 @@ function CreateGroupModal({ onClose, onSuccess }) {
   )
 }
 
+// ─── Question JSON Templates ─────────────────────────────────────────────────
+const QUESTION_TEMPLATE = {
+  prompt: "نص السؤال",
+  question_type: "multiple_choice | true_false",
+  options: { choices: ["الخيار 1", "الخيار 2", "الخيار 3", "الخيار 4"], correct: "الخيار 1" },
+  correct_answer: { answer: "الخيار 1" },
+  score_value: 10,
+  difficulty: "easy | medium | hard",
+  category: "فئة السؤال (اختياري)"
+}
+
+const QUESTION_BULK_TEMPLATE = [
+  { prompt: "ما عاصمة السعودية؟", question_type: "multiple_choice", options: { choices: ["الرياض", "جدة", "مكة", "الدمام"], correct: "الرياض" }, correct_answer: { answer: "الرياض" }, score_value: 10, difficulty: "easy" },
+  { prompt: "هل القمر يضيء بنفسه؟", question_type: "true_false", options: { choices: ["صح", "خطأ"], correct: "خطأ" }, correct_answer: { answer: "خطأ" }, score_value: 5, difficulty: "easy" },
+]
+
 // ─── Create / Edit Question Modal ─────────────────────────────────────────────
 function QuestionModal({ question, groups, onClose, onSuccess }) {
   const isEdit = !!question
@@ -182,6 +199,10 @@ function QuestionModal({ question, groups, onClose, onSuccess }) {
   const [difficulty, setDifficulty] = useState(question?.difficulty || 'easy')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [mode, setMode] = useState('form')
+  const [jsonStr, setJsonStr] = useState('')
+  const [jsonError, setJsonError] = useState(null)
+  const [bulkProgress, setBulkProgress] = useState(null)
 
   const isTrueFalse = questionType === 'true_false'
   const trueFalseChoices = ['صح', 'خطأ']
@@ -201,6 +222,36 @@ function QuestionModal({ question, groups, onClose, onSuccess }) {
   }
 
   async function handleSubmit() {
+    if (mode === 'json') {
+      setJsonError(null)
+      const { items, error: parseErr } = parseJsonInput(jsonStr)
+      if (parseErr) { setJsonError(parseErr); return }
+      if (!groupId) { setError('اختر مجموعة الأسئلة'); return }
+
+      setSubmitting(true); setError(null)
+      let created = 0; let failed = 0; let lastErr = null
+      try {
+        for (let i = 0; i < items.length; i++) {
+          setBulkProgress(`جارٍ الإنشاء ${i + 1} من ${items.length}...`)
+          try {
+            await apiFetch('/api/admin/questions', {
+              method: 'POST',
+              body: JSON.stringify({ ...items[i], group_id: groupId }),
+            })
+            created++
+          } catch (err) { failed++; lastErr = err.message }
+        }
+        setBulkProgress(null)
+        if (failed > 0) {
+          setError(`تم إنشاء ${created} سؤال، فشل ${failed}. آخر خطأ: ${lastErr}`)
+          if (created > 0) setTimeout(() => onSuccess(`تم إنشاء ${created} سؤال`), 1500)
+        } else {
+          onSuccess(`تم إنشاء ${created} سؤال بنجاح`)
+        }
+      } catch (err) { setError(err.message) } finally { setSubmitting(false); setBulkProgress(null) }
+      return
+    }
+
     if (!prompt.trim()) { setError('نص السؤال مطلوب'); return }
     if (!correctAnswer.trim()) { setError('الإجابة الصحيحة مطلوبة'); return }
 
@@ -246,6 +297,7 @@ function QuestionModal({ question, groups, onClose, onSuccess }) {
         {isEdit ? 'تعديل السؤال' : 'إنشاء سؤال جديد'}
       </ModalTitle>
       {error && <div className="bg-brand-danger/10 text-brand-danger px-3 py-2 rounded-xl text-sm font-bold">{error}</div>}
+      {bulkProgress && <div className="bg-brand-teal/10 text-brand-teal px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><iconify-icon icon="lucide:loader-2" class="animate-spin text-sm"></iconify-icon>{bulkProgress}</div>}
 
       {!isEdit && (
         <div>
@@ -257,110 +309,124 @@ function QuestionModal({ question, groups, onClose, onSuccess }) {
         </div>
       )}
 
-      {/* Question Type */}
-      <div>
-        <FieldLabel>نوع السؤال</FieldLabel>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => handleTypeChange('multiple_choice')}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold smooth-transition border ${
-              !isTrueFalse
-                ? 'bg-brand-teal/10 text-brand-teal border-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate dark:border-brand-slate'
-                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-          >
-            <iconify-icon icon="lucide:list" class="text-sm"></iconify-icon>
-            اختيار من متعدد
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTypeChange('true_false')}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold smooth-transition border ${
-              isTrueFalse
-                ? 'bg-brand-teal/10 text-brand-teal border-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate dark:border-brand-slate'
-                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-          >
-            <iconify-icon icon="lucide:check-circle" class="text-sm"></iconify-icon>
-            صح / خطأ
-          </button>
-        </div>
-      </div>
+      {!isEdit && (
+        <JsonEditorToggle
+          mode={mode} onModeChange={setMode}
+          jsonValue={jsonStr} onJsonChange={v => { setJsonStr(v); setJsonError(null) }}
+          template={QUESTION_TEMPLATE} templateLabel="قالب سؤال"
+          bulkTemplate={QUESTION_BULK_TEMPLATE}
+          error={jsonError}
+        />
+      )}
 
-      <div>
-        <FieldLabel>نص السؤال *</FieldLabel>
-        <TextInput value={prompt} onChange={setPrompt} placeholder="اكتب نص السؤال هنا" />
-      </div>
-
-      {/* Choices — dynamic based on type */}
-      {isTrueFalse ? (
-        <div>
-          <FieldLabel>الإجابة الصحيحة *</FieldLabel>
-          <div className="flex gap-3">
-            {trueFalseChoices.map(c => (
+      {mode === 'form' && (
+        <>
+          {/* Question Type */}
+          <div>
+            <FieldLabel>نوع السؤال</FieldLabel>
+            <div className="flex gap-2">
               <button
-                key={c}
                 type="button"
-                onClick={() => setCorrectAnswer(c)}
-                className={`flex-1 py-3 rounded-xl text-sm font-black smooth-transition border-2 ${
-                  correctAnswer === c
-                    ? c === 'صح'
-                      ? 'bg-brand-success/10 text-brand-success border-brand-success'
-                      : 'bg-brand-danger/10 text-brand-danger border-brand-danger'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100'
+                onClick={() => handleTypeChange('multiple_choice')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold smooth-transition border ${
+                  !isTrueFalse
+                    ? 'bg-brand-teal/10 text-brand-teal border-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate dark:border-brand-slate'
+                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
-                <iconify-icon icon={c === 'صح' ? 'lucide:check' : 'lucide:x'} class="text-lg ml-1"></iconify-icon>
-                {c}
+                <iconify-icon icon="lucide:list" class="text-sm"></iconify-icon>
+                اختيار من متعدد
               </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div>
-            <FieldLabel>الخيارات (4 حقول) *</FieldLabel>
-            <div className="space-y-2">
-              {choices.map((c, i) => (
-                <TextInput
-                  key={i}
-                  value={c}
-                  onChange={v => updateChoice(i, v)}
-                  placeholder={`الخيار ${i + 1}`}
-                />
-              ))}
+              <button
+                type="button"
+                onClick={() => handleTypeChange('true_false')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold smooth-transition border ${
+                  isTrueFalse
+                    ? 'bg-brand-teal/10 text-brand-teal border-brand-teal dark:bg-brand-slate/10 dark:text-brand-slate dark:border-brand-slate'
+                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <iconify-icon icon="lucide:check-circle" class="text-sm"></iconify-icon>
+                صح / خطأ
+              </button>
             </div>
           </div>
 
           <div>
-            <FieldLabel>الإجابة الصحيحة *</FieldLabel>
-            <SelectInput value={correctAnswer} onChange={setCorrectAnswer}>
-              <option value="">-- اختر الإجابة الصحيحة --</option>
-              {choices.filter(c => c.trim()).map((c, i) => (
-                <option key={i} value={c.trim()}>{c.trim()}</option>
-              ))}
-            </SelectInput>
+            <FieldLabel>نص السؤال *</FieldLabel>
+            <TextInput value={prompt} onChange={setPrompt} placeholder="اكتب نص السؤال هنا" />
+          </div>
+
+          {/* Choices — dynamic based on type */}
+          {isTrueFalse ? (
+            <div>
+              <FieldLabel>الإجابة الصحيحة *</FieldLabel>
+              <div className="flex gap-3">
+                {trueFalseChoices.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCorrectAnswer(c)}
+                    className={`flex-1 py-3 rounded-xl text-sm font-black smooth-transition border-2 ${
+                      correctAnswer === c
+                        ? c === 'صح'
+                          ? 'bg-brand-success/10 text-brand-success border-brand-success'
+                          : 'bg-brand-danger/10 text-brand-danger border-brand-danger'
+                        : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <iconify-icon icon={c === 'صح' ? 'lucide:check' : 'lucide:x'} class="text-lg ml-1"></iconify-icon>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <FieldLabel>الخيارات (4 حقول) *</FieldLabel>
+                <div className="space-y-2">
+                  {choices.map((c, i) => (
+                    <TextInput
+                      key={i}
+                      value={c}
+                      onChange={v => updateChoice(i, v)}
+                      placeholder={`الخيار ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <FieldLabel>الإجابة الصحيحة *</FieldLabel>
+                <SelectInput value={correctAnswer} onChange={setCorrectAnswer}>
+                  <option value="">-- اختر الإجابة الصحيحة --</option>
+                  {choices.filter(c => c.trim()).map((c, i) => (
+                    <option key={i} value={c.trim()}>{c.trim()}</option>
+                  ))}
+                </SelectInput>
+              </div>
+            </>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <FieldLabel>النقاط</FieldLabel>
+              <TextInput type="number" value={scoreValue} onChange={v => setScoreValue(v)} placeholder="10" min="1" />
+            </div>
+            <div>
+              <FieldLabel>الصعوبة</FieldLabel>
+              <SelectInput value={difficulty} onChange={setDifficulty}>
+                <option value="easy">سهل</option>
+                <option value="medium">متوسط</option>
+                <option value="hard">صعب</option>
+              </SelectInput>
+            </div>
           </div>
         </>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <FieldLabel>النقاط</FieldLabel>
-          <TextInput type="number" value={scoreValue} onChange={v => setScoreValue(v)} placeholder="10" min="1" />
-        </div>
-        <div>
-          <FieldLabel>الصعوبة</FieldLabel>
-          <SelectInput value={difficulty} onChange={setDifficulty}>
-            <option value="easy">سهل</option>
-            <option value="medium">متوسط</option>
-            <option value="hard">صعب</option>
-          </SelectInput>
-        </div>
-      </div>
-
-      <ModalActions onCancel={onClose} onSubmit={handleSubmit} submitLabel={isEdit ? 'حفظ التعديلات' : 'إنشاء السؤال'} submitting={submitting} />
+      <ModalActions onCancel={onClose} onSubmit={handleSubmit} submitLabel={isEdit ? 'حفظ التعديلات' : mode === 'json' ? 'إنشاء من JSON' : 'إنشاء السؤال'} submitting={submitting} />
     </ModalOverlay>
   )
 }

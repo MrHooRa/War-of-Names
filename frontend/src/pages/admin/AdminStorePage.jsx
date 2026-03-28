@@ -5,6 +5,7 @@ import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
 import { RARITY_ADMIN, RARITY_LABELS, RARITY_DOT_COLORS, RARITY_OPTIONS } from '../../config/rarity'
 import { formatDate } from '../../lib/dates'
+import JsonEditorToggle, { parseJsonInput } from '../../components/admin/JsonEditorToggle'
 
 /* ────────── Constants ────────── */
 
@@ -97,6 +98,29 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, loading }) {
   )
 }
 
+/* ────────── Item JSON Templates ────────── */
+const ITEM_TEMPLATE = {
+  name: "اسم العنصر",
+  description: "وصف العنصر",
+  rarity: "common | rare | epic | legendary | mythic",
+  category: "weapon | defense | special",
+  usage_type: "consumable | non_consumable | time_limited | persistent",
+  max_uses: null,
+  effects: [
+    {
+      effect_type: "ratio_modifier | fixed_bonus | loss_reduction | action_prevention | allow_alias_change",
+      parameters: { "modifier": 0.2 },
+      description: "وصف التأثير",
+      duration_minutes: null
+    }
+  ]
+}
+
+const ITEM_BULK_TEMPLATE = [
+  { name: "درع الحماية", description: "يقلل خسائر الهجوم", rarity: "rare", category: "defense", usage_type: "consumable", effects: [{ effect_type: "loss_reduction", parameters: { reduction: 50 }, description: "تقليل الخسارة 50%" }] },
+  { name: "سيف الغضب", description: "يزيد مكافأة الهجوم", rarity: "epic", category: "weapon", usage_type: "consumable", effects: [{ effect_type: "ratio_modifier", parameters: { modifier: 1.5 }, description: "مضاعفة المكافأة 1.5x" }] },
+]
+
 /* ────────── Item Definition Form Modal ────────── */
 function ItemFormModal({ item, onClose, onSaved }) {
   const isEdit = !!item
@@ -107,11 +131,42 @@ function ItemFormModal({ item, onClose, onSaved }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [mode, setMode] = useState('form')
+  const [jsonStr, setJsonStr] = useState('')
+  const [jsonError, setJsonError] = useState(null)
+  const [bulkProgress, setBulkProgress] = useState(null)
 
   function updateField(field, value) { setForm(f => ({ ...f, [field]: value })) }
 
   async function handleSubmit(e) {
     e.preventDefault()
+
+    if (mode === 'json') {
+      setJsonError(null)
+      const { items, error: parseErr } = parseJsonInput(jsonStr)
+      if (parseErr) { setJsonError(parseErr); return }
+
+      setSaving(true); setError(null)
+      let created = 0; let failed = 0; let lastErr = null
+      try {
+        for (let i = 0; i < items.length; i++) {
+          setBulkProgress(`جارٍ الإنشاء ${i + 1} من ${items.length}...`)
+          try {
+            await apiFetch('/api/admin/store/items', { method: 'POST', body: JSON.stringify(items[i]) })
+            created++
+          } catch (err) { failed++; lastErr = err.message }
+        }
+        setBulkProgress(null)
+        if (failed > 0) {
+          setError(`تم إنشاء ${created} عنصر، فشل ${failed}. آخر خطأ: ${lastErr}`)
+          if (created > 0) setTimeout(() => onSaved(), 1500)
+        } else {
+          onSaved()
+        }
+      } catch (err) { setError(err.message) } finally { setSaving(false); setBulkProgress(null) }
+      return
+    }
+
     if (!form.name.trim()) { setError('اسم العنصر مطلوب'); return }
     setSaving(true); setError(null)
     const body = { ...form }
@@ -149,41 +204,57 @@ function ItemFormModal({ item, onClose, onSaved }) {
         </div>
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
           {error && <div className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
-          <div>
-            <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">اسم العنصر *</label>
-            <input type="text" value={form.name} onChange={e => updateField('name', e.target.value)} className={inputClass} placeholder="مثال: درع الحماية" />
-          </div>
-          <div>
-            <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الوصف</label>
-            <textarea value={form.description} onChange={e => updateField('description', e.target.value)} rows={3} className={inputClass + ' resize-none'} placeholder="وصف مختصر للعنصر..." />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الندرة</label>
-              <select value={form.rarity} onChange={e => updateField('rarity', e.target.value)} className={inputClass}>
-                {RARITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الفئة</label>
-              <select value={form.category} onChange={e => updateField('category', e.target.value)} className={inputClass}>
-                {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-          </div>
+          {bulkProgress && <div className="bg-brand-teal/10 text-brand-teal px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><iconify-icon icon="lucide:loader-2" class="animate-spin text-sm"></iconify-icon>{bulkProgress}</div>}
+
           {!isEdit && (
-            <div className="grid grid-cols-2 gap-3">
+            <JsonEditorToggle
+              mode={mode} onModeChange={setMode}
+              jsonValue={jsonStr} onJsonChange={v => { setJsonStr(v); setJsonError(null) }}
+              template={ITEM_TEMPLATE} templateLabel="قالب عنصر"
+              bulkTemplate={ITEM_BULK_TEMPLATE}
+              error={jsonError}
+            />
+          )}
+
+          {mode === 'form' && (
+            <>
               <div>
-                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع الاستخدام</label>
-                <select value={form.usage_type} onChange={e => updateField('usage_type', e.target.value)} className={inputClass}>
-                  {USAGE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">اسم العنصر *</label>
+                <input type="text" value={form.name} onChange={e => updateField('name', e.target.value)} className={inputClass} placeholder="مثال: درع الحماية" />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد الأقصى للاستخدام</label>
-                <input type="number" min="1" value={form.max_uses} onChange={e => updateField('max_uses', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الوصف</label>
+                <textarea value={form.description} onChange={e => updateField('description', e.target.value)} rows={3} className={inputClass + ' resize-none'} placeholder="وصف مختصر للعنصر..." />
               </div>
-            </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الندرة</label>
+                  <select value={form.rarity} onChange={e => updateField('rarity', e.target.value)} className={inputClass}>
+                    {RARITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الفئة</label>
+                  <select value={form.category} onChange={e => updateField('category', e.target.value)} className={inputClass}>
+                    {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              {!isEdit && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع الاستخدام</label>
+                    <select value={form.usage_type} onChange={e => updateField('usage_type', e.target.value)} className={inputClass}>
+                      {USAGE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد الأقصى للاستخدام</label>
+                    <input type="number" min="1" value={form.max_uses} onChange={e => updateField('max_uses', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
@@ -191,7 +262,7 @@ function ItemFormModal({ item, onClose, onSaved }) {
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-bold hover:bg-brand-teal-hover smooth-transition disabled:opacity-50">
             {saving ? <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
               : <iconify-icon icon={isEdit ? 'lucide:check' : 'lucide:plus'} class="text-sm"></iconify-icon>}
-            {isEdit ? 'حفظ التغييرات' : 'إنشاء العنصر'}
+            {isEdit ? 'حفظ التغييرات' : mode === 'json' ? 'إنشاء من JSON' : 'إنشاء العنصر'}
           </button>
           <button type="button" onClick={onClose} disabled={saving}
             className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition disabled:opacity-50">
@@ -202,6 +273,19 @@ function ItemFormModal({ item, onClose, onSaved }) {
     </ModalBackdrop>
   )
 }
+
+/* ────────── Listing JSON Templates ────────── */
+const LISTING_TEMPLATE = {
+  item_name: "اسم العنصر (يجب أن يكون موجوداً)",
+  price: 100,
+  max_per_participant: 2,
+  total_stock: null
+}
+
+const LISTING_BULK_TEMPLATE = [
+  { item_name: "درع الحماية", price: 50, max_per_participant: 3, total_stock: null },
+  { item_name: "سيف الغضب", price: 120, max_per_participant: 1, total_stock: 10 },
+]
 
 /* ────────── Listing Form Modal (Create + Edit) ────────── */
 function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
@@ -214,11 +298,53 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [mode, setMode] = useState('form')
+  const [jsonStr, setJsonStr] = useState('')
+  const [jsonError, setJsonError] = useState(null)
+  const [bulkProgress, setBulkProgress] = useState(null)
 
   function updateField(field, value) { setForm(f => ({ ...f, [field]: value })) }
 
+  function resolveItemId(itemName) {
+    const found = items?.find(i => i.name === itemName)
+    return found ? found.id : null
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
+
+    if (mode === 'json') {
+      setJsonError(null)
+      const { items: parsed, error: parseErr } = parseJsonInput(jsonStr)
+      if (parseErr) { setJsonError(parseErr); return }
+
+      setSaving(true); setError(null)
+      let created = 0; let failed = 0; let lastErr = null
+      try {
+        for (let i = 0; i < parsed.length; i++) {
+          setBulkProgress(`جارٍ الإنشاء ${i + 1} من ${parsed.length}...`)
+          try {
+            const entry = parsed[i]
+            const itemId = entry.item_definition_id || resolveItemId(entry.item_name)
+            if (!itemId) throw new Error(`العنصر "${entry.item_name || '؟'}" غير موجود`)
+            const body = { item_definition_id: itemId, competition_id: competitionId, price: Number(entry.price) }
+            if (entry.total_stock != null) body.total_stock = Number(entry.total_stock)
+            if (entry.max_per_participant != null) body.max_per_participant = Number(entry.max_per_participant)
+            await apiFetch('/api/admin/store/listings', { method: 'POST', body: JSON.stringify(body) })
+            created++
+          } catch (err) { failed++; lastErr = err.message }
+        }
+        setBulkProgress(null)
+        if (failed > 0) {
+          setError(`تم إنشاء ${created} عرض، فشل ${failed}. آخر خطأ: ${lastErr}`)
+          if (created > 0) setTimeout(() => onSaved(), 1500)
+        } else {
+          onSaved()
+        }
+      } catch (err) { setError(err.message) } finally { setSaving(false); setBulkProgress(null) }
+      return
+    }
+
     if (!isEdit && !form.item_definition_id) { setError('يجب اختيار عنصر'); return }
     if (!form.price || Number(form.price) <= 0) { setError('السعر مطلوب'); return }
     setSaving(true); setError(null)
@@ -256,47 +382,63 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
         </div>
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
           {error && <div className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
+          {bulkProgress && <div className="bg-brand-teal/10 text-brand-teal px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><iconify-icon icon="lucide:loader-2" class="animate-spin text-sm"></iconify-icon>{bulkProgress}</div>}
+
           {!isEdit && (
-            <div>
-              <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">العنصر *</label>
-              <select value={form.item_definition_id} onChange={e => updateField('item_definition_id', e.target.value)} className={inputClass}>
-                <option value="" disabled>اختر عنصراً...</option>
-                {items?.map(item => (
-                  <option key={item.id} value={item.id}>{item.name} ({RARITY_LABELS[item.rarity] || item.rarity})</option>
-                ))}
-              </select>
-            </div>
+            <JsonEditorToggle
+              mode={mode} onModeChange={setMode}
+              jsonValue={jsonStr} onJsonChange={v => { setJsonStr(v); setJsonError(null) }}
+              template={LISTING_TEMPLATE} templateLabel="قالب عرض"
+              bulkTemplate={LISTING_BULK_TEMPLATE}
+              error={jsonError}
+            />
           )}
-          {isEdit && (
-            <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: RARITY_DOT_COLORS[listing.item_rarity] }} />
-              <span className="font-bold text-gray-900 dark:text-white">{listing.item_name}</span>
-              <StatusBadge status={listing.item_rarity} map={RARITY_LABELS} />
-            </div>
-          )}
-          <div>
-            <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">السعر (نقاط) *</label>
-            <input type="number" min="1" value={form.price} onChange={e => updateField('price', e.target.value)} className={inputClass} placeholder="مثال: 100" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">المخزون الكلي</label>
-              <input type="number" min="1" value={form.total_stock} onChange={e => updateField('total_stock', e.target.value)} className={inputClass} placeholder="غير محدود" />
-            </div>
-            {!isEdit && (
+
+          {mode === 'form' && (
+            <>
+              {!isEdit && (
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">العنصر *</label>
+                  <select value={form.item_definition_id} onChange={e => updateField('item_definition_id', e.target.value)} className={inputClass}>
+                    <option value="" disabled>اختر عنصراً...</option>
+                    {items?.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} ({RARITY_LABELS[item.rarity] || item.rarity})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {isEdit && (
+                <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: RARITY_DOT_COLORS[listing.item_rarity] }} />
+                  <span className="font-bold text-gray-900 dark:text-white">{listing.item_name}</span>
+                  <StatusBadge status={listing.item_rarity} map={RARITY_LABELS} />
+                </div>
+              )}
               <div>
-                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد لكل لاعب</label>
-                <input type="number" min="1" value={form.max_per_participant} onChange={e => updateField('max_per_participant', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">السعر (نقاط) *</label>
+                <input type="number" min="1" value={form.price} onChange={e => updateField('price', e.target.value)} className={inputClass} placeholder="مثال: 100" />
               </div>
-            )}
-          </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">المخزون الكلي</label>
+                  <input type="number" min="1" value={form.total_stock} onChange={e => updateField('total_stock', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                </div>
+                {!isEdit && (
+                  <div>
+                    <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد لكل لاعب</label>
+                    <input type="number" min="1" value={form.max_per_participant} onChange={e => updateField('max_per_participant', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <button type="submit" disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-bold hover:bg-brand-teal-hover smooth-transition disabled:opacity-50">
             {saving ? <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
               : <iconify-icon icon={isEdit ? 'lucide:check' : 'lucide:plus'} class="text-sm"></iconify-icon>}
-            {isEdit ? 'حفظ التغييرات' : 'إنشاء العرض'}
+            {isEdit ? 'حفظ التغييرات' : mode === 'json' ? 'إنشاء من JSON' : 'إنشاء العرض'}
           </button>
           <button type="button" onClick={onClose} disabled={saving}
             className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition disabled:opacity-50">
