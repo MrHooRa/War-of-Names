@@ -1368,7 +1368,49 @@ export default function AdminStorePage() {
     { key: 'catalog', label: 'كتالوج العناصر', icon: 'lucide:box', count: totalItems },
     { key: 'listings', label: 'عروض المتجر', icon: 'lucide:store', count: activeListings },
     { key: 'ownership', label: 'ملكية اللاعبين', icon: 'lucide:users', count: itemsInCirculation },
+    { key: 'json', label: 'عرض JSON', icon: 'lucide:code-2' },
   ]
+
+  // Build full store config JSON for inspector
+  const fullStoreJson = React.useMemo(() => {
+    if (!itemDefs?.length) return null
+    return {
+      _تعليمات: "هذا العرض للقراءة فقط — استخدم الأزرار أعلاه للتصدير أو الاستيراد",
+      items: (itemDefs || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        rarity: item.rarity,
+        category: item.category,
+        usage_type: item.usage_type,
+        status: item.status,
+        max_uses: item.max_uses,
+        is_stackable: item.is_stackable,
+        expires_after_minutes: item.expires_after_minutes,
+        visibility: item.visibility,
+        effects_count: item.effect_count || 0,
+        listings_count: item.listing_count || 0,
+        effects: item.effects || [],
+      })),
+      listings: (listings || []).map(l => ({
+        listing_id: l.listing_id,
+        item_name: l.item_name,
+        item_rarity: l.item_rarity,
+        price: l.price,
+        status: l.status,
+        max_per_participant: l.max_per_participant,
+        total_stock: l.total_stock,
+        sold_count: l.sold_count,
+        remaining_stock: l.remaining_stock,
+      })),
+      summary: {
+        total_items: totalItems,
+        active_items: activeItems,
+        active_listings: activeListings,
+        items_in_circulation: itemsInCirculation,
+      },
+    }
+  }, [itemDefs, listings, totalItems, activeItems, activeListings, itemsInCirculation])
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -1428,6 +1470,52 @@ export default function AdminStorePage() {
 
       {tab === 'ownership' && (
         <OwnershipTab ownership={ownership} loading={loadingOwnership} />
+      )}
+
+      {tab === 'json' && fullStoreJson && (
+        <div className="space-y-4">
+          {/* Actions */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                const blob = new Blob([JSON.stringify(fullStoreJson, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url; a.download = `store_config_${selected?.name || 'export'}.json`; a.click()
+                URL.revokeObjectURL(url)
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/20 dark:text-brand-slate text-sm font-bold hover:bg-brand-teal/20 smooth-transition"
+            >
+              <iconify-icon icon="lucide:download" class="text-sm"></iconify-icon>
+              تصدير JSON
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(fullStoreJson, null, 2))
+                setActionMsg('تم نسخ JSON إلى الحافظة')
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition"
+            >
+              <iconify-icon icon="lucide:copy" class="text-sm"></iconify-icon>
+              نسخ
+            </button>
+            <span className="text-xs text-gray-400 mr-auto">
+              {fullStoreJson.items.length} عنصر • {fullStoreJson.listings.length} عرض
+            </span>
+          </div>
+
+          {/* JSON Inspector */}
+          <div className="bg-gray-950 rounded-2xl border border-gray-800 overflow-hidden">
+            <pre
+              dir="ltr"
+              className="text-xs font-mono text-green-400 p-6 overflow-auto max-h-[70vh] leading-relaxed select-all"
+            >{JSON.stringify(fullStoreJson, null, 2)}</pre>
+          </div>
+
+          <p className="text-[10px] text-gray-500 text-center">
+            هذا العرض للقراءة فقط — لتعديل عنصر محدد اضغط على "كتالوج العناصر" ثم اختر العنصر
+          </p>
+        </div>
       )}
     </div>
   )
