@@ -1373,10 +1373,10 @@ export default function AdminStorePage() {
 
   // Build full store config JSON for inspector
   const fullStoreJson = React.useMemo(() => {
-    if (!itemDefs?.length) return null
+    if (!items?.length) return null
     return {
       _تعليمات: "هذا العرض للقراءة فقط — استخدم الأزرار أعلاه للتصدير أو الاستيراد",
-      items: (itemDefs || []).map(item => ({
+      items: (items || []).map(item => ({
         id: item.id,
         name: item.name,
         description: item.description,
@@ -1410,7 +1410,7 @@ export default function AdminStorePage() {
         items_in_circulation: itemsInCirculation,
       },
     }
-  }, [itemDefs, listings, totalItems, activeItems, activeListings, itemsInCirculation])
+  }, [items, listings, totalItems, activeItems, activeListings, itemsInCirculation])
 
   return (
     <div className="space-y-6 max-w-7xl">
