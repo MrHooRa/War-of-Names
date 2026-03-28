@@ -250,6 +250,32 @@ async def submit_answer(
         if existing.scalars().first():
             raise HTTPException(status_code=400, detail="لقد أجبت على هذا السؤال مسبقاً")
 
+        # Anti-cheat: reject suspiciously fast submissions (bot detection)
+        answered_count_check = await session.execute(
+            select(func.count())
+            .select_from(AnswerSubmission)
+            .where(
+                AnswerSubmission.membership_id == membership.id,
+                AnswerSubmission.session_id == session_id,
+            )
+        )
+        if (answered_count_check.scalar() or 0) > 0:
+            last_answer_result = await session.execute(
+                select(AnswerSubmission.created_at)
+                .where(
+                    AnswerSubmission.membership_id == membership.id,
+                    AnswerSubmission.session_id == session_id,
+                )
+                .order_by(AnswerSubmission.created_at.desc())
+                .limit(1)
+            )
+            last_answer_time = last_answer_result.scalar()
+            if last_answer_time and (now - last_answer_time).total_seconds() < 1:
+                raise HTTPException(
+                    status_code=429,
+                    detail="إجابة سريعة جداً — انتظر قليلاً",
+                )
+
         # Evaluate answer
         correct_answer = sq.effective_options_snapshot.get("correct", "")
         is_correct = body.answer.strip() == str(correct_answer).strip()

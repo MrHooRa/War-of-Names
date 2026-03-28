@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -194,6 +194,19 @@ app.include_router(admin_router)
 app.include_router(landing_router)
 app.include_router(announcements_router)
 app.include_router(owner_router)
+
+
+# --- Global Exception Handler ---
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    if settings.debug:
+        raise exc
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "message": "حدث خطأ في الخادم", "detail": None},
+    )
 
 
 # --- Health ---

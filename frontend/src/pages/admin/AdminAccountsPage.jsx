@@ -132,7 +132,7 @@ export default function AdminAccountsPage() {
       {/* Accounts table */}
       <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
                 <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">المستخدم</th>
