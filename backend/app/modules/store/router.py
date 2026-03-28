@@ -169,7 +169,11 @@ async def list_store(competition_id: uuid.UUID, account: CurrentAccount):
             "effects": effect_summaries,
         })
 
-    return {"success": True, "data": listings}
+    return {
+        "success": True,
+        "data": listings,
+        "player_balance": membership.current_balance,
+    }
 
 
 # ── Purchase (already competition-scoped via path param) ──────────────────
@@ -232,6 +236,37 @@ async def buy_item(
             raise HTTPException(status_code=400, detail="هذا العنصر لم يتوفر بعد للشراء")
         if listing.available_until and now > listing.available_until:
             raise HTTPException(status_code=400, detail="انتهت فترة توفر هذا العنصر")
+
+        # Check eligibility rules
+        rules = listing.eligibility_rules or {}
+        if rules.get("min_balance") and membership.current_balance < rules["min_balance"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"يجب أن يكون رصيدك {rules['min_balance']} نقطة على الأقل لشراء هذا العنصر",
+            )
+        if rules.get("excluded_bankrupt", True) and membership.is_bankrupt:
+            raise HTTPException(status_code=400, detail="لا يمكنك الشراء أثناء حالة الإفلاس")
+
+        # Check purchase cooldown
+        cooldown_minutes = await get_setting(
+            session, "store_purchase_cooldown_minutes",
+            competition_id=competition_id,
+        ) or 0
+        if cooldown_minutes and cooldown_minutes > 0:
+            from datetime import timedelta
+            cooldown_cutoff = now - timedelta(minutes=int(cooldown_minutes))
+            recent_purchase = await session.execute(
+                select(OwnedItem).where(
+                    OwnedItem.membership_id == membership.id,
+                    OwnedItem.source_type == "purchase",
+                    OwnedItem.acquired_at >= cooldown_cutoff,
+                ).limit(1)
+            )
+            if recent_purchase.scalars().first():
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"يجب الانتظار {cooldown_minutes} دقيقة بين عمليات الشراء",
+                )
 
         # Check stock
         if listing.total_stock is not None and listing.sold_count >= listing.total_stock:

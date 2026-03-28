@@ -14,6 +14,20 @@
 
 import { RARITY_CONFIG, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_GLOW } from '../config/rarity'
 
+function timeRemaining(isoString) {
+  if (!isoString) return null
+  const s = String(isoString)
+  const d = new Date(s.match(/Z$|[+-]\d{2}:\d{2}$/) ? s : s + 'Z')
+  const diff = d.getTime() - Date.now()
+  if (diff <= 0) return 'منتهي'
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 60) return `${minutes} دقيقة`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} ساعة`
+  const days = Math.floor(hours / 24)
+  return `${days} يوم`
+}
+
 function ItemCTA({ item, onUse, using }) {
   // Activated — pulsing green badge
   if (item.status === 'activated') {
@@ -112,6 +126,18 @@ export default function InventoryItemCard({ item, onUse, using, compact }) {
         )}
         {!item.effects?.length && <div className="mb-3"></div>}
 
+        {/* Expiry countdown */}
+        {item.expires_at && (() => {
+          const remaining = timeRemaining(item.expires_at)
+          const isExpired = remaining === 'منتهي'
+          return (
+            <div className={`flex items-center gap-1.5 mb-2 ${isExpired ? 'text-brand-danger' : 'text-amber-500 dark:text-amber-400'}`}>
+              <iconify-icon icon={isExpired ? 'lucide:timer-off' : 'lucide:clock'} class="text-[11px] flex-shrink-0"></iconify-icon>
+              <span className="text-[10px] font-bold">{isExpired ? remaining : `ينتهي خلال ${remaining}`}</span>
+            </div>
+          )
+        })()}
+
         {/* CTA */}
         <div className="mt-auto">
           <ItemCTA item={item} onUse={onUse} using={using} />
@@ -166,6 +192,20 @@ export default function InventoryItemCard({ item, onUse, using, compact }) {
           ))}
         </div>
       )}
+
+      {/* Expiry countdown */}
+      {item.expires_at && (() => {
+        const remaining = timeRemaining(item.expires_at)
+        const isExpired = remaining === 'منتهي'
+        return (
+          <div className={`mt-2.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${isExpired ? 'bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800' : 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30'}`}>
+            <iconify-icon icon={isExpired ? 'lucide:timer-off' : 'lucide:clock'} class={`text-xs flex-shrink-0 ${isExpired ? 'text-brand-danger' : 'text-amber-500'}`}></iconify-icon>
+            <span className={`text-[10px] font-bold ${isExpired ? 'text-brand-danger' : 'text-amber-600 dark:text-amber-400'}`}>
+              {isExpired ? remaining : `ينتهي خلال ${remaining}`}
+            </span>
+          </div>
+        )
+      })()}
 
       {/* CTA */}
       <div className="mt-3">

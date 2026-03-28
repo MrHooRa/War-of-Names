@@ -7,7 +7,9 @@ import { apiFetch } from '../lib/api'
 import InventoryItemCard from '../components/InventoryItemCard'
 import { RARITY_CONFIG, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_GLOW } from '../config/rarity'
 
-function StoreItem({ listing, onBuy, buying }) {
+const RARITY_ORDER = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 }
+
+function StoreItem({ listing, onBuy, buying, playerBalance }) {
   const rarity = RARITY_CONFIG[listing.rarity] || RARITY_CONFIG.common
   const icon = CATEGORY_ICONS[listing.category] || 'lucide:package'
   const iconColor = CATEGORY_COLORS[listing.category] || 'text-gray-500'
@@ -15,6 +17,7 @@ function StoreItem({ listing, onBuy, buying }) {
   const isMythic = listing.rarity === 'mythic'
   const isLegendary = listing.rarity === 'legendary'
   const outOfStock = listing.stock_remaining !== null && listing.stock_remaining <= 0
+  const cantAfford = playerBalance !== null && listing.price > playerBalance
 
   return (
     <div className={`group bg-white dark:bg-brand-card-dark border ${rarity.border} ${rarity.ring} ${rarity.glow} rounded-2xl hover:shadow-md dark:hover:shadow-black/20 smooth-transition flex flex-col min-h-[360px] p-5 ${isMythic ? 'sm:col-span-2 xl:col-span-3 xl:w-4/5 xl:mx-auto relative overflow-hidden' : 'relative overflow-hidden'}`}>
@@ -78,20 +81,31 @@ function StoreItem({ listing, onBuy, buying }) {
       {/* Buy CTA */}
       <button
         onClick={() => onBuy(listing.listing_id)}
-        disabled={buying || outOfStock}
+        disabled={buying || outOfStock || cantAfford}
         className={`btn-press ${isMythic
-          ? 'w-full md:w-2/3 mx-auto bg-gradient-to-r from-red-600 to-amber-500 text-white font-heading font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 hover:from-red-700 hover:to-amber-600 smooth-transition mt-8 shadow-lg shadow-red-500/20 relative z-10'
-          : 'w-full bg-brand-teal text-white dark:bg-brand-slate dark:text-white font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-teal-hover dark:hover:bg-brand-slate/80 smooth-transition mt-4'
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+          ? 'w-full md:w-2/3 mx-auto font-heading font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 smooth-transition mt-8 relative z-10'
+          : 'w-full font-heading font-bold py-3 rounded-xl flex items-center justify-center gap-2 smooth-transition mt-4'
+        } ${cantAfford && !outOfStock
+          ? 'bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-400/40 text-amber-600 dark:text-amber-400 cursor-not-allowed opacity-80'
+          : outOfStock
+            ? (isMythic
+              ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed'
+              : 'bg-brand-teal text-white dark:bg-brand-slate dark:text-white disabled:opacity-50 disabled:cursor-not-allowed')
+            : (isMythic
+              ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white hover:from-red-700 hover:to-amber-600 shadow-lg shadow-red-500/20'
+              : 'bg-brand-teal text-white dark:bg-brand-slate dark:text-white hover:bg-brand-teal-hover dark:hover:bg-brand-slate/80')
+        } disabled:cursor-not-allowed`}
       >
         {buying ? (
           <iconify-icon icon="lucide:loader-2" class="text-lg animate-spin"></iconify-icon>
         ) : outOfStock ? (
           <iconify-icon icon="lucide:x-circle" class={isMythic ? 'text-2xl' : 'text-lg'}></iconify-icon>
+        ) : cantAfford ? (
+          <iconify-icon icon="lucide:wallet" class={isMythic ? 'text-2xl' : 'text-lg'}></iconify-icon>
         ) : (
           <iconify-icon icon="lucide:shopping-cart" class={isMythic ? 'text-2xl' : 'text-lg'}></iconify-icon>
         )}
-        {outOfStock ? 'نفذت الكمية' : `${listing.price.toLocaleString('ar-SA')} نقطة`}
+        {outOfStock ? 'نفذت الكمية' : cantAfford ? 'رصيد غير كافٍ' : `${listing.price.toLocaleString('ar-SA')} نقطة`}
       </button>
     </div>
   )
@@ -100,11 +114,12 @@ function StoreItem({ listing, onBuy, buying }) {
 
 export default function StorePage() {
   const { competitionId } = useCompetitionContext()
-  const { listings, loading, error } = useStore(competitionId)
+  const { listings, playerBalance, loading, error } = useStore(competitionId)
   const { items: inventoryItems, maxCapacity, loading: invLoading, refetch: refetchInventory } = useInventory()
   const { buying, error: buyError, buyItem } = useBuyItem(competitionId)
   const [toast, setToast] = useState(null)
   const [category, setCategory] = useState('all')
+  const [sortBy, setSortBy] = useState('default')
   const [usingItem, setUsingItem] = useState(false)
 
   useEffect(() => {
@@ -140,9 +155,17 @@ export default function StorePage() {
     }
   }
 
-  const filtered = category === 'all'
+  const categoryFiltered = category === 'all'
     ? listings
     : listings.filter(l => l.category === category)
+
+  const filtered = [...categoryFiltered].sort((a, b) => {
+    if (sortBy === 'price_asc') return a.price - b.price
+    if (sortBy === 'price_desc') return b.price - a.price
+    if (sortBy === 'rarity_desc') return (RARITY_ORDER[b.rarity] || 0) - (RARITY_ORDER[a.rarity] || 0)
+    if (sortBy === 'rarity_asc') return (RARITY_ORDER[a.rarity] || 0) - (RARITY_ORDER[b.rarity] || 0)
+    return 0
+  })
 
   const categories = [
     { key: 'all', label: 'الكل' },
@@ -170,7 +193,7 @@ export default function StorePage() {
         {/* Left Side: Tabs & Items */}
         <div className="lg:col-span-3 space-y-6">
           {/* Tabs */}
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <nav className="flex bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 p-1.5 rounded-xl w-full md:w-auto overflow-x-auto no-scrollbar shadow-sm">
               {categories.map(c => {
                 const count = c.key === 'all' ? listings.length : listings.filter(l => l.category === c.key).length
@@ -189,6 +212,19 @@ export default function StorePage() {
                 )
               })}
             </nav>
+            <div className="flex items-center gap-3">
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 font-heading font-bold text-sm text-gray-700 dark:text-gray-300 shadow-sm smooth-transition focus:outline-none focus:ring-2 focus:ring-brand-teal/30 dark:focus:ring-brand-slate/30 cursor-pointer"
+              >
+                <option value="default">الترتيب الافتراضي</option>
+                <option value="price_asc">السعر: من الأقل</option>
+                <option value="price_desc">السعر: من الأعلى</option>
+                <option value="rarity_desc">الندرة: من الأعلى</option>
+                <option value="rarity_asc">الندرة: من الأقل</option>
+              </select>
+            </div>
           </div>
 
           {/* Items Grid */}
@@ -208,6 +244,7 @@ export default function StorePage() {
                   listing={listing}
                   onBuy={handleBuy}
                   buying={buying}
+                  playerBalance={playerBalance}
                 />
               ))
             )}
