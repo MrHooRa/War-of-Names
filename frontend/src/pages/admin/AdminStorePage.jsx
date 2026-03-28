@@ -100,25 +100,108 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, loading }) {
 
 /* ────────── Item JSON Templates ────────── */
 const ITEM_TEMPLATE = {
-  name: "اسم العنصر",
+  "_تعليمات": "احذف هذا الحقل قبل الإرسال — هذا دليل الحقول المتاحة",
+  name: "اسم العنصر (مطلوب)",
   description: "وصف العنصر",
-  rarity: "common | rare | epic | legendary | mythic",
-  category: "weapon | defense | special",
-  usage_type: "consumable | non_consumable | time_limited | persistent",
+  rarity: "common",
+  "_الندرة_المتاحة": "common | rare | epic | legendary | mythic",
+  category: "weapon",
+  "_الفئات_المتاحة": "weapon | defense | special",
+  usage_type: "consumable",
+  "_أنواع_الاستخدام": "consumable (يُستهلك) | non_consumable (دائم) | time_limited (مؤقت) | persistent (مستمر)",
   max_uses: null,
+  is_stackable: false,
+  expires_after_minutes: null,
+  visibility: "visible",
+  "_الظهور": "visible | hidden",
   effects: [
     {
-      effect_type: "ratio_modifier | fixed_bonus | loss_reduction | action_prevention | allow_alias_change",
-      parameters: { "modifier": 0.2 },
+      effect_type: "ratio_modifier",
+      "_أنواع_التأثير": "ratio_modifier (تعديل نسبة) | fixed_bonus (مكافأة ثابتة) | loss_reduction (تقليل خسارة) | action_prevention (منع فعل) | state_change (تغيير حالة) | grant_item (منح عنصر) | grant_box (منح صندوق) | allow_alias_change (تغيير اللقب) | negative_effect (تأثير سلبي) | time_limited_effect (تأثير مؤقت) | cycle_effect (تأثير دوري) | season_effect (تأثير موسمي)",
+      parameters: { modifier: 1.5 },
+      "_أمثلة_المعاملات": {
+        "ratio_modifier": { "modifier": 1.5, "_شرح": "مضاعف المكافأة — 1.5 = 150%" },
+        "fixed_bonus": { "bonus": 200, "_شرح": "نقاط إضافية ثابتة" },
+        "loss_reduction": { "reduction": 50, "_شرح": "تقليل الخسارة بنسبة %" },
+        "action_prevention": { "action": "attack", "_شرح": "منع: attack | purchase | quiz" },
+        "negative_effect": { "points_deducted": 100, "_شرح": "خصم نقاط من الهدف" },
+        "allow_alias_change": {},
+        "state_change": { "protection": "full", "_شرح": "تغيير: protection (none|partial|full)" }
+      },
       description: "وصف التأثير",
-      duration_minutes: null
+      target_scope: "self",
+      "_نطاق_الهدف": "self (على المستخدم) | target (على الهدف) | all (على الجميع)",
+      trigger_on: "activation",
+      "_وقت_التفعيل": "activation (عند الاستخدام) | next_attack (الهجوم القادم) | next_defense (الدفاع القادم) | on_hit (عند التعرض لهجوم)",
+      duration_minutes: null,
+      is_stackable: false,
+      order_index: 0
     }
   ]
 }
 
 const ITEM_BULK_TEMPLATE = [
-  { name: "درع الحماية", description: "يقلل خسائر الهجوم", rarity: "rare", category: "defense", usage_type: "consumable", effects: [{ effect_type: "loss_reduction", parameters: { reduction: 50 }, description: "تقليل الخسارة 50%" }] },
-  { name: "سيف الغضب", description: "يزيد مكافأة الهجوم", rarity: "epic", category: "weapon", usage_type: "consumable", effects: [{ effect_type: "ratio_modifier", parameters: { modifier: 1.5 }, description: "مضاعفة المكافأة 1.5x" }] },
+  {
+    name: "درع الحماية",
+    description: "يقلل خسائر الهجمات القادمة بنسبة 50%",
+    rarity: "rare",
+    category: "defense",
+    usage_type: "consumable",
+    max_uses: 1,
+    effects: [{
+      effect_type: "loss_reduction",
+      parameters: { reduction: 50 },
+      description: "تقليل الخسارة 50%",
+      target_scope: "self",
+      trigger_on: "next_defense",
+      duration_minutes: 1440
+    }]
+  },
+  {
+    name: "سيف الغضب",
+    description: "يضاعف مكافأة الهجوم الناجح القادم بـ 1.5x",
+    rarity: "epic",
+    category: "weapon",
+    usage_type: "consumable",
+    max_uses: 1,
+    effects: [{
+      effect_type: "ratio_modifier",
+      parameters: { modifier: 1.5 },
+      description: "مضاعفة المكافأة 1.5x",
+      target_scope: "self",
+      trigger_on: "next_attack"
+    }]
+  },
+  {
+    name: "قنبلة النقاط",
+    description: "يخصم 100 نقطة من الهدف عند الاستخدام",
+    rarity: "legendary",
+    category: "weapon",
+    usage_type: "consumable",
+    max_uses: 1,
+    effects: [{
+      effect_type: "negative_effect",
+      parameters: { points_deducted: 100 },
+      description: "خصم 100 نقطة من الهدف",
+      target_scope: "target",
+      trigger_on: "activation"
+    }]
+  },
+  {
+    name: "تغيير اللقب",
+    description: "يمنحك القدرة على تغيير لقبك المستعار مرة واحدة",
+    rarity: "rare",
+    category: "special",
+    usage_type: "consumable",
+    max_uses: 1,
+    effects: [{
+      effect_type: "allow_alias_change",
+      parameters: {},
+      description: "السماح بتغيير اللقب",
+      target_scope: "self",
+      trigger_on: "activation"
+    }]
+  }
 ]
 
 /* ────────── Item Definition Form Modal ────────── */
@@ -276,15 +359,24 @@ function ItemFormModal({ item, onClose, onSaved }) {
 
 /* ────────── Listing JSON Templates ────────── */
 const LISTING_TEMPLATE = {
-  item_name: "اسم العنصر (يجب أن يكون موجوداً)",
+  item_name: "اسم العنصر (يجب أن يكون موجوداً في قائمة العناصر)",
   price: 100,
   max_per_participant: 2,
-  total_stock: null
+  "_شرح_الحد": "الحد الأقصى لشراء كل لاعب — null = بلا حد",
+  total_stock: null,
+  "_شرح_المخزون": "المخزون الكلي — null = لا نهائي",
+  status: "active",
+  "_الحالات": "active | hidden | expired | sold_out",
+  available_from: null,
+  available_until: null,
+  "_شرح_التوقيت": "ISO تاريخ — null = متاح دائماً مثال: 2026-04-01T00:00:00"
 }
 
 const LISTING_BULK_TEMPLATE = [
   { item_name: "درع الحماية", price: 50, max_per_participant: 3, total_stock: null },
   { item_name: "سيف الغضب", price: 120, max_per_participant: 1, total_stock: 10 },
+  { item_name: "قنبلة النقاط", price: 200, max_per_participant: 1, total_stock: 5, status: "active" },
+  { item_name: "تغيير اللقب", price: 300, max_per_participant: 1, total_stock: null },
 ]
 
 /* ────────── Listing Form Modal (Create + Edit) ────────── */

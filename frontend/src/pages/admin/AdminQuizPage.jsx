@@ -170,18 +170,62 @@ function CreateGroupModal({ onClose, onSuccess }) {
 
 // ─── Question JSON Templates ─────────────────────────────────────────────────
 const QUESTION_TEMPLATE = {
-  prompt: "نص السؤال",
-  question_type: "multiple_choice | true_false",
-  options: { choices: ["الخيار 1", "الخيار 2", "الخيار 3", "الخيار 4"], correct: "الخيار 1" },
+  "_تعليمات": "احذف الحقول التي تبدأ بـ _ قبل الإرسال",
+  prompt: "نص السؤال (مطلوب)",
+  question_type: "multiple_choice",
+  "_أنواع_السؤال": "multiple_choice (اختيار متعدد — 4 خيارات) | true_false (صح/خطأ — خياران)",
+  options: {
+    choices: ["الخيار 1", "الخيار 2", "الخيار 3", "الخيار 4"],
+    correct: "الخيار 1",
+    "_ملاحظة": "correct يجب أن يكون أحد الخيارات بالضبط"
+  },
   correct_answer: { answer: "الخيار 1" },
   score_value: 10,
-  difficulty: "easy | medium | hard",
-  category: "فئة السؤال (اختياري)"
+  "_النقاط": "يجب أن تكون أكبر من 0",
+  difficulty: "medium",
+  "_الصعوبة": "easy (سهل) | medium (متوسط) | hard (صعب)",
+  category: "اسم الفئة (اختياري — مثال: جغرافيا، تاريخ، علوم)",
+  display_order: 0,
+  "_ترتيب_العرض": "رقم لتحديد ترتيب ظهور السؤال — 0 = تلقائي"
 }
 
 const QUESTION_BULK_TEMPLATE = [
-  { prompt: "ما عاصمة السعودية؟", question_type: "multiple_choice", options: { choices: ["الرياض", "جدة", "مكة", "الدمام"], correct: "الرياض" }, correct_answer: { answer: "الرياض" }, score_value: 10, difficulty: "easy" },
-  { prompt: "هل القمر يضيء بنفسه؟", question_type: "true_false", options: { choices: ["صح", "خطأ"], correct: "خطأ" }, correct_answer: { answer: "خطأ" }, score_value: 5, difficulty: "easy" },
+  {
+    prompt: "ما عاصمة المملكة العربية السعودية؟",
+    question_type: "multiple_choice",
+    options: { choices: ["الرياض", "جدة", "مكة المكرمة", "الدمام"], correct: "الرياض" },
+    correct_answer: { answer: "الرياض" },
+    score_value: 10,
+    difficulty: "easy",
+    category: "جغرافيا"
+  },
+  {
+    prompt: "هل القمر يضيء بنفسه؟",
+    question_type: "true_false",
+    options: { choices: ["صح", "خطأ"], correct: "خطأ" },
+    correct_answer: { answer: "خطأ" },
+    score_value: 5,
+    difficulty: "easy",
+    category: "علوم"
+  },
+  {
+    prompt: "من هو مؤسس المملكة العربية السعودية؟",
+    question_type: "multiple_choice",
+    options: { choices: ["الملك عبدالعزيز", "الملك سعود", "الملك فيصل", "الملك فهد"], correct: "الملك عبدالعزيز" },
+    correct_answer: { answer: "الملك عبدالعزيز" },
+    score_value: 15,
+    difficulty: "medium",
+    category: "تاريخ"
+  },
+  {
+    prompt: "كم عدد أحرف اللغة العربية؟",
+    question_type: "multiple_choice",
+    options: { choices: ["26", "28", "30", "32"], correct: "28" },
+    correct_answer: { answer: "28" },
+    score_value: 10,
+    difficulty: "hard",
+    category: "لغة"
+  }
 ]
 
 // ─── Create / Edit Question Modal ─────────────────────────────────────────────
