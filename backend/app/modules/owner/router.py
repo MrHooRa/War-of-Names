@@ -5,14 +5,14 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from sqlalchemy import func, select
+from pydantic import BaseModel, Field
+from sqlalchemy import func, or_, select
 
-from app.core.auth import get_current_account
+from app.core.auth import get_current_account, hash_password
 from app.core.database import async_session, check_db_connection
-from app.core.enums import AuditActorType, CompetitionStatus
+from app.core.enums import AccountStatus, AuditActorType, CompetitionStatus
 from app.core.middleware import invalidate_ip_ban_cache
 from app.config import settings
 from app.modules.attacks.models import AttackAttempt
@@ -86,6 +86,18 @@ async def owner_dashboard(owner: OwnerAccount):
     from app.core.scheduler import scheduler
     scheduler_running = scheduler.running if scheduler else False
 
+    # Scheduler jobs summary
+    scheduler_jobs = []
+    if scheduler and scheduler.running:
+        for job in scheduler.get_jobs():
+            next_run = job.next_run_time
+            scheduler_jobs.append({
+                "id": job.id,
+                "name": job.name or job.id,
+                "next_run_time": next_run.isoformat() if next_run else None,
+                "trigger": str(job.trigger),
+            })
+
     return {
         "success": True,
         "data": {
@@ -98,6 +110,7 @@ async def owner_dashboard(owner: OwnerAccount):
             "system": {
                 "db_connected": db_connected,
                 "scheduler_running": scheduler_running,
+                "scheduler_jobs": scheduler_jobs,
             },
             "recent_admin_actions": recent_events,
         },
@@ -198,8 +211,366 @@ async def demote_admin(account_id: uuid.UUID, owner: OwnerAccount):
     return {"success": True, "message": f"تم إزالة صلاحيات المشرف من {account.username}"}
 
 
+# ── List ALL accounts (for admin management with search) ─────────────────
+
+@router.get("/accounts")
+async def list_all_accounts(
+    owner: OwnerAccount,
+    search: str = Query(default="", description="Search by username or real_name"),
+):
+    """List all accounts (admins and non-admins) with optional search filter."""
+    async with async_session() as session:
+        query = select(Account).order_by(Account.created_at)
+        if search.strip():
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Account.username.ilike(pattern),
+                    Account.real_name.ilike(pattern),
+                )
+            )
+        result = await session.execute(query)
+        accounts = result.scalars().all()
+
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": str(a.id),
+                "username": a.username,
+                "real_name": a.real_name,
+                "is_admin": a.is_admin,
+                "is_owner": a.is_owner,
+                "status": a.status.value if hasattr(a.status, "value") else a.status,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in accounts
+        ],
+    }
+
+
+# ── Create admin account directly ────────────────────────────────────────
+
+class CreateAdminBody(BaseModel):
+    username: str = Field(..., min_length=2, max_length=50)
+    real_name: str = Field(..., min_length=2, max_length=100)
+    password: str = Field(..., min_length=6, max_length=128)
+    is_admin: bool = True
+
+
+@router.post("/admins/create", status_code=201)
+async def create_admin_account(body: CreateAdminBody, owner: OwnerAccount):
+    """Create a new admin account directly (owner-only)."""
+    async with async_session() as session:
+        # Check for duplicate username
+        existing = await session.execute(
+            select(Account).where(Account.username == body.username)
+        )
+        if existing.scalars().first():
+            raise HTTPException(status_code=400, detail="اسم المستخدم مستخدم بالفعل")
+
+        account = Account(
+            id=uuid.uuid4(),
+            username=body.username,
+            real_name=body.real_name,
+            password_hash=hash_password(body.password),
+            status=AccountStatus.ACTIVE,
+            is_admin=body.is_admin,
+        )
+        session.add(account)
+        await session.flush()
+
+        await write_audit(
+            session,
+            actor_id=owner.id,
+            actor_type=AuditActorType.ADMIN,
+            subject_type="account",
+            subject_id=account.id,
+            event_type="admin_account_created",
+            summary=f"إنشاء حساب مشرف جديد: {body.username}",
+            after_state={
+                "username": body.username,
+                "real_name": body.real_name,
+                "is_admin": body.is_admin,
+            },
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "message": f"تم إنشاء حساب المشرف: {body.username}",
+        "data": {"id": str(account.id), "username": account.username},
+    }
+
+
+# ── Reset admin password ─────────────────────────────────────────────────
+
+class ResetPasswordBody(BaseModel):
+    new_password: str = Field(..., min_length=6, max_length=128)
+
+
+@router.patch("/admins/{account_id}/reset-password")
+async def reset_admin_password(account_id: uuid.UUID, body: ResetPasswordBody, owner: OwnerAccount):
+    """Reset the password of any account (owner-only)."""
+    async with async_session() as session:
+        account = await session.get(Account, account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="الحساب غير موجود")
+        if account.is_owner and account.id != owner.id:
+            raise HTTPException(status_code=400, detail="لا يمكن إعادة تعيين كلمة مرور مالك آخر")
+
+        account.password_hash = hash_password(body.new_password)
+
+        await write_audit(
+            session,
+            actor_id=owner.id,
+            actor_type=AuditActorType.ADMIN,
+            subject_type="account",
+            subject_id=account.id,
+            event_type="password_reset_by_owner",
+            summary=f"إعادة تعيين كلمة مرور الحساب: {account.username}",
+        )
+        await session.commit()
+
+    return {"success": True, "message": f"تم إعادة تعيين كلمة مرور: {account.username}"}
+
+
+# ── Update admin details ─────────────────────────────────────────────────
+
+class UpdateAdminBody(BaseModel):
+    real_name: str | None = None
+    username: str | None = None
+    is_admin: bool | None = None
+    status: str | None = None
+
+
+@router.patch("/admins/{account_id}/update")
+async def update_admin_details(account_id: uuid.UUID, body: UpdateAdminBody, owner: OwnerAccount):
+    """Update account details (owner-only)."""
+    async with async_session() as session:
+        account = await session.get(Account, account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="الحساب غير موجود")
+        if account.is_owner and account.id != owner.id:
+            raise HTTPException(status_code=400, detail="لا يمكن تعديل حساب مالك آخر")
+
+        before = {
+            "username": account.username,
+            "real_name": account.real_name,
+            "is_admin": account.is_admin,
+            "status": account.status.value if hasattr(account.status, "value") else account.status,
+        }
+
+        if body.username is not None and body.username != account.username:
+            # Check uniqueness
+            dup = await session.execute(
+                select(Account).where(Account.username == body.username, Account.id != account_id)
+            )
+            if dup.scalars().first():
+                raise HTTPException(status_code=400, detail="اسم المستخدم مستخدم بالفعل")
+            account.username = body.username
+
+        if body.real_name is not None:
+            account.real_name = body.real_name
+
+        if body.is_admin is not None:
+            if account.is_owner:
+                raise HTTPException(status_code=400, detail="لا يمكن تغيير صلاحيات المالك")
+            account.is_admin = body.is_admin
+
+        if body.status is not None:
+            try:
+                account.status = AccountStatus(body.status)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"حالة غير صالحة: {body.status}")
+
+        after = {
+            "username": account.username,
+            "real_name": account.real_name,
+            "is_admin": account.is_admin,
+            "status": account.status.value if hasattr(account.status, "value") else account.status,
+        }
+
+        await write_audit(
+            session,
+            actor_id=owner.id,
+            actor_type=AuditActorType.ADMIN,
+            subject_type="account",
+            subject_id=account.id,
+            event_type="account_updated_by_owner",
+            summary=f"تعديل بيانات الحساب: {account.username}",
+            before_state=before,
+            after_state=after,
+        )
+        await session.commit()
+
+    return {"success": True, "message": f"تم تحديث بيانات الحساب: {account.username}"}
+
+
+# ── Disable (deactivate) admin account ───────────────────────────────────
+
+@router.delete("/admins/{account_id}/remove")
+async def remove_admin_account(account_id: uuid.UUID, owner: OwnerAccount):
+    """Deactivate an admin account (set status=disabled)."""
+    async with async_session() as session:
+        account = await session.get(Account, account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="الحساب غير موجود")
+        if account.id == owner.id:
+            raise HTTPException(status_code=400, detail="لا يمكنك تعطيل حسابك بنفسك")
+        if account.is_owner:
+            raise HTTPException(status_code=400, detail="لا يمكن تعطيل حساب مالك")
+
+        before = {
+            "status": account.status.value if hasattr(account.status, "value") else account.status,
+            "is_admin": account.is_admin,
+        }
+        account.status = AccountStatus.DISABLED
+        account.is_admin = False
+        after = {
+            "status": account.status.value,
+            "is_admin": account.is_admin,
+        }
+
+        await write_audit(
+            session,
+            actor_id=owner.id,
+            actor_type=AuditActorType.ADMIN,
+            subject_type="account",
+            subject_id=account.id,
+            event_type="account_disabled_by_owner",
+            summary=f"تعطيل الحساب: {account.username}",
+            before_state=before,
+            after_state=after,
+        )
+        await session.commit()
+
+    return {"success": True, "message": f"تم تعطيل الحساب: {account.username}"}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
-# 3. IP BANS
+# 3. DELETION REQUESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/deletion-requests")
+async def list_deletion_requests(owner: OwnerAccount):
+    """List pending account deletion requests from audit events."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "deletion_requested")
+            .order_by(AuditEvent.created_at.desc())
+        )
+        events = result.scalars().all()
+
+        # Enrich with account info
+        requests_data = []
+        for e in events:
+            account = await session.get(Account, e.actor_id) if e.actor_id else None
+            requests_data.append({
+                "id": str(e.id),
+                "account_id": str(e.actor_id) if e.actor_id else None,
+                "username": account.username if account else "—",
+                "real_name": account.real_name if account else "—",
+                "account_status": (
+                    account.status.value if account and hasattr(account.status, "value") else
+                    account.status if account else None
+                ),
+                "reason": e.reason or (e.after_state or {}).get("reason", "—"),
+                "requested_at": e.created_at.isoformat() if e.created_at else None,
+            })
+
+    return {"success": True, "data": requests_data}
+
+
+@router.post("/deletion-requests/{account_id}/approve")
+async def approve_deletion_request(account_id: uuid.UUID, owner: OwnerAccount):
+    """Approve an account deletion request (archives the account)."""
+    async with async_session() as session:
+        account = await session.get(Account, account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="الحساب غير موجود")
+        if account.is_owner:
+            raise HTTPException(status_code=400, detail="لا يمكن حذف حساب مالك")
+
+        before = {
+            "status": account.status.value if hasattr(account.status, "value") else account.status,
+        }
+        account.status = AccountStatus.ARCHIVED
+        account.is_admin = False
+        after = {"status": account.status.value, "is_admin": False}
+
+        await write_audit(
+            session,
+            actor_id=owner.id,
+            actor_type=AuditActorType.ADMIN,
+            subject_type="account",
+            subject_id=account.id,
+            event_type="deletion_approved",
+            summary=f"الموافقة على حذف الحساب: {account.username}",
+            before_state=before,
+            after_state=after,
+        )
+        await session.commit()
+
+    return {"success": True, "message": f"تمت الموافقة على حذف حساب: {account.username}"}
+
+
+@router.post("/deletion-requests/{account_id}/reject")
+async def reject_deletion_request(account_id: uuid.UUID, owner: OwnerAccount):
+    """Reject an account deletion request."""
+    async with async_session() as session:
+        account = await session.get(Account, account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="الحساب غير موجود")
+
+        await write_audit(
+            session,
+            actor_id=owner.id,
+            actor_type=AuditActorType.ADMIN,
+            subject_type="account",
+            subject_id=account.id,
+            event_type="deletion_rejected",
+            summary=f"رفض طلب حذف الحساب: {account.username}",
+        )
+        await session.commit()
+
+    return {"success": True, "message": f"تم رفض طلب حذف حساب: {account.username}"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. SCHEDULER STATUS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/scheduler-status")
+async def get_scheduler_status(owner: OwnerAccount):
+    """Return status of all scheduler jobs with next run times."""
+    from app.core.scheduler import scheduler
+
+    if not scheduler or not scheduler.running:
+        return {
+            "success": True,
+            "data": {"running": False, "jobs": []},
+        }
+
+    jobs = []
+    for job in scheduler.get_jobs():
+        next_run = job.next_run_time
+        jobs.append({
+            "id": job.id,
+            "name": job.name or job.id,
+            "next_run_time": next_run.isoformat() if next_run else None,
+            "trigger": str(job.trigger),
+        })
+
+    return {
+        "success": True,
+        "data": {"running": True, "jobs": jobs},
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. IP BANS
 # ═══════════════════════════════════════════════════════════════════════════
 
 class IPBanCreate(BaseModel):
@@ -299,7 +670,7 @@ async def remove_ip_ban(ban_id: uuid.UUID, owner: OwnerAccount):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 4. DATABASE BACKUP
+# 6. DATABASE BACKUP
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/backup")
@@ -342,7 +713,7 @@ async def trigger_backup(owner: OwnerAccount):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 5. USER DATA EXPORT (PDPL COMPLIANCE)
+# 7. USER DATA EXPORT (PDPL COMPLIANCE)
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/users/{account_id}/export-data")
