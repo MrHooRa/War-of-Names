@@ -1,5 +1,6 @@
 """Landing link endpoints — redirect, conversion tracking, and admin CRUD."""
 
+import html
 import secrets
 import string
 import uuid
@@ -23,6 +24,16 @@ AdminAccount = Annotated[Account, Depends(get_admin_account)]
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
 
 
+async def _get_platform_branding() -> tuple[str, str]:
+    """Fetch platform_name and og_image_url from settings."""
+    from app.modules.settings.service import get_settings_batch
+    async with async_session() as session:
+        vals = await get_settings_batch(session, ["platform_name", "og_image_url"])
+    name = vals.get("platform_name") or "حرب الأسماء"
+    og_image = vals.get("og_image_url") or "/assets/og-image.png"
+    return name, og_image
+
+
 def _generate_token(length: int = 8) -> str:
     """Generate a short URL-safe token (base62)."""
     alphabet = string.ascii_letters + string.digits
@@ -32,19 +43,23 @@ def _generate_token(length: int = 8) -> str:
 # ── Invite OG preview for social media bots ────────────────────────────
 
 
-def _build_invite_preview_html(competition_name: str | None, token: str) -> str:
+def _build_invite_preview_html(competition_name: str | None, token: str, platform_name: str, og_image_url: str) -> str:
     """Build minimal HTML with OG meta tags for social media bot crawlers."""
+    # Escape all dynamic values for safe HTML attribute insertion
+    platform_name = html.escape(platform_name)
+    og_image_url = html.escape(og_image_url)
     if competition_name:
-        title = f"انضم لمنافسة {competition_name} — حرب الأسماء"
-        description = f"لقد تمت دعوتك للانضمام إلى منافسة {competition_name} في حرب الأسماء!"
-        og_title = f"انضم لمنافسة {competition_name} — حرب الأسماء"
+        competition_name = html.escape(competition_name)
+        title = f"انضم لمنافسة {competition_name} — {platform_name}"
+        description = f"لقد تمت دعوتك للانضمام إلى منافسة {competition_name} في {platform_name}!"
+        og_title = f"انضم لمنافسة {competition_name} — {platform_name}"
         twitter_title = f"انضم لمنافسة {competition_name}"
         redirect_url = f"/invite/{token}"
     else:
-        title = "حرب الأسماء — أقوى منافسة عربية"
+        title = f"{platform_name} — أقوى منافسة عربية"
         description = "اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية!"
-        og_title = "حرب الأسماء — أقوى منافسة عربية"
-        twitter_title = "حرب الأسماء"
+        og_title = f"{platform_name} — أقوى منافسة عربية"
+        twitter_title = platform_name
         redirect_url = "/invite/{token}".format(token=token) if token else "/"
 
     return f"""<!DOCTYPE html>
@@ -55,12 +70,12 @@ def _build_invite_preview_html(competition_name: str | None, token: str) -> str:
   <meta name="description" content="{description}">
   <meta property="og:title" content="{og_title}">
   <meta property="og:description" content="لقد تمت دعوتك! اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية.">
-  <meta property="og:image" content="https://warofnames.com/og-image.svg">
+  <meta property="og:image" content="{og_image_url}">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ar_SA">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{twitter_title}">
-  <meta name="twitter:image" content="https://warofnames.com/og-image.svg">
+  <meta name="twitter:image" content="{og_image_url}">
   <meta http-equiv="refresh" content="0;url={redirect_url}">
 </head>
 <body>
@@ -72,6 +87,8 @@ def _build_invite_preview_html(competition_name: str | None, token: str) -> str:
 @router.get("/api/invite-preview/{token}", response_class=HTMLResponse)
 async def invite_preview_html(token: str):
     """Return minimal HTML with OG meta tags for social media bot crawlers."""
+    platform_name, og_image_url = await _get_platform_branding()
+
     async with async_session() as session:
         result = await session.execute(
             select(CompetitionInvite).where(CompetitionInvite.code == token.strip())
@@ -84,7 +101,7 @@ async def invite_preview_html(token: str):
             if comp:
                 competition_name = comp.name
 
-    return HTMLResponse(content=_build_invite_preview_html(competition_name, token))
+    return HTMLResponse(content=_build_invite_preview_html(competition_name, token, platform_name, og_image_url))
 
 
 # ── Landing link OG preview for social media bots ──────────────────────
@@ -93,6 +110,8 @@ async def invite_preview_html(token: str):
 @router.get("/api/landing-preview/{token}", response_class=HTMLResponse)
 async def landing_preview_html(token: str):
     """Return minimal HTML with OG meta tags for /l/{token} landing links."""
+    platform_name, og_image_url = await _get_platform_branding()
+
     async with async_session() as session:
         result = await session.execute(
             select(LandingLink).where(LandingLink.token == token.strip())
@@ -105,17 +124,20 @@ async def landing_preview_html(token: str):
             if comp:
                 competition_name = comp.name
 
-    # Reuse the same OG template — landing links can also be competition invites
+    # Escape dynamic values for safe HTML insertion
+    platform_name = html.escape(platform_name)
+    og_image_url = html.escape(og_image_url)
     if competition_name:
-        title = f"انضم لمنافسة {competition_name} — حرب الأسماء"
-        description = f"لقد تمت دعوتك للانضمام إلى منافسة {competition_name} في حرب الأسماء!"
+        competition_name = html.escape(competition_name)
+        title = f"انضم لمنافسة {competition_name} — {platform_name}"
+        description = f"لقد تمت دعوتك للانضمام إلى منافسة {competition_name} في {platform_name}!"
         twitter_title = f"انضم لمنافسة {competition_name}"
     else:
-        title = "حرب الأسماء — أقوى منافسة عربية"
+        title = f"{platform_name} — أقوى منافسة عربية"
         description = "اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية!"
-        twitter_title = "حرب الأسماء"
+        twitter_title = platform_name
 
-    html = f"""<!DOCTYPE html>
+    content = f"""<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
@@ -123,19 +145,19 @@ async def landing_preview_html(token: str):
   <meta name="description" content="{description}">
   <meta property="og:title" content="{title}">
   <meta property="og:description" content="لقد تمت دعوتك! اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية.">
-  <meta property="og:image" content="https://warofnames.com/og-image.svg">
+  <meta property="og:image" content="{og_image_url}">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ar_SA">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{twitter_title}">
-  <meta name="twitter:image" content="https://warofnames.com/og-image.svg">
+  <meta name="twitter:image" content="{og_image_url}">
   <meta http-equiv="refresh" content="0;url=/l/{token}">
 </head>
 <body>
   <p>جارٍ التحويل...</p>
 </body>
 </html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=content)
 
 
 # ── Public redirect ─────────────────────────────────────────────────────

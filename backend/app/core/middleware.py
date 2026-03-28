@@ -74,3 +74,44 @@ async def check_ip_ban(request: Request) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="تم حظر عنوان IP الخاص بك",
         )
+
+
+# ── In-memory cache for maintenance mode ──────────────────────────────────
+_maintenance_enabled: bool = False
+_maintenance_message: str = "المنصة قيد الصيانة — نعود قريباً"
+_maintenance_cache_expires_at: float = 0.0
+_MAINTENANCE_CACHE_TTL = 30  # seconds
+
+
+async def _refresh_maintenance_cache() -> None:
+    """Reload maintenance mode settings from the database."""
+    global _maintenance_enabled, _maintenance_message, _maintenance_cache_expires_at
+    from app.modules.settings.service import get_setting
+
+    async with async_session() as session:
+        mode = await get_setting(session, "maintenance_mode")
+        msg = await get_setting(session, "maintenance_message")
+    _maintenance_enabled = bool(mode) if mode is not None else False
+    if msg:
+        _maintenance_message = msg
+    _maintenance_cache_expires_at = time.monotonic() + _MAINTENANCE_CACHE_TTL
+
+
+async def is_maintenance_mode() -> bool:
+    """Return True if maintenance mode is currently enabled (cached)."""
+    if time.monotonic() >= _maintenance_cache_expires_at:
+        await _refresh_maintenance_cache()
+    return _maintenance_enabled
+
+
+async def get_maintenance_message() -> str:
+    """Return the current maintenance message (cached)."""
+    if time.monotonic() >= _maintenance_cache_expires_at:
+        await _refresh_maintenance_cache()
+    return _maintenance_message
+
+
+def invalidate_maintenance_cache() -> None:
+    """Force the next request to reload maintenance settings from DB."""
+    global _maintenance_cache_expires_at
+    _maintenance_cache_expires_at = 0.0

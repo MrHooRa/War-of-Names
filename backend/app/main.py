@@ -156,6 +156,14 @@ async def lifespan(app: FastAPI):
     async with async_session() as session:
         await seed(session)
 
+    # Update app metadata from settings
+    async with async_session() as session:
+        from app.modules.settings.service import get_settings_batch
+        branding = await get_settings_batch(session, ["platform_name", "platform_description"])
+        platform_name = branding.get("platform_name") or "حرب الأسماء"
+        app.title = f"{platform_name} API"
+        app.description = f"{platform_name} — {branding.get('platform_description') or 'أقوى لعبة تنافسية عربية'}"
+
     # Start background scheduler (cycle transitions, quiz lifecycle, expirations)
     from app.core.scheduler import start_scheduler, stop_scheduler
     start_scheduler()
@@ -181,6 +189,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def maintenance_middleware(request: Request, call_next):
+    """Block non-admin requests when maintenance mode is enabled."""
+    path = request.url.path
+    if path.startswith(("/health", "/docs", "/openapi.json", "/api/admin", "/api/owner", "/api/auth/login", "/api/public")):
+        return await call_next(request)
+
+    from app.core.middleware import is_maintenance_mode, get_maintenance_message
+
+    if await is_maintenance_mode():
+        msg = await get_maintenance_message()
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "message": msg},
+        )
+    return await call_next(request)
+
 
 app.include_router(auth_router)
 app.include_router(competitions_router)
@@ -234,6 +260,35 @@ async def health_db():
         status_code=503,
         content={"status": "error", "database": "unreachable"},
     )
+
+
+# --- Public Branding ---
+
+
+@app.get("/api/public/branding")
+async def get_public_branding():
+    """Public endpoint for platform branding (no auth required)."""
+    from app.modules.settings.service import get_settings_batch
+
+    keys = [
+        "platform_name", "platform_description", "platform_logo_url",
+        "og_image_url", "maintenance_mode", "registration_enabled",
+        "ad_consent_required", "google_analytics_id", "google_ads_id",
+    ]
+    async with async_session() as session:
+        vals = await get_settings_batch(session, keys)
+
+    return {
+        "name": vals.get("platform_name") or "حرب الأسماء",
+        "description": vals.get("platform_description") or "",
+        "logo_url": vals.get("platform_logo_url") or "/assets/logo.png",
+        "og_image_url": vals.get("og_image_url") or "/assets/og-image.png",
+        "maintenance": bool(vals.get("maintenance_mode")),
+        "registration_enabled": vals.get("registration_enabled", True),
+        "ad_consent_required": vals.get("ad_consent_required", True),
+        "google_analytics_id": vals.get("google_analytics_id") or "",
+        "google_ads_id": vals.get("google_ads_id") or "",
+    }
 
 
 # --- Game Info ---

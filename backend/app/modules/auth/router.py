@@ -22,7 +22,14 @@ CurrentAccount = Annotated[Account, Depends(get_current_account)]
 
 @router.post("/register", status_code=201, dependencies=[Depends(rate_limit_auth)])
 async def register(body: RegisterRequest):
+    from app.modules.settings.service import get_setting
+
     async with async_session() as session:
+        # Check global registration switch (same session as registration)
+        reg_enabled = await get_setting(session, "registration_enabled")
+        if reg_enabled is False:  # explicitly False, not None
+            raise HTTPException(status_code=403, detail="التسجيل مغلق حالياً")
+
         try:
             account = await register_account(
                 session,

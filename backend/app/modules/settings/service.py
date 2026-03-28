@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import SettingScope
+from app.core.enums import SettingDataType, SettingScope
 from app.modules.settings.models import SettingDefinition, SettingValue
 
 
@@ -88,3 +88,55 @@ async def get_settings_batch(
             cycle_id=cycle_id,
         )
     return result
+
+
+def validate_setting_value(defn: SettingDefinition, value: dict) -> str | None:
+    """Validate a setting value against its definition.
+
+    Args:
+        defn: The SettingDefinition row.
+        value: The JSONB value dict (e.g. {"v": 42}).
+
+    Returns:
+        None if valid, or an Arabic error message string if invalid.
+    """
+    if not isinstance(value, dict) or "v" not in value:
+        return "القيمة يجب أن تكون بصيغة {\"v\": ...}"
+
+    v = value["v"]
+
+    # ── Type check ──
+    if defn.data_type == SettingDataType.INTEGER:
+        if not isinstance(v, int) or isinstance(v, bool):
+            return f"الإعداد {defn.key} يتطلب قيمة عددية صحيحة"
+    elif defn.data_type == SettingDataType.DECIMAL:
+        if not isinstance(v, (int, float)) or isinstance(v, bool):
+            return f"الإعداد {defn.key} يتطلب قيمة رقمية"
+    elif defn.data_type == SettingDataType.BOOLEAN:
+        if not isinstance(v, bool):
+            return f"الإعداد {defn.key} يتطلب قيمة منطقية (true/false)"
+    elif defn.data_type == SettingDataType.STRING:
+        if not isinstance(v, str):
+            return f"الإعداد {defn.key} يتطلب قيمة نصية"
+    elif defn.data_type == SettingDataType.JSON:
+        pass  # Any JSON-serializable value is fine
+
+    # ── allowed_values check ──
+    if defn.allowed_values:
+        av = defn.allowed_values
+
+        # Range check: {"min": X, "max": Y}
+        if "min" in av and isinstance(v, (int, float)):
+            if v < av["min"]:
+                return f"القيمة يجب أن تكون {av['min']} على الأقل"
+        if "max" in av and isinstance(v, (int, float)):
+            if v > av["max"]:
+                return f"القيمة يجب ألا تتجاوز {av['max']}"
+
+        # Options check: {"options": ["a", "b", "c"]}
+        if "options" in av:
+            if v not in av["options"]:
+                options_str = "، ".join(str(o) for o in av["options"])
+                return f"القيمة يجب أن تكون إحدى: {options_str}"
+
+    return None

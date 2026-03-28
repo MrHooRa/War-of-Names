@@ -2739,6 +2739,12 @@ async def update_setting(setting_key: str, body: UpdateSettingRequest, admin: Ad
         if not defn:
             raise HTTPException(status_code=404, detail="الإعداد غير موجود")
 
+        # Validate value against definition
+        from app.modules.settings.service import validate_setting_value
+        error = validate_setting_value(defn, body.value)
+        if error:
+            raise HTTPException(status_code=422, detail=error)
+
         # Upsert value
         val_result = await session.execute(
             select(SettingValue).where(
@@ -2747,6 +2753,8 @@ async def update_setting(setting_key: str, body: UpdateSettingRequest, admin: Ad
             )
         )
         sv = val_result.scalars().first()
+
+        old_value = sv.value if sv else None
 
         if sv:
             sv.value = body.value
@@ -2760,7 +2768,25 @@ async def update_setting(setting_key: str, body: UpdateSettingRequest, admin: Ad
             )
             session.add(sv)
 
+        # Audit trail — same transaction as the setting change
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="setting",
+            subject_id=defn.id,
+            event_type="setting_updated",
+            summary=f"تحديث إعداد عام: {setting_key}",
+            before_state={"value": old_value},
+            after_state={"value": body.value},
+        )
+
         await session.commit()
+
+    # Invalidate maintenance cache (outside transaction)
+    if setting_key in ("maintenance_mode", "maintenance_message"):
+        from app.core.middleware import invalidate_maintenance_cache
+        invalidate_maintenance_cache()
+
     return {"success": True, "message": f"تم تحديث الإعداد: {setting_key}"}
 
 
@@ -3653,6 +3679,12 @@ async def update_competition_setting(
         defn = defn_result.scalars().first()
         if not defn:
             raise HTTPException(status_code=404, detail="الإعداد غير موجود")
+
+        # Validate value against definition
+        from app.modules.settings.service import validate_setting_value
+        error = validate_setting_value(defn, body.value)
+        if error:
+            raise HTTPException(status_code=422, detail=error)
 
         # Upsert competition-scoped value
         val_result = await session.execute(

@@ -393,6 +393,17 @@ SETTING_IDS = {
     "store_purchase_cooldown_minutes": uuid.UUID("00000000-0000-0000-0000-000000000056"),
     "identity_reveal_on_bankruptcy": uuid.UUID("00000000-0000-0000-0000-000000000057"),
     "season_auto_advance_cycles": uuid.UUID("00000000-0000-0000-0000-000000000058"),
+    # Platform settings
+    "platform_name": uuid.UUID("00000000-0000-0000-0000-000000000060"),
+    "platform_description": uuid.UUID("00000000-0000-0000-0000-000000000061"),
+    "maintenance_mode": uuid.UUID("00000000-0000-0000-0000-000000000062"),
+    "maintenance_message": uuid.UUID("00000000-0000-0000-0000-000000000063"),
+    "registration_enabled": uuid.UUID("00000000-0000-0000-0000-000000000064"),
+    "google_analytics_id": uuid.UUID("00000000-0000-0000-0000-000000000065"),
+    "platform_logo_url": uuid.UUID("00000000-0000-0000-0000-000000000066"),
+    "google_ads_id": uuid.UUID("00000000-0000-0000-0000-000000000067"),
+    "ad_consent_required": uuid.UUID("00000000-0000-0000-0000-000000000068"),
+    "og_image_url": uuid.UUID("00000000-0000-0000-0000-000000000069"),
 }
 
 
@@ -405,6 +416,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "attack",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 500},
+            "allowed_values": {"min": 0, "max": 100000},
             "description": "المكافأة الأساسية للهجوم الناجح",
         },
         {
@@ -413,6 +425,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "attack",
             "data_type": SettingDataType.DECIMAL,
             "default_value": {"v": 0.8},
+            "allowed_values": {"min": 0, "max": 1},
             "description": "معامل الانحلال للمكافأة (0-1)",
         },
         {
@@ -421,6 +434,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "attack",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 100},
+            "allowed_values": {"min": 0, "max": 100000},
             "description": "الخصم الأساسي عند فشل الهجوم",
         },
         {
@@ -429,6 +443,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "attack",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 3},
+            "allowed_values": {"min": 1, "max": 100},
             "description": "أقصى عدد هجمات ناجحة على لاعب في الدورة الواحدة",
         },
         {
@@ -437,6 +452,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "score",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 1000},
+            "allowed_values": {"min": 0, "max": 1000000},
             "description": "الرصيد الأولي لكل لاعب عند الانضمام",
         },
         {
@@ -445,6 +461,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "score",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 0},
+            "allowed_values": {"min": 0, "max": 1000000},
             "description": "حد الإفلاس (إذا انخفض الرصيد لهذا المبلغ أو أقل)",
         },
         {
@@ -453,6 +470,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "quiz",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 30},
+            "allowed_values": {"min": 5, "max": 300},
             "description": "المدة الافتراضية للإجابة على السؤال (ثواني)",
         },
         {
@@ -461,6 +479,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "store",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 10},
+            "allowed_values": {"min": 1, "max": 100},
             "description": "الحد الأقصى لعدد العناصر في مخزن اللاعب",
         },
         {
@@ -469,6 +488,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "protection",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 3},
+            "allowed_values": {"min": 1, "max": 50},
             "description": "عدد الهجمات الناجحة المطلوبة للحماية الكاملة",
         },
         {
@@ -494,6 +514,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "attack",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 5},
+            "allowed_values": {"min": 0, "max": 3600},
             "description": "فترة الانتظار بين الهجمات (ثواني)",
         },
         {
@@ -502,6 +523,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "protection",
             "data_type": SettingDataType.DECIMAL,
             "default_value": {"v": 0.5},
+            "allowed_values": {"min": 0, "max": 1},
             "description": "نسبة تقليل الخسارة عند الحماية الجزئية",
         },
         {
@@ -510,6 +532,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "protection",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 24},
+            "allowed_values": {"min": 1, "max": 168},
             "description": "مدة الحماية الكاملة (ساعات)",
         },
         {
@@ -518,6 +541,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "score",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 500},
+            "allowed_values": {"min": 0, "max": 1000000},
             "description": "الرصيد الممنوح عند رفع الإفلاس في بداية الدورة",
         },
         {
@@ -526,6 +550,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "quiz",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 5},
+            "allowed_values": {"min": 1, "max": 50},
             "description": "أقصى عدد جلسات أسئلة لكل دورة",
         },
         {
@@ -534,6 +559,7 @@ async def _seed_settings(session: AsyncSession) -> None:
             "category": "store",
             "data_type": SettingDataType.INTEGER,
             "default_value": {"v": 0},
+            "allowed_values": {"min": 0, "max": 1440},
             "description": "فترة الانتظار بين عمليات الشراء (دقائق) — 0 = بدون انتظار",
         },
         {
@@ -552,12 +578,97 @@ async def _seed_settings(session: AsyncSession) -> None:
             "default_value": {"v": False},
             "description": "هل تبدأ الدورة التالية تلقائياً عند انتهاء الحالية؟",
         },
+        # ── Platform settings ──
+        {
+            "id": SETTING_IDS["platform_name"],
+            "key": "platform_name",
+            "category": "branding",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": "حرب الأسماء"},
+            "description": "اسم المنصة",
+        },
+        {
+            "id": SETTING_IDS["platform_description"],
+            "key": "platform_description",
+            "category": "branding",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": "أقوى لعبة تنافسية عربية"},
+            "description": "وصف المنصة (SEO)",
+        },
+        {
+            "id": SETTING_IDS["maintenance_mode"],
+            "key": "maintenance_mode",
+            "category": "platform",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": False},
+            "description": "تفعيل وضع الصيانة",
+        },
+        {
+            "id": SETTING_IDS["maintenance_message"],
+            "key": "maintenance_message",
+            "category": "platform",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": "المنصة قيد الصيانة — نعود قريباً"},
+            "description": "رسالة الصيانة",
+        },
+        {
+            "id": SETTING_IDS["registration_enabled"],
+            "key": "registration_enabled",
+            "category": "platform",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": True},
+            "description": "السماح بإنشاء حسابات جديدة",
+        },
+        {
+            "id": SETTING_IDS["google_analytics_id"],
+            "key": "google_analytics_id",
+            "category": "analytics",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": ""},
+            "description": "معرّف Google Analytics 4 (مثال: G-XXXXXXXXX)",
+        },
+        {
+            "id": SETTING_IDS["platform_logo_url"],
+            "key": "platform_logo_url",
+            "category": "branding",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": "/assets/logo.png"},
+            "description": "رابط شعار المنصة",
+        },
+        {
+            "id": SETTING_IDS["google_ads_id"],
+            "key": "google_ads_id",
+            "category": "analytics",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": ""},
+            "description": "معرّف Google Ads (مثال: AW-XXXXXXXXX)",
+        },
+        {
+            "id": SETTING_IDS["ad_consent_required"],
+            "key": "ad_consent_required",
+            "category": "privacy",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": True},
+            "description": "إظهار بانر الموافقة على الإعلانات/ملفات تعريف الارتباط",
+        },
+        {
+            "id": SETTING_IDS["og_image_url"],
+            "key": "og_image_url",
+            "category": "seo",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": "/assets/og-image.png"},
+            "description": "صورة Open Graph الافتراضية للمشاركة",
+        },
     ]
 
     added = 0
     for sd in settings_data:
         existing = await session.get(SettingDefinition, sd["id"])
         if existing:
+            # Patch allowed_values on existing definitions if missing
+            new_av = sd.get("allowed_values")
+            if new_av and existing.allowed_values != new_av:
+                existing.allowed_values = new_av
             continue
         defn = SettingDefinition(**sd)
         session.add(defn)
@@ -572,5 +683,4 @@ async def _seed_settings(session: AsyncSession) -> None:
         session.add(sv)
         added += 1
 
-    if added:
-        await session.commit()
+    await session.commit()
