@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_admin_account, get_current_account
 from app.core.database import async_session
 from app.modules.auth.models import Account
+from app.modules.competitions.models import Competition, CompetitionInvite
 from app.modules.landing.models import LandingLink
 
 router = APIRouter(tags=["landing"])
@@ -26,6 +27,115 @@ def _generate_token(length: int = 8) -> str:
     """Generate a short URL-safe token (base62)."""
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+# ── Invite OG preview for social media bots ────────────────────────────
+
+
+def _build_invite_preview_html(competition_name: str | None, token: str) -> str:
+    """Build minimal HTML with OG meta tags for social media bot crawlers."""
+    if competition_name:
+        title = f"انضم لمنافسة {competition_name} — حرب الأسماء"
+        description = f"لقد تمت دعوتك للانضمام إلى منافسة {competition_name} في حرب الأسماء!"
+        og_title = f"انضم لمنافسة {competition_name} — حرب الأسماء"
+        twitter_title = f"انضم لمنافسة {competition_name}"
+        redirect_url = f"/invite/{token}"
+    else:
+        title = "حرب الأسماء — أقوى منافسة عربية"
+        description = "اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية!"
+        og_title = "حرب الأسماء — أقوى منافسة عربية"
+        twitter_title = "حرب الأسماء"
+        redirect_url = "/invite/{token}".format(token=token) if token else "/"
+
+    return f"""<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>{title}</title>
+  <meta name="description" content="{description}">
+  <meta property="og:title" content="{og_title}">
+  <meta property="og:description" content="لقد تمت دعوتك! اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية.">
+  <meta property="og:image" content="https://warofnames.com/og-image.svg">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ar_SA">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{twitter_title}">
+  <meta name="twitter:image" content="https://warofnames.com/og-image.svg">
+  <meta http-equiv="refresh" content="0;url={redirect_url}">
+</head>
+<body>
+  <p>جارٍ التحويل...</p>
+</body>
+</html>"""
+
+
+@router.get("/api/invite-preview/{token}", response_class=HTMLResponse)
+async def invite_preview_html(token: str):
+    """Return minimal HTML with OG meta tags for social media bot crawlers."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(CompetitionInvite).where(CompetitionInvite.code == token.strip())
+        )
+        invite = result.scalars().first()
+
+        competition_name: str | None = None
+        if invite:
+            comp = await session.get(Competition, invite.competition_id)
+            if comp:
+                competition_name = comp.name
+
+    return HTMLResponse(content=_build_invite_preview_html(competition_name, token))
+
+
+# ── Landing link OG preview for social media bots ──────────────────────
+
+
+@router.get("/api/landing-preview/{token}", response_class=HTMLResponse)
+async def landing_preview_html(token: str):
+    """Return minimal HTML with OG meta tags for /l/{token} landing links."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(LandingLink).where(LandingLink.token == token.strip())
+        )
+        link = result.scalars().first()
+
+        competition_name: str | None = None
+        if link and link.competition_id:
+            comp = await session.get(Competition, link.competition_id)
+            if comp:
+                competition_name = comp.name
+
+    # Reuse the same OG template — landing links can also be competition invites
+    if competition_name:
+        title = f"انضم لمنافسة {competition_name} — حرب الأسماء"
+        description = f"لقد تمت دعوتك للانضمام إلى منافسة {competition_name} في حرب الأسماء!"
+        twitter_title = f"انضم لمنافسة {competition_name}"
+    else:
+        title = "حرب الأسماء — أقوى منافسة عربية"
+        description = "اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية!"
+        twitter_title = "حرب الأسماء"
+
+    html = f"""<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>{title}</title>
+  <meta name="description" content="{description}">
+  <meta property="og:title" content="{title}">
+  <meta property="og:description" content="لقد تمت دعوتك! اكشف الأقنعة وهاجم الخصوم في أقوى منافسة عربية.">
+  <meta property="og:image" content="https://warofnames.com/og-image.svg">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ar_SA">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{twitter_title}">
+  <meta name="twitter:image" content="https://warofnames.com/og-image.svg">
+  <meta http-equiv="refresh" content="0;url=/l/{token}">
+</head>
+<body>
+  <p>جارٍ التحويل...</p>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 
 # ── Public redirect ─────────────────────────────────────────────────────
