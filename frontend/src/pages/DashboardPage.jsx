@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useDashboard from '../hooks/useDashboard'
 import { apiFetch } from '../lib/api'
 import CycleCountdown from '../components/CycleCountdown'
@@ -74,6 +75,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-8 relative z-10">
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       {/* 1. Hero Section */}
       <section className={`bg-white dark:bg-brand-card-dark border rounded-[2rem] p-6 md:p-10 shadow-sm relative overflow-hidden group smooth-transition hover:shadow-md dark:hover:shadow-black/20 ${data.rank === 1 ? 'border-amber-300/50 dark:border-amber-500/30 shadow-amber-200/20 dark:shadow-amber-500/10' : 'border-gray-200 dark:border-gray-700'}`}>

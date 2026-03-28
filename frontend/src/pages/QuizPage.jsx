@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useQuiz from '../hooks/useQuiz'
 import useSubmitAnswer from '../hooks/useSubmitAnswer'
 
@@ -192,6 +193,7 @@ export default function QuizPage() {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center w-full max-w-4xl mx-auto px-4 py-6 md:py-12">
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       {/* Progress & Score */}
       <div className="w-full mb-10">

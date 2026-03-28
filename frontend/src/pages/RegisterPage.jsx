@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useAuth from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
 
@@ -44,6 +45,19 @@ export default function RegisterPage() {
 
   return (
     <div className="flex-1 flex flex-col items-center px-4 pb-20">
+      <Helmet>
+        <title>إنشاء حساب — حرب الأسماء</title>
+        <meta name="description" content="أنشئ حسابك في حرب الأسماء وابدأ رحلة المنافسة. التسجيل مجاني." />
+        <meta property="og:title" content="إنشاء حساب — حرب الأسماء" />
+        <meta property="og:description" content="أنشئ حسابك في حرب الأسماء وابدأ رحلة المنافسة. التسجيل مجاني." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="إنشاء حساب — حرب الأسماء" />
+        <meta name="twitter:description" content="أنشئ حسابك في حرب الأسماء وابدأ رحلة المنافسة" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/register" />
+      </Helmet>
       <div className="w-full max-w-lg">
 
         {/* Progress Indicator */}

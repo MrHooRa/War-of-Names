@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 
 const LAST_UPDATED = '2026-03-27'
 
@@ -253,6 +254,19 @@ const SECTIONS = [
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-brand-light-bg dark:bg-brand-dark-bg bg-pattern-main font-body transition-colors duration-300">
+      <Helmet>
+        <title>سياسة الخصوصية — حرب الأسماء</title>
+        <meta name="description" content="كيف نجمع ونستخدم ونحمي بياناتك. ملتزمون بنظام حماية البيانات الشخصية السعودي (PDPL)." />
+        <meta property="og:title" content="سياسة الخصوصية — حرب الأسماء" />
+        <meta property="og:description" content="كيف نجمع ونستخدم ونحمي بياناتك. ملتزمون بنظام حماية البيانات الشخصية السعودي (PDPL)." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="سياسة الخصوصية — حرب الأسماء" />
+        <meta name="twitter:description" content="كيف نجمع ونستخدم ونحمي بياناتك" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/privacy" />
+      </Helmet>
 
       {/* Header */}
       <header className="w-full pt-12 pb-6 flex justify-center">

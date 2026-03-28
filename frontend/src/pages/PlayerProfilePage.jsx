@@ -15,6 +15,7 @@
 
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import usePlayerProfile from '../hooks/usePlayerProfile'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 import AttackModal from '../components/AttackModal'
@@ -73,6 +74,7 @@ export default function PlayerProfilePage() {
 
   return (
     <div className="flex-1 w-full max-w-3xl mx-auto px-4 py-8 md:py-14 space-y-6">
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       {/* Back link */}
       <Link to="/leaderboard" className="inline-flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-brand-teal smooth-transition">

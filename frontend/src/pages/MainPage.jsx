@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useAuth from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
 
@@ -439,6 +440,35 @@ export default function MainPage() {
       className="min-h-screen flex flex-col relative"
       style={{ backgroundColor: '#0a0d14', color: '#FFFFFF', overflowX: 'hidden', WebkitFontSmoothing: 'antialiased' }}
     >
+      <Helmet>
+        <title>حرب الأسماء — أقوى لعبة تنافسية عربية</title>
+        <meta name="description" content="اكشف الأقنعة، هاجم الخصوم، واربح النقاط في أقوى منافسة موسمية عربية. انضم الآن!" />
+        <meta property="og:title" content="حرب الأسماء — أقوى لعبة تنافسية عربية" />
+        <meta property="og:description" content="اكشف الأقنعة، هاجم الخصوم، واربح النقاط في أقوى منافسة موسمية عربية." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:type" content="website" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="حرب الأسماء — أقوى لعبة تنافسية عربية" />
+        <meta name="twitter:description" content="اكشف الأقنعة، هاجم الخصوم، واربح النقاط" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/" />
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": ["WebApplication", "Game"],
+          "name": "حرب الأسماء",
+          "description": "منصة مسابقات تنافسية عربية — اكشف الأقنعة واربح النقاط",
+          "url": "https://warofnames.com",
+          "applicationCategory": "Game",
+          "operatingSystem": "Web",
+          "inLanguage": "ar",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "SAR"
+          }
+        })}</script>
+      </Helmet>
       <ImmersiveBackground centerGlowRef={centerGlowRef} />
       <MinimalHeader
         isAuthenticated={isAuthenticated}

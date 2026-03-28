@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useAuth from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
 
@@ -37,6 +38,19 @@ export default function LoginPage() {
 
   return (
     <div className="flex-1 flex flex-col items-center px-4 pb-20">
+      <Helmet>
+        <title>تسجيل الدخول — حرب الأسماء</title>
+        <meta name="description" content="سجّل دخولك إلى حرب الأسماء وانضم لساحة المعركة." />
+        <meta property="og:title" content="تسجيل الدخول — حرب الأسماء" />
+        <meta property="og:description" content="سجّل دخولك إلى حرب الأسماء وانضم لساحة المعركة." />
+        <meta property="og:image" content="/og-image.svg" />
+        <meta property="og:locale" content="ar_SA" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="تسجيل الدخول — حرب الأسماء" />
+        <meta name="twitter:description" content="سجّل دخولك إلى حرب الأسماء وانضم لساحة المعركة" />
+        <meta name="twitter:image" content="/og-image.svg" />
+        <link rel="canonical" href="https://warofnames.com/login" />
+      </Helmet>
       <div className="w-full max-w-lg">
 
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl shadow-xl p-8 md:p-10 relative overflow-hidden">

@@ -6,6 +6,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import useLeaderboard from '../hooks/useLeaderboard'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 
@@ -149,6 +150,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="flex-1 w-full max-w-5xl mx-auto px-4 py-8 md:py-14 space-y-10 relative z-10">
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       {/* Page Title & My Stats Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Helmet } from 'react-helmet-async'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 import useStore from '../hooks/useStore'
 import useInventory from '../hooks/useInventory'
@@ -176,6 +177,7 @@ export default function StorePage() {
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-10 relative z-10 pb-24 md:pb-12">
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       {/* Title */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">

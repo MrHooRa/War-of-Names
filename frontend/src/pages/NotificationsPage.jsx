@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import useNotifications from '../hooks/useNotifications'
 import { timeAgo } from '../lib/dates'
 
@@ -56,6 +57,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="flex-1 w-full max-w-3xl mx-auto px-4 py-8 md:py-12 space-y-6">
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       {/* Header */}
       <div className="flex items-center justify-between">
