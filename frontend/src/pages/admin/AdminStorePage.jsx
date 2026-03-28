@@ -100,39 +100,39 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, loading }) {
 
 /* ────────── Item JSON Templates ────────── */
 const ITEM_TEMPLATE = {
-  "_تعليمات": "احذف هذا الحقل قبل الإرسال — هذا دليل الحقول المتاحة",
-  name: "اسم العنصر (مطلوب)",
-  description: "وصف العنصر",
+  "_instructions": "Delete fields starting with _ before submitting",
+  name: "Item name (required)",
+  description: "Item description",
   rarity: "common",
-  "_الندرة_المتاحة": "common | rare | epic | legendary | mythic",
+  "_rarity_options": "common | rare | epic | legendary | mythic",
   category: "weapon",
-  "_الفئات_المتاحة": "weapon | defense | special",
+  "_category_options": "weapon | defense | special",
   usage_type: "consumable",
-  "_أنواع_الاستخدام": "consumable (يُستهلك) | non_consumable (دائم) | time_limited (مؤقت) | persistent (مستمر)",
+  "_usage_type_options": "consumable | non_consumable | time_limited | persistent",
   max_uses: null,
   is_stackable: false,
   expires_after_minutes: null,
   visibility: "visible",
-  "_الظهور": "visible | hidden",
+  "_visibility_options": "visible | hidden",
   effects: [
     {
       effect_type: "ratio_modifier",
-      "_أنواع_التأثير": "ratio_modifier (تعديل نسبة) | fixed_bonus (مكافأة ثابتة) | loss_reduction (تقليل خسارة) | action_prevention (منع فعل) | state_change (تغيير حالة) | grant_item (منح عنصر) | grant_box (منح صندوق) | allow_alias_change (تغيير اللقب) | negative_effect (تأثير سلبي) | time_limited_effect (تأثير مؤقت) | cycle_effect (تأثير دوري) | season_effect (تأثير موسمي)",
+      "_effect_type_options": "ratio_modifier | fixed_bonus | loss_reduction | action_prevention | state_change | allow_alias_change | negative_effect",
       parameters: { modifier: 1.5 },
-      "_أمثلة_المعاملات": {
-        "ratio_modifier": { "modifier": 1.5, "_شرح": "مضاعف المكافأة — 1.5 = 150%" },
-        "fixed_bonus": { "bonus": 200, "_شرح": "نقاط إضافية ثابتة" },
-        "loss_reduction": { "reduction": 50, "_شرح": "تقليل الخسارة بنسبة %" },
-        "action_prevention": { "action": "attack", "_شرح": "منع: attack | purchase | quiz" },
-        "negative_effect": { "points_deducted": 100, "_شرح": "خصم نقاط من الهدف" },
-        "allow_alias_change": {},
-        "state_change": { "protection": "full", "_شرح": "تغيير: protection (none|partial|full)" }
+      "_parameter_examples": {
+        "ratio_modifier": { "modifier": 1.5 },
+        "fixed_bonus": { "amount": 200 },
+        "loss_reduction": { "reduction": 0.5 },
+        "action_prevention": { "action": "attack" },
+        "negative_effect": { "sub_type": "deduct_points", "amount": 100 },
+        "state_change": { "state": "protection", "value": "full" },
+        "allow_alias_change": {}
       },
-      description: "وصف التأثير",
+      description: "Effect description (Arabic)",
       target_scope: "self",
-      "_نطاق_الهدف": "self (على المستخدم) | target (على الهدف) | all (على الجميع)",
+      "_target_scope_options": "self | target | all",
       trigger_on: "activation",
-      "_وقت_التفعيل": "activation (عند الاستخدام) | next_attack (الهجوم القادم) | next_defense (الدفاع القادم) | on_hit (عند التعرض لهجوم)",
+      "_trigger_on_options": "activation | next_attack | next_defense | on_hit",
       duration_minutes: null,
       is_stackable: false,
       order_index: 0
@@ -418,17 +418,18 @@ function ItemFormModal({ item, onClose, onSaved }) {
 
 /* ────────── Listing JSON Templates ────────── */
 const LISTING_TEMPLATE = {
-  item_name: "اسم العنصر (يجب أن يكون موجوداً في قائمة العناصر)",
+  "_instructions": "Delete fields starting with _ before submitting",
+  item_name: "Item name (must exist in items catalog)",
   price: 100,
   max_per_participant: 2,
-  "_شرح_الحد": "الحد الأقصى لشراء كل لاعب — null = بلا حد",
+  "_max_per_participant_note": "Max purchases per player — null = unlimited",
   total_stock: null,
-  "_شرح_المخزون": "المخزون الكلي — null = لا نهائي",
+  "_total_stock_note": "Total available stock — null = unlimited",
   status: "active",
-  "_الحالات": "active | hidden | expired | sold_out",
+  "_status_options": "active | hidden | expired | sold_out",
   available_from: null,
   available_until: null,
-  "_شرح_التوقيت": "ISO تاريخ — null = متاح دائماً مثال: 2026-04-01T00:00:00"
+  "_availability_note": "ISO datetime — null = always available. Example: 2026-04-01T00:00:00"
 }
 
 const LISTING_BULK_TEMPLATE = [
@@ -831,6 +832,10 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [showEffectForm, setShowEffectForm] = useState(false)
   const [editingEffect, setEditingEffect] = useState(null)
+  const [showArchived, setShowArchived] = useState(false)
+
+  const archivedCount = items?.filter(i => i.status === 'archived').length || 0
+  const visibleItems = showArchived ? items : items?.filter(i => i.status !== 'archived')
 
   async function handleArchiveItem() {
     if (!archivingItem) return
@@ -908,11 +913,20 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
 
   return (
     <>
-      {/* Header + Create */}
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400 font-bold">
-          تعريفات العناصر الأساسية — القوالب التي يُبنى عليها عروض المتجر
-        </p>
+      {/* Header + Create + Filter */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-bold">
+            تعريفات العناصر الأساسية
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowArchived(prev => !prev)}
+            className={`text-[10px] font-bold px-2 py-1 rounded-md smooth-transition ${showArchived ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}
+          >
+            {showArchived ? 'إخفاء المؤرشفة' : `عرض المؤرشفة (${archivedCount})`}
+          </button>
+        </div>
         <button onClick={() => { setEditingItem(null); setShowItemForm(true) }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-bold hover:bg-brand-teal-hover smooth-transition">
           <iconify-icon icon="lucide:plus" class="text-sm"></iconify-icon>
@@ -921,14 +935,14 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
       </div>
 
       {/* Cards Grid */}
-      {(!items || items.length === 0) ? (
+      {(!visibleItems || visibleItems.length === 0) ? (
         <div className="text-center py-16">
           <iconify-icon icon="lucide:box" class="text-4xl text-gray-300 dark:text-gray-600 mb-3"></iconify-icon>
           <p className="font-bold text-gray-400">لا توجد عناصر — أنشئ عنصراً جديداً للبدء</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {items.map(item => (
+          {visibleItems.map(item => (
             <div key={item.id} className={`bg-white dark:bg-brand-card-dark border-2 rounded-2xl overflow-hidden smooth-transition ${RARITY_COLORS[item.rarity] || 'border-gray-200 dark:border-gray-700'} ${item.status === 'archived' ? 'opacity-50' : ''}`}>
               {/* Card Header */}
               <div className="p-4 pb-3">

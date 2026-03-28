@@ -170,23 +170,23 @@ function CreateGroupModal({ onClose, onSuccess }) {
 
 // ─── Question JSON Templates ─────────────────────────────────────────────────
 const QUESTION_TEMPLATE = {
-  "_تعليمات": "احذف الحقول التي تبدأ بـ _ قبل الإرسال",
-  prompt: "نص السؤال (مطلوب)",
+  "_instructions": "Delete fields starting with _ before submitting",
+  prompt: "Question text (required, Arabic)",
   question_type: "multiple_choice",
-  "_أنواع_السؤال": "multiple_choice (اختيار متعدد — 4 خيارات) | true_false (صح/خطأ — خياران)",
+  "_question_type_options": "multiple_choice (4 choices) | true_false (2 choices)",
   options: {
-    choices: ["الخيار 1", "الخيار 2", "الخيار 3", "الخيار 4"],
-    correct: "الخيار 1",
-    "_ملاحظة": "correct يجب أن يكون أحد الخيارات بالضبط"
+    choices: ["Choice 1", "Choice 2", "Choice 3", "Choice 4"],
+    correct: "Choice 1",
+    "_note": "correct must exactly match one of the choices"
   },
-  correct_answer: { answer: "الخيار 1" },
+  correct_answer: { answer: "Choice 1" },
   score_value: 10,
-  "_النقاط": "يجب أن تكون أكبر من 0",
+  "_score_note": "Must be > 0",
   difficulty: "medium",
-  "_الصعوبة": "easy (سهل) | medium (متوسط) | hard (صعب)",
-  category: "اسم الفئة (اختياري — مثال: جغرافيا، تاريخ، علوم)",
+  "_difficulty_options": "easy | medium | hard",
+  category: "Category name (optional)",
   display_order: 0,
-  "_ترتيب_العرض": "رقم لتحديد ترتيب ظهور السؤال — 0 = تلقائي"
+  "_display_order_note": "Order in quiz — 0 = automatic"
 }
 
 const QUESTION_BULK_TEMPLATE = [
