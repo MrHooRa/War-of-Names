@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { trackEvent } from '../lib/analytics'
 
 export default function JoinPage() {
   const navigate = useNavigate()
@@ -25,6 +26,7 @@ export default function JoinPage() {
         method: 'POST',
         body: JSON.stringify(form),
       })
+      trackEvent('competition_joined', { alias: form.alias })
       // Track landing ref conversion (fire-and-forget)
       const landingRef = sessionStorage.getItem('won_landing_ref')
       if (landingRef) {

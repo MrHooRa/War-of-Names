@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
+import { trackEvent } from '../lib/analytics'
 
 const STORAGE_KEY = 'won_active_competition'
 
@@ -24,6 +25,7 @@ export default function useSubmitAnswer() {
           answer,
         }),
       })
+      trackEvent('quiz_answer', { is_correct: json.data.is_correct })
       setState({ submitting: false, error: null, result: json.data })
       return json.data
     } catch (err) {

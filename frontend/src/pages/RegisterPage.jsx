@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import useAuth from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
+import { trackEvent } from '../lib/analytics'
 
 export default function RegisterPage() {
   const { login } = useAuth()
@@ -35,6 +36,7 @@ export default function RegisterPage() {
         body: JSON.stringify(form),
       })
       login(json.data)
+      trackEvent('registration_complete', { username: form.username })
       navigate('/', { replace: true })
     } catch (err) {
       setError(err.message)

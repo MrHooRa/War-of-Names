@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
+import { trackEvent } from '../lib/analytics'
 
 export default function useBuyItem(competitionId) {
   const [state, setState] = useState({ buying: false, error: null, result: null })
@@ -17,6 +18,7 @@ export default function useBuyItem(competitionId) {
       const json = await apiFetch(`/api/competitions/${competitionId}/store/${listingId}/buy`, {
         method: 'POST',
       })
+      trackEvent('item_purchased', { price: json.data?.price })
       setState({ buying: false, error: null, result: json.data })
       return json
     } catch (err) {
