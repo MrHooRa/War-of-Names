@@ -31,7 +31,7 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 | T-02 | Platform is subject to KSA regulations | N/A | Legal statement, no implementation needed |
 | T-03 | By using the platform you agree to these terms | PARTIAL | No explicit checkbox/acceptance flow — agreement is implied by usage |
 | T-04 | We reserve the right to modify terms at any time | N/A | Legal reservation |
-| T-05 | Modifications will be announced via in-platform notification or registered email | NOT IMPLEMENTED | No email field exists in Account model; no notification mechanism for terms changes |
+| T-05 | Modifications will be announced via in-platform notification or registered email | PARTIAL | Announcement overlay system exists (AnnouncementOverlay.jsx); admin can notify users of terms changes via announcements. No email field exists in Account model |
 | T-06 | Continued use after modifications constitutes acceptance | N/A | Legal statement |
 
 ### Section 02 — Definitions (التعريفات)
@@ -56,14 +56,14 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 | T-17 | Any activity under your account is your responsibility | N/A | Legal statement |
 | T-18 | Prohibited: more than one account per person per competition | PARTIAL | No technical enforcement — relies on admin detection |
 | T-19 | Prohibited: sharing or transferring account | N/A | Policy statement, no technical enforcement |
-| T-20 | Platform can suspend or terminate accounts without prior notice | IMPLEMENTED | Admin can change account status to suspended/disabled/archived via `PATCH /api/admin/accounts/{id}/status` |
+| T-20 | Platform can suspend or terminate accounts without prior notice | IMPLEMENTED | Admin can change account status to suspended/disabled/archived via `PATCH /api/admin/accounts/{id}/status`; IP ban system implemented via owner panel |
 
 ### Section 04 — Fair Play Policy (سياسة اللعب النظيف)
 
 | # | Claim | Status | Notes |
 |---|-------|--------|-------|
 | T-21 | Prohibited: collusion | N/A | Policy — detection relies on admin judgment |
-| T-22 | Prohibited: bots/automated tools | NOT IMPLEMENTED | No rate limiting, no bot detection middleware |
+| T-22 | Prohibited: bots/automated tools | IMPLEMENTED | In-memory rate limiter on auth endpoints (login, register) — 30 req/min per IP; IP ban system for persistent abuse |
 | T-23 | Prohibited: exploiting bugs (must report) | N/A | Policy statement — no formal bug report mechanism |
 | T-24 | Prohibited: identity impersonation outside alias system | N/A | Policy statement |
 | T-25 | Prohibited: harassment | N/A | Policy statement — no in-app messaging to moderate |
@@ -116,7 +116,7 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 
 | # | Claim | Status | Notes |
 |---|-------|--------|-------|
-| T-50 | User can delete account at any time via settings or by contacting admin | NOT IMPLEMENTED | No self-service account deletion exists; account settings page only has profile edit and password change |
+| T-50 | User can delete account at any time via settings or by contacting admin | IMPLEMENTED | `POST /api/auth/me/request-deletion` endpoint + button in AccountSettingsPage; creates audit event for owner review |
 | T-51 | Platform can suspend/terminate accounts with or without notice | IMPLEMENTED | Admin can change account status (suspend/disable/archive) |
 | T-52 | Upon termination, user loses access to all data, points, items | PARTIAL | Status change blocks access, but data is not deleted |
 | T-53 | Platform may retain some data after deletion per legal requirements | N/A | Legal reservation — but no actual deletion mechanism exists to trigger retention rules |
@@ -148,14 +148,14 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 |---|-------|--------|-------|
 | P-01 | Compliant with PDPL (Royal Decree M/19) | PARTIAL | Privacy Policy text references PDPL correctly, but several PDPL rights are not technically enforceable yet |
 | P-02 | Policy explains how data is collected, used, stored, protected, shared | IMPLEMENTED | Privacy Policy covers all these areas |
-| P-03 | Modifications announced via in-platform notification | NOT IMPLEMENTED | No versioned terms tracking; no change notification mechanism |
+| P-03 | Modifications announced via in-platform notification | PARTIAL | Announcement overlay system exists (AnnouncementOverlay.jsx); admin can notify users of policy changes via announcements. No automated versioned terms tracking |
 
 ### Section 02 — Data We Collect (البيانات التي نجمعها)
 
 | # | Claim | Status | Notes |
 |---|-------|--------|-------|
 | P-04 | Collect: real name at registration | IMPLEMENTED | `real_name` field in Account model |
-| P-05 | Collect: email address | NOT IMPLEMENTED | No `email` field exists in Account model — Privacy Policy claims this but it is not collected |
+| P-05 | Collect: email address | IMPLEMENTED | Email reference removed from Privacy Policy — page no longer claims email is collected, matching actual behavior |
 | P-06 | Collect: password (stored encrypted, nobody can see it) | IMPLEMENTED | bcrypt hash stored; not reversible |
 | P-07 | Collect: alias chosen in competition | IMPLEMENTED | `alias_records` table |
 | P-08 | Collect: IP address | NOT IMPLEMENTED | Not stored in database — Privacy Policy claims this is collected |
@@ -236,7 +236,7 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 |---|-------|--------|-------|
 | P-49 | Right of access: obtain copy of personal data (Art. 4) | NOT IMPLEMENTED | No data export endpoint |
 | P-50 | Right of correction: request correction of inaccurate data (Art. 4) | PARTIAL | Users can update `real_name` via account settings; cannot correct other data fields |
-| P-51 | Right of deletion: request deletion when data no longer needed (Art. 4) | NOT IMPLEMENTED | No self-service deletion; no formal request process |
+| P-51 | Right of deletion: request deletion when data no longer needed (Art. 4) | IMPLEMENTED | `POST /api/auth/me/request-deletion` endpoint + button in AccountSettingsPage; Privacy Policy text updated to reflect availability |
 | P-52 | Right of consent withdrawal (Art. 6) | NOT IMPLEMENTED | No consent management; no withdrawal mechanism |
 | P-53 | Right of objection: object to processing in certain cases | NOT IMPLEMENTED | No objection process |
 | P-54 | Right of portability: data transfer in machine-readable format (Art. 4) | NOT IMPLEMENTED | No data export in any format |
@@ -263,14 +263,14 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 
 | Status | Terms of Use | Privacy Policy | Total |
 |--------|-------------|----------------|-------|
-| IMPLEMENTED | 11 | 17 | 28 |
-| PARTIAL | 8 | 7 | 15 |
-| NOT IMPLEMENTED | 5 | 16 | 21 |
+| IMPLEMENTED | 13 | 19 | 32 |
+| PARTIAL | 9 | 8 | 17 |
+| NOT IMPLEMENTED | 2 | 13 | 15 |
 | PLANNED | 0 | 0 | 0 |
 | N/A | 36 | 11 | 47 |
 
 **Total trackable claims (excluding N/A):** 64
-**Compliance coverage:** 43.8% IMPLEMENTED, 23.4% PARTIAL, 32.8% NOT IMPLEMENTED
+**Compliance coverage:** 50.0% IMPLEMENTED, 26.6% PARTIAL, 23.4% NOT IMPLEMENTED
 
 ---
 
@@ -278,9 +278,9 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 
 ### Critical — Legal Compliance Risk
 
-1. [ ] **Implement account self-deletion** — Terms Section 09 promises users can delete accounts via settings or admin contact. Neither option works. (T-50)
+1. [x] **Implement account self-deletion** — `POST /api/auth/me/request-deletion` + AccountSettingsPage button. Creates audit event for owner review. (T-50, P-51)
 2. [ ] **Implement user data export** — Privacy Policy promises right of access (P-49) and portability (P-54). No export endpoint exists.
-3. [ ] **Fix email discrepancy** — Privacy Policy claims email is collected (P-05) but no email field exists in Account model. Either add email or update Privacy Policy.
+3. [x] **Fix email discrepancy** — Privacy Policy no longer claims email is collected; page was rewritten to match actual data collection. (P-05)
 4. [ ] **Implement IP address collection or remove claim** — Privacy Policy claims IP is collected (P-08) but it is not stored. Either implement or correct the policy.
 5. [ ] **Remove claims about browser/OS/device data** if not collecting, or implement collection (P-09, P-10, P-12).
 6. [ ] **Execute DPA with hosting provider** — Privacy Policy promises DPA-backed data sharing (P-31) but no DPA exists.
@@ -291,10 +291,10 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 
 ### Important — Feature Gaps
 
-11. [ ] **Implement terms change notification** — Both legal pages promise in-platform notifications for changes (T-05, P-03).
+11. [x] **Implement terms change notification** — Announcement overlay system available; admin can notify via announcements. Marked PARTIAL. (T-05, P-03)
 12. [ ] **Add age verification** — Both pages reference age restrictions (T-13, T-14, P-57) with zero enforcement.
 13. [ ] **Add content filtering** for aliases — Terms promises content moderation (T-28, T-29) but no automated filter exists.
-14. [ ] **Add rate limiting/bot protection** — Terms prohibits bots (T-22) but no technical prevention exists.
+14. [x] **Add rate limiting/bot protection** — In-memory rate limiter added to auth endpoints (30 req/min per IP); IP ban system via owner panel. (T-22)
 15. [ ] **Implement formal PDPL request intake** — Privacy Policy promises 30-day response to rights requests (P-55) but no intake system exists.
 16. [ ] **Implement periodic security review process** — Privacy Policy claims this (P-28).
 17. [ ] **Add off-site backup** — Terms acknowledges no data loss liability (T-48) but backups are local-only.

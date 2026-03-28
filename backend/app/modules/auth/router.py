@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.core.auth import create_access_token, get_current_account, hash_password, verify_password
 from app.core.database import async_session
 from app.core.enums import AuditActorType
+from app.core.middleware import rate_limit_auth
 from app.modules.audit.service import write_audit
 from app.modules.auth.models import Account
 from app.modules.auth.schemas import LoginRequest, MeResponse, RegisterRequest, TokenResponse
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
 
 
-@router.post("/register", status_code=201)
+@router.post("/register", status_code=201, dependencies=[Depends(rate_limit_auth)])
 async def register(body: RegisterRequest):
     async with async_session() as session:
         try:
@@ -46,7 +47,7 @@ async def register(body: RegisterRequest):
     }
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(rate_limit_auth)])
 async def login(body: LoginRequest):
     async with async_session() as session:
         account = await authenticate(session, body.username, body.password)
