@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 
 import ErrorBoundary from './components/ErrorBoundary'
+import ConsentBanner from './components/ConsentBanner'
+import { trackPageView } from './lib/analytics'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
@@ -49,6 +51,14 @@ const AdminLedgerPage = lazy(() => import('./pages/admin/AdminLedgerPage'))
 const AdminNotificationsPage = lazy(() => import('./pages/admin/AdminNotificationsPage'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
 const AdminPlatformSettingsPage = lazy(() => import('./pages/admin/AdminPlatformSettingsPage'))
+
+function PageTracker() {
+  const location = useLocation()
+  useEffect(() => {
+    trackPageView(location.pathname)
+  }, [location.pathname])
+  return null
+}
 
 function useCaptureRef() {
   useEffect(() => {
@@ -239,7 +249,9 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <BrowserRouter>
+          <PageTracker />
           <GameRoutes />
+          <ConsentBanner />
         </BrowserRouter>
       </AuthProvider>
     </ErrorBoundary>
