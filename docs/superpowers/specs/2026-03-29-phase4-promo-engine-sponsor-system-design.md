@@ -323,46 +323,148 @@ Returns `null` data if no active sponsor. Frontend uses this to decide whether t
 
 When a brand is the **title sponsor** of a competition, the entire competition gets a premium visual upgrade. It should feel like entering a "tournament mode" — dramatic, polished, and immersive. The sponsor's brand is woven into the game's visual language, not placed on top of it.
 
+**Design philosophy (from esports research):**
+- **Earned, not interruption** — Attach sponsor moments to things players want to see (leaderboard reveals, battle results, season launches), not forced pauses
+- **Monochrome/tone-matched logos** — Render sponsor logos in brand-teal or brand-slate, not their corporate colors. Gamers8 Riyadh does this — recoloring all sponsor logos into the event palette. Accepted and respected in the Saudi gaming scene
+- **Environmental integration** — On mobile, use themed backgrounds and transition screens rather than persistent overlay logos (PUBG Mobile pattern)
+- **80/20 rule** — 80% earned attention moments, 20% transition interruptions
+- **Logo sizing** — Never exceed 15% of container width. Mobile: 20-36px height. Desktop: 36-64px height
+- **Typography** — Always typeset sponsor text in the game's fonts (Cairo/Changa), never in the sponsor's corporate font
+
 ### 4.2 Cinematic Splash Screen
 
 **When:** First time a player enters a sponsored competition per session.
-**Duration:** 4-5 seconds, skippable after 2 seconds.
-**Mobile:** Full-screen, works on 360x780 (Galaxy S25).
+**Duration:** 5.5 seconds total, skippable after 2 seconds.
+**Mobile:** Full-screen, works on 360x780 (Galaxy S25) at 60fps.
 
-**Animation sequence:**
+#### Animation Sequence (Frame-by-Frame)
+
+Inspired by Genshin Impact's escalating anticipation, BLAST Premier's geometric assembly, and Riot's monochrome-to-color reveal:
 
 ```
-0.0s — Screen fades to dark (#0a0d14)
-0.3s — Hexagon particle field fades in (using lobby's rotateShape animation)
-       Particles use sponsor's brand_color at 15% opacity
-0.8s — Competition name slides up from bottom with spring easing
-       "بطولة [Sponsor] لحرب الأسماء"
-       Font: Changa 800, white, text-shadow with brand_color glow
-1.5s — Sponsor logo fades in and scales (fadeInScale) below competition name
-       Logo surrounded by a subtle hexagonal frame in brand_color
-2.0s — [Skip button appears] — "تخطي" at top-left, subtle
-2.5s — Tagline fades in below logo
-       "الراعي الرسمي" in brand_color, Cairo 600
-3.5s — Hexagons pulse once in brand_color
-4.5s — Everything fades out, transition to competition view
+PHASE 1 — ATMOSPHERE (0.0s – 1.2s)
+═══════════════════════════════════
+0.00s  Screen fades to #0a0d14 (lobby dark)                    [opacity 0→1, 600ms ease-out]
+0.10s  Film grain overlay activates                             [CSS steps(10), 4% opacity, transform-only]
+0.30s  Vignette tightens from 50% → 30% spread                 [CSS @property --vignette-spread, 800ms ease-in]
+0.40s  Hexagon particle field spawns — 200 particles on mobile, 500 on desktop
+       Particles spawn from center, drift outward in hex-grid pattern
+       Color: sponsor brand_color at 12% opacity               [Canvas 2D, bitmap-cached hexagons]
+0.60s  Two counter-rotating hexagon shapes fade in (lobby's rotateShape/Reverse)
+       Tinted in brand_color at 8% opacity                     [CSS transform rotate, 45s/55s linear infinite]
+1.00s  Subtle aurora gradient begins drifting in background
+       3 layered radial-gradients using brand_color + brand_color_secondary
+                                                                [CSS @property color animation, 8s cycle]
+
+PHASE 2 — REVEAL (1.2s – 3.0s)
+═══════════════════════════════
+1.20s  Competition name text assembles — word-by-word RTL stagger
+       "بطولة" → "[Sponsor]" → "لحرب" → "الأسماء"
+       Each word: translateY(40px)→0 + opacity 0→1 + blur(10px)→0
+       Stagger: 100ms between words                             [Motion variants, spring stiffness:200 damping:20]
+       Font: Changa 800, white, clamp(1.5rem, 5vw, 3rem)
+       Text-shadow: 0 0 40px brand_color at 30% opacity
+
+1.80s  Sponsor logo enters — hexagonal clip-path reveal
+       Starts as collapsed hexagon (all points at center)
+       Expands to full hexagonal frame containing the logo
+       Logo rendered monochrome white, fades to brand_color     [CSS clip-path polygon animation, 800ms]
+       Logo max-width: 160px mobile, 240px tablet, 300px desktop
+
+2.00s  [SKIP BUTTON APPEARS] — "تخطي" at top-left
+       44×44px minimum touch target, opacity 0.6
+       Text: Cairo 500, 14px, white                             [fade-in 200ms]
+
+2.30s  Tagline types in below logo — RTL character reveal
+       "الراعي الرسمي" or custom sponsor tagline
+       Font: Cairo 600, brand_color, clamp(0.875rem, 2.5vw, 1.25rem)
+       Cursor blink on left side (RTL)                          [CSS width animation + border-left blink]
+
+PHASE 3 — CLIMAX + EXIT (3.0s – 5.5s)
+══════════════════════════════════════
+3.00s  Hexagon pulse — all particles flash to brand_color 40% opacity then back
+       Single radial shockwave expands from center               [Canvas 2D, 400ms ease-out]
+       Screen shake: ±3px translate + ±0.3deg rotate, 400ms     [CSS keyframes on wrapper]
+       Haptic feedback: [50, 30, 100] vibration pattern          [Vibration API, Android only]
+
+3.50s  Vignette relaxes from 30% → 50%                          [800ms ease-out]
+       Particle field slows, particles begin fading
+
+4.50s  Everything fades out simultaneously
+       All elements: opacity 1→0, 600ms ease-out
+       Particles: scale down 1→0.5 while fading                 [Canvas 2D per-particle]
+
+5.00s  View Transition to competition dashboard
+       Old view: scale(1)→scale(0.95) + opacity→0 + blur(4px)
+       New view: scale(1.05)→scale(1) + opacity 0→1             [View Transitions API with fallback]
+
+5.50s  Complete — competition view fully visible
 ```
 
-**Visual specs:**
-- Background: Same as lobby (#0a0d14) with hexagon SVG pattern
-- Hexagons: Animated with `rotateShape` (45s) + `rotateShapeReverse` (55s), tinted in sponsor's brand_color
-- Logo: Max 200px wide on mobile, 300px on desktop, centered
-- All text: Centered, white with brand_color accents
-- Spring easing: `cubic-bezier(0.175, 0.885, 0.32, 1.275)`
-- Skip button: Simple text, not a branded element
+#### Technical Implementation Stack
 
-**Responsive behavior:**
-- Mobile (< 640px): Logo 160px max, title text-2xl, tagline text-sm
-- Tablet (640-1024px): Logo 240px max, title text-3xl, tagline text-base
-- Desktop (> 1024px): Logo 300px max, title text-4xl, tagline text-lg
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Orchestration | **Motion (Framer Motion)** `AnimatePresence` + `variants` | MIT license, 2.6kb min, spring physics, React-native, WAAPI-backed for 120fps |
+| Particle field | **Canvas 2D** with bitmap-cached hexagons | 200 particles at 60fps on mobile without WebGL overhead |
+| Hexagon clip-path | **CSS `clip-path: polygon()`** animation | GPU-accelerated, no JS needed |
+| Aurora gradient | **CSS `@property`** color interpolation | True gradient color animation, compositor thread |
+| Film grain | **CSS `transform` + `steps(10)`** on noise PNG | Transform-only = zero repaints |
+| Vignette | **CSS `radial-gradient`** with `@property --vignette-spread` | Animatable custom property |
+| Screen shake | **CSS `@keyframes`** on outermost wrapper | Transform-only, doesn't disrupt scroll |
+| Text stagger | **Motion `staggerChildren`** with spring transition | Word-level splitting (not character — safe for Arabic connected script) |
+| Page transition | **View Transitions API** with CSS fallback | Native browser, zero JS for the transition itself |
+| Sound | **Web Audio API** — synthesized whoosh + impact + reveal | Zero audio file downloads |
+| Haptics | **Vibration API** pattern `[50, 30, 100]` | Android progressive enhancement, no-op on iOS |
+
+#### Sound Design (Web Audio API — No Files Needed)
+
+```
+0.40s  WHOOSH — sawtooth oscillator, freq 800→100 Hz over 300ms, lowpass filter 2000→200 Hz
+       Synced with particle field spawn (movement sound)
+
+1.20s  IMPACT — short noise burst 50ms, bandpass 200-400 Hz
+       Synced with first word appearance (arrival accent)
+
+1.80s  REVEAL TONE — sine wave chord (C5 + E5), 400ms attack, 800ms release
+       Synced with logo hexagonal reveal (emotional pad)
+
+3.00s  LOW BOOM — triangle wave 60 Hz, 200ms, gain 0.4
+       Synced with hexagon pulse + screen shake (climax impact)
+```
+
+**Audio unlock:** AudioContext created on first user gesture (any tap/click). Splash audio only plays if context is unlocked — silent graceful degradation otherwise.
+
+#### Performance Budget
+
+| Metric | Target | Technique |
+|--------|--------|-----------|
+| JS execution per frame | < 8ms | Canvas bitmap cache, Motion WAAPI delegation |
+| Composite layers | ≤ 4 | Only: particle canvas, hex shapes, text layer, vignette |
+| Total animation JS | < 15kb | Motion tree-shaken + Canvas loop |
+| Canvas particles (mobile) | 200 max | Bitmap-cached hexagons, OffscreenCanvas if supported |
+| Canvas particles (desktop) | 500 max | Same technique, higher count |
+| LCP impact | 0ms | Splash is an overlay, page content loads underneath |
+| CLS impact | 0 | Full-viewport fixed overlay, no layout shift |
+| Battery | Minimal | 5.5s max duration, auto-stops all rAF after exit |
+
+#### `prefers-reduced-motion` Behavior
+
+When the user has reduced motion enabled:
+- Particle field: Static (no animation), show a still hexagon pattern at 8% opacity
+- Film grain: Disabled
+- Screen shake: Disabled
+- All entrances: Simple opacity fade (200ms) instead of transforms
+- Aurora gradient: Static, no drift
+- Logo: Simple fade-in instead of clip-path reveal
+- Text: All words appear simultaneously (no stagger)
+- Vignette: Static at 40%
+- Total duration reduced to 3 seconds (skip still available at 2s)
+- Haptics and sound: Still fire (these are non-visual)
 
 ### 4.3 Branded Competition Header
 
-When inside a sponsored competition, the competition header gets a subtle branded treatment:
+When inside a sponsored competition, the competition header gets a subtle branded treatment.
 
 **Standard (no sponsor):**
 ```
@@ -372,84 +474,196 @@ When inside a sponsored competition, the competition header gets a subtle brande
 └─────────────────────────────────────┘
 ```
 
-**Sponsored (title tier):**
+**Title sponsor:**
 ```
 ┌─────────────────────────────────────┐
-│  [Sponsor Logo 24px]  الراعي الرسمي  │  ← subtle top bar with brand_color bg at 8% opacity
-│  بطولة STC لحرب الأسماء             │  ← competition name includes sponsor
+│  [Logo 24px]  الراعي الرسمي          │  ← bg: brand_color at 6% opacity
+│  بطولة STC لحرب الأسماء             │  ← name includes sponsor
 │  الموسم الأول — الدورة الأولى         │
 └─────────────────────────────────────┘
 ```
 
-**Implementation:**
-- Top bar: `bg-[brand_color]/8` — barely visible tint
-- Sponsor logo: Small (24px height), on the right (RTL), next to tagline
-- Border: `border-b` uses `brand_color` at 20% opacity
-- Works in both light and dark mode
+**Presenting sponsor:**
+```
+┌─────────────────────────────────────┐
+│  بطولة حرب الأسماء                  │
+│  الموسم الأول — الدورة الأولى         │
+│  ─────────────────────────          │
+│  [Logo 20px]  برعاية Mobily          │  ← footer line only
+└─────────────────────────────────────┘
+```
+
+**Implementation details:**
+- Logo rendered monochrome (brand-slate in light mode, white in dark mode) — never full-color corporate logo
+- Top bar tint: `bg-[brand_color]/[6-8]` — barely visible, matches the Riot Games pattern
+- Border: `border-b` uses `brand_color` at 15% opacity
+- Entrance: slides down 200ms ease-out on first render
+- RTL: Logo on the right (start position), tagline to its left
+- Font for "الراعي الرسمي": Cairo 400, 12px, brand_color at 70% opacity — weight is lighter than the competition name (following the esports hierarchy: event bold > sponsor medium)
 
 ### 4.4 Branded Leaderboard
 
-The leaderboard page gets a sponsor treatment:
+**Title tier — Full treatment:**
+- Header card: Animated gradient border using brand_color (CSS `@property` border-color animation, 4s cycle)
+- "بطولة [Sponsor]" subtitle below leaderboard title — Cairo 500, brand_color at 60% opacity
+- The #1 rank row: Subtle brand_color glow (`box-shadow: 0 0 20px brand_color at 10%`) — celebrating the leader in the sponsor's colors
+- Sponsor logo watermark in the leaderboard footer — 5% opacity, centered, 40px height
+- Logo "breathing" animation: opacity oscillates 0.03–0.06 over 4s (peripheral attention draw, BLAST pattern)
 
-**Title tier:**
-- Leaderboard header card: Subtle gradient border using `brand_color`
-- "بطولة [Sponsor]" subtitle below the leaderboard title
-- Sponsor logo watermark in the footer of the leaderboard section (low opacity)
-- The #1 rank row has a subtle brand_color glow (celebrating the leader in the sponsor's colors)
-
-**Presenting tier:**
-- Sponsor logo + tagline in leaderboard footer only
+**Presenting tier — Subtle footer:**
+- Sponsor logo (monochrome) + tagline in leaderboard footer
+- Separated from content by a `border-t` in brand_color at 10% opacity
 - No other visual changes
+
+**Supporting tier:**
+- Text-only mention: "بدعم من [Sponsor]" at bottom of leaderboard section
+- Cairo 400, 11px, gray-500
 
 ### 4.5 Branded Share Cards
 
-When a player shares their results (attack result, quiz score, final ranking), the share card includes the sponsor's branding:
+When a player shares results (attack result, quiz score, final ranking), the share image includes sponsor branding — this is "earned" integration because the player chose to share.
 
-**Share card layout (Open Graph image):**
+**Share card layout (OG image — 1200x630):**
 ```
-┌──────────────────────────────────────┐
-│   حرب الأسماء                        │
-│                                      │
-│   🎯 نتيجة الهجوم                    │
-│   [Player alias] هاجم [Target]       │
-│   +500 نقطة                          │
-│                                      │
-│   ──────────────────────────         │
-│   [Sponsor Logo] الراعي الرسمي       │
-└──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│   [Hexagon pattern bg — brand_color tinted at 5%]           │
+│                                                              │
+│              حرب الأسماء                                     │
+│                                                              │
+│              🎯 نتيجة الهجوم                                 │
+│              [Alias] هاجم [Target]                           │
+│              +500 نقطة                                       │
+│                                                              │
+│   ────────────────────────────────────────────────           │
+│   [Logo 28px mono]  الراعي الرسمي  •  بطولة STC             │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-This is a backend-generated OG image (or a frontend template captured as image). The sponsor's logo and tagline appear in a dedicated footer section — never mixed with the game content.
+**Implementation:**
+- Backend-generated using a template (HTML → image service, or Canvas 2D on the server)
+- Sponsor footer: single horizontal strip, logo + tagline + competition name
+- Logo: Monochrome version, 28px height
+- Separator dot (•) between elements — RTL-aware
+- Background: Same hexagon pattern as splash, very subtle brand_color tint
 
 ### 4.6 Lobby Variant (Title Sponsor Only)
 
-When a competition has a **title sponsor**, the lobby screen gets a subtle color shift:
+The lobby is the game's most immersive screen — a full dark-only environment with hexagons, rotating shapes, and magnetic hover. For a title sponsor, we subtly shift its color palette:
 
-- Background hexagons: 30% of hexagons use `brand_color` instead of the default colors
-- The rotating shapes: One of the shapes uses `brand_color` fill at 10% opacity
-- Sponsor logo: Appears as a watermark at the bottom of the lobby (5% opacity), barely visible
-- **No structural changes** — same layout, same buttons, same magnetic hover
+**Color treatment (following Gamers8 Riyadh approach):**
+- 25-30% of hexagon SVG shapes in the background: fill shifts from default to `brand_color` at 8% opacity
+- One of the two counter-rotating shapes: fill shifts to `brand_color` at 6% opacity
+- The center logo glow: adds a secondary glow ring in `brand_color` at 10% opacity, 80px blur
+- Sponsor logo watermark: positioned at absolute bottom center, 4% opacity, 48px height on mobile / 64px on desktop
 
-This is the subtlest integration — players notice the color shift subconsciously without it feeling like an advertisement.
+**What does NOT change:**
+- Button colors (teal, purple, orange, blue) — stay as-is
+- Magnetic hover behavior — stays as-is
+- Layout structure — zero changes
+- Animation timing — same rotateShape 45s / rotateShapeReverse 55s
+
+**Performance note:** The color shifts are CSS custom property changes only — no additional DOM elements, no additional composite layers. The watermark logo is a single `<img>` with `opacity: 0.04` and `pointer-events: none`.
 
 ### 4.7 Responsive Behavior (All Devices)
 
-Every cinematic element must work across:
+| Device | Viewport | Splash Particles | Logo Size | Text Size | Considerations |
+|--------|----------|-----------------|-----------|-----------|----------------|
+| Galaxy S25 (primary) | 360×780 | 200 | 160px | `clamp(1.25rem, 5vw, 1.75rem)` | Fixed bottom nav 56px, `100dvh` for mobile chrome |
+| iPhone 15 | 393×852 | 200 | 160px | same | `env(safe-area-inset-*)` for notch |
+| Small Android | 320×568 | 150 | 120px | `clamp(1rem, 5vw, 1.5rem)` | Tightest layout — reduce padding |
+| iPad | 768×1024 | 350 | 240px | `clamp(1.5rem, 4vw, 2.5rem)` | Two-column layouts possible |
+| Desktop | 1280+ | 500 | 300px | `clamp(2rem, 3vw, 3rem)` | Hover effects, mouse parallax on particles |
 
-| Device | Viewport | Considerations |
-|--------|----------|----------------|
-| Galaxy S25 (primary) | 360x780 | Fixed bottom nav (56px), limited width, touch targets ≥ 44px |
-| iPhone 15 | 393x852 | Safe area insets, notch avoidance |
-| iPad | 768x1024 | Two-column layouts possible, larger splash logo |
-| Desktop | 1280+ | Max-width containers, hover effects activate |
+**Universal rules:**
+- `100dvh` not `100vh` — accounts for mobile browser chrome
+- Skip button: Always top-left, `min-width: 44px; min-height: 44px` (WCAG touch target)
+- Logo: `max-width` responsive, `object-fit: contain`, never stretched or cropped
+- Font sizing: `clamp()` for fluid typography — no breakpoint jumps
+- Particle count: Auto-detected based on `navigator.hardwareConcurrency` and viewport size. If < 4 cores, use minimum count
+- Canvas DPR: Capped at `Math.min(window.devicePixelRatio, 2)` — prevents 3x rendering on high-DPI devices
 
-**Key rules:**
-- Splash screen: Always full-viewport (`100dvh`), uses `dvh` for mobile browser chrome
-- Skip button: Always at top-left, minimum 44x44 touch target
-- Logo: `max-width` responsive, never stretched
-- Text: `clamp()` for fluid typography — `clamp(1.25rem, 4vw, 2.5rem)` for titles
-- Hexagon animations: Reduce particle count on mobile (performance)
-- All animations: Respect `prefers-reduced-motion` — disable rotations, keep fades
+### 4.8 Cinematic Design System Tokens
+
+All cinematic elements use these shared tokens for consistency:
+
+```
+── Timing ──────────────────────────────
+--cinematic-fade-in:     600ms
+--cinematic-fade-out:    400ms
+--cinematic-spring:      cubic-bezier(0.175, 0.885, 0.32, 1.275)
+--cinematic-smooth:      cubic-bezier(0.25, 1, 0.5, 1)
+--cinematic-ease-out:    cubic-bezier(0.16, 1, 0.3, 1)
+--cinematic-stagger:     100ms
+
+── Colors (dynamic, set from sponsor data) ──
+--cinematic-brand:       var(--sponsor-brand-color, #0B8A8D)
+--cinematic-brand-glow:  color-mix(in srgb, var(--cinematic-brand) 30%, transparent)
+--cinematic-brand-tint:  color-mix(in srgb, var(--cinematic-brand) 8%, transparent)
+--cinematic-bg:          #0a0d14
+--cinematic-surface:     #151b29
+
+── Sizing ──────────────────────────────
+--cinematic-logo-max:    clamp(120px, 30vw, 300px)
+--cinematic-title-size:  clamp(1.25rem, 5vw, 3rem)
+--cinematic-tagline-size: clamp(0.75rem, 2.5vw, 1.25rem)
+--cinematic-grain-opacity: 0.04
+--cinematic-vignette-spread: 50%
+
+── Particles ───────────────────────────
+--cinematic-particle-count: 200    (mobile) / 500 (desktop)
+--cinematic-particle-opacity: 0.12
+--cinematic-particle-size: 3-8px
+```
+
+### 4.9 Audio & Haptics Details
+
+#### Synthesized Sound (Web Audio API — Zero File Downloads)
+
+| Cue | Timing | Oscillator | Frequency | Filter | Duration | Gain |
+|-----|--------|-----------|-----------|--------|----------|------|
+| Whoosh | 0.40s | Sawtooth | 800→100 Hz ramp | Lowpass 2000→200 Hz | 300ms | 0.25 |
+| Impact | 1.20s | White noise burst | Broadband | Bandpass 200-400 Hz | 50ms | 0.35 |
+| Reveal tone | 1.80s | Sine (C5=523 Hz + E5=659 Hz) | Chord | None | 400ms attack + 800ms release | 0.20 |
+| Low boom | 3.00s | Triangle | 60 Hz | Lowpass 100 Hz | 200ms | 0.40 |
+
+**Audio pipeline:**
+```
+Oscillator → BiquadFilter → GainNode → AudioContext.destination
+```
+
+**AudioContext lifecycle:**
+1. Created on app init (starts `suspended`)
+2. Resumed on first user gesture (`click`/`touchstart`)
+3. Splash checks `audioCtx.state === 'running'` before playing
+4. If still suspended → splash runs silent (graceful degradation)
+
+#### Haptic Patterns (Vibration API)
+
+| Moment | Pattern (ms) | Feel |
+|--------|-------------|------|
+| Particle spawn | `[20]` | Tiny tap |
+| Logo reveal | `[30, 20, 30]` | Double tap |
+| Hexagon pulse + shake | `[50, 30, 100]` | Build-up then impact |
+| Splash exit | `[20]` | Soft close |
+
+**Platform support:**
+- Android Chrome/Firefox/Samsung Internet: Full support
+- iOS Safari: **Not supported** — no-op, no error
+- Feature detection: `if ('vibrate' in navigator) { ... }`
+
+### 4.10 Accessibility Compliance
+
+| Requirement | Implementation |
+|-------------|----------------|
+| WCAG 2.3.3 (AAA) Non-essential animation | All cinematic animations disabled under `prefers-reduced-motion: reduce` |
+| WCAG Pause/Stop/Hide | Skip button at 2s, auto-completes at 5.5s |
+| Touch targets ≥ 44px | Skip button: `min-width: 44px; min-height: 44px` |
+| Focus management | After splash exits, focus moves to first interactive element in competition view |
+| Screen reader | Splash is `role="dialog" aria-label="عرض الراعي الرسمي"`, skip button is `aria-label="تخطي العرض"` |
+| Color contrast | All text on dark bg: white (#FFFFFF) on #0a0d14 = ratio 18.4:1 (AAA) |
+| Photosensitivity | No flashing > 3 times/second. Hexagon pulse is a single 400ms event |
 
 ---
 
