@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /rules
+Allow: /terms
+Allow: /privacy
+Disallow: /dashboard
+Disallow: /leaderboard
+Disallow: /store
+Disallow: /quiz
+Disallow: /admin
+Disallow: /owner
+Disallow: /account
+Disallow: /notifications
+Disallow: /lobby
+Disallow: /api/
+
+Sitemap: https://warofnames.com/sitemap.xml
