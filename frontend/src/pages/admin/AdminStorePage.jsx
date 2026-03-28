@@ -215,7 +215,32 @@ function ItemFormModal({ item, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [mode, setMode] = useState('form')
-  const [jsonStr, setJsonStr] = useState('')
+  // Pre-fill JSON with current item data when editing
+  const [jsonStr, setJsonStr] = useState(() => {
+    if (!isEdit) return ''
+    const current = {
+      name: item.name,
+      description: item.description || '',
+      rarity: item.rarity,
+      category: item.category,
+      usage_type: item.usage_type,
+      max_uses: item.max_uses,
+      is_stackable: item.is_stackable || false,
+      expires_after_minutes: item.expires_after_minutes || null,
+      visibility: item.visibility || 'visible',
+      effects: (item.effects || []).map(e => ({
+        effect_type: e.effect_type,
+        parameters: e.parameters || {},
+        description: e.description || '',
+        target_scope: e.target_scope || 'self',
+        trigger_on: e.trigger_on || 'activation',
+        duration_minutes: e.duration_minutes || null,
+        is_stackable: e.is_stackable || false,
+        order_index: e.order_index || 0,
+      }))
+    }
+    return JSON.stringify(current, null, 2)
+  })
   const [jsonError, setJsonError] = useState(null)
   const [bulkProgress, setBulkProgress] = useState(null)
 
@@ -229,13 +254,49 @@ function ItemFormModal({ item, onClose, onSaved }) {
       const { items, error: parseErr } = parseJsonInput(jsonStr)
       if (parseErr) { setJsonError(parseErr); return }
 
+      // Strip instruction fields (keys starting with _)
+      const cleanItems = items.map(it => {
+        const clean = {}
+        for (const [k, v] of Object.entries(it)) {
+          if (!k.startsWith('_')) clean[k] = v
+        }
+        if (clean.effects) {
+          clean.effects = clean.effects.map(eff => {
+            const ce = {}
+            for (const [k, v] of Object.entries(eff)) {
+              if (!k.startsWith('_')) ce[k] = v
+            }
+            if (ce.parameters) {
+              const cp = {}
+              for (const [k, v] of Object.entries(ce.parameters)) {
+                if (!k.startsWith('_')) cp[k] = v
+              }
+              ce.parameters = cp
+            }
+            return ce
+          })
+        }
+        return clean
+      })
+
       setSaving(true); setError(null)
+
+      if (isEdit) {
+        // Edit mode: PATCH with the single JSON object
+        try {
+          await apiFetch(`/api/admin/store/items/${item.id}`, { method: 'PATCH', body: JSON.stringify(cleanItems[0]) })
+          onSaved()
+        } catch (err) { setError(err.message) } finally { setSaving(false) }
+        return
+      }
+
+      // Create mode: bulk
       let created = 0; let failed = 0; let lastErr = null
       try {
-        for (let i = 0; i < items.length; i++) {
-          setBulkProgress(`جارٍ الإنشاء ${i + 1} من ${items.length}...`)
+        for (let i = 0; i < cleanItems.length; i++) {
+          setBulkProgress(`جارٍ الإنشاء ${i + 1} من ${cleanItems.length}...`)
           try {
-            await apiFetch('/api/admin/store/items', { method: 'POST', body: JSON.stringify(items[i]) })
+            await apiFetch('/api/admin/store/items', { method: 'POST', body: JSON.stringify(cleanItems[i]) })
             created++
           } catch (err) { failed++; lastErr = err.message }
         }
@@ -289,15 +350,13 @@ function ItemFormModal({ item, onClose, onSaved }) {
           {error && <div className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
           {bulkProgress && <div className="bg-brand-teal/10 text-brand-teal px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><iconify-icon icon="lucide:loader-2" class="animate-spin text-sm"></iconify-icon>{bulkProgress}</div>}
 
-          {!isEdit && (
-            <JsonEditorToggle
-              mode={mode} onModeChange={setMode}
-              jsonValue={jsonStr} onJsonChange={v => { setJsonStr(v); setJsonError(null) }}
-              template={ITEM_TEMPLATE} templateLabel="قالب عنصر"
-              bulkTemplate={ITEM_BULK_TEMPLATE}
-              error={jsonError}
-            />
-          )}
+          <JsonEditorToggle
+            mode={mode} onModeChange={setMode}
+            jsonValue={jsonStr} onJsonChange={v => { setJsonStr(v); setJsonError(null) }}
+            template={ITEM_TEMPLATE} templateLabel="قالب عنصر"
+            bulkTemplate={isEdit ? null : ITEM_BULK_TEMPLATE}
+            error={jsonError}
+          />
 
           {mode === 'form' && (
             <>
