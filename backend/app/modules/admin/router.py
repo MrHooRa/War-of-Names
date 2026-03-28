@@ -1028,6 +1028,12 @@ async def adjust_balance(membership_id: uuid.UUID, body: AdminAdjustBalanceReque
         balance_before = membership.current_balance
         balance_after = balance_before + body.amount
 
+        if balance_after < 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"لا يمكن تعديل الرصيد إلى رقم سالب. الرصيد الحالي: {balance_before}",
+            )
+
         ledger = LedgerEntry(
             membership_id=membership.id,
             competition_id=membership.competition_id,

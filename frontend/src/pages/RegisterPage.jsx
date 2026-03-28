@@ -16,6 +16,18 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    if (form.username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(form.username)) {
+      setError('اسم المستخدم يجب أن يكون 3 أحرف على الأقل (أحرف إنجليزية وأرقام و _ فقط)')
+      setLoading(false); return
+    }
+    if (form.real_name.trim().length < 2) {
+      setError('الاسم الحقيقي يجب أن يكون حرفين على الأقل')
+      setLoading(false); return
+    }
+    if (form.password.length < 6) {
+      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل')
+      setLoading(false); return
+    }
     try {
       const json = await apiFetch('/api/auth/register', {
         method: 'POST',
@@ -39,7 +51,7 @@ export default function RegisterPage() {
           <div className="flex-1 flex flex-col gap-2">
             <div className="flex justify-between items-end mb-1">
               <span className="text-xs font-heading font-black text-brand-teal dark:text-brand-slate uppercase tracking-widest">المرحلة الأولى</span>
-              <span className="text-[10px] font-bold text-gray-400">50% مكتمل</span>
+              <span className="text-[10px] font-bold text-gray-400">الخطوة الأولى</span>
             </div>
             <div className="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
               <div className="h-full bg-brand-teal dark:bg-brand-slate w-1/2 rounded-full"></div>

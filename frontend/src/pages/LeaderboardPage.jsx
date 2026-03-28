@@ -144,7 +144,7 @@ export default function LeaderboardPage() {
   const myPlayer = players.find(p => p.membership_id === myMembershipId)
 
   const filtered = players.filter(p =>
-    p.alias.includes(search)
+    p.alias.toLowerCase().includes(search.toLowerCase())
   )
 
   return (

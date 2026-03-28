@@ -11,6 +11,14 @@ export default function JoinPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!form.invite_code.trim() || form.invite_code.trim().length < 4) {
+      setError('رمز الدعوة غير صالح')
+      return
+    }
+    if (!form.alias.trim() || form.alias.trim().length < 2) {
+      setError('اللقب يجب أن يكون حرفين على الأقل')
+      return
+    }
     setLoading(true)
     try {
       await apiFetch('/api/join', {

@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import (
+    AccountStatus,
     CompetitionStatus,
     CycleStatus,
     InviteStatus,
@@ -21,6 +22,7 @@ from app.core.enums import (
     NotificationType,
     SeasonStatus,
 )
+from app.modules.auth.models import Account
 from app.modules.competitions.models import (
     AliasRecord,
     Competition,
@@ -54,6 +56,11 @@ async def validate_join(
     alias: str,
 ) -> None:
     """Validate all join preconditions. Raises JoinError on failure."""
+    # Account status
+    account = await session.get(Account, account_id)
+    if not account or account.status != AccountStatus.ACTIVE:
+        raise JoinError("account_inactive", "حسابك معطل أو معلق — لا يمكنك الانضمام", status_code=403)
+
     # Competition state
     if competition.status not in (CompetitionStatus.ACTIVE, CompetitionStatus.REGISTRATION_OPEN):
         raise JoinError("competition_inactive", "المنافسة غير مفتوحة للتسجيل حالياً")

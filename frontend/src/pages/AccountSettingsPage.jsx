@@ -18,8 +18,8 @@ export default function AccountSettingsPage() {
       await apiFetch('/api/auth/me/request-deletion', { method: 'POST' })
       setDeletionRequested(true)
     } catch (err) {
-      // Already requested or error
-      setDeletionRequested(true)
+      // Don't set deletionRequested on error — show the error instead
+      alert(err.message || 'فشل إرسال الطلب')
     }
   }
 

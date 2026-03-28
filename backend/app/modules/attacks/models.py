@@ -61,9 +61,9 @@ class AttackExposure(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
-    membership_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("memberships.id", ondelete="CASCADE"), nullable=False)
-    season_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False)
-    cycle_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cycles.id", ondelete="CASCADE"), nullable=False)
+    membership_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    season_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seasons.id", ondelete="RESTRICT"), nullable=False)
+    cycle_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cycles.id", ondelete="RESTRICT"), nullable=False)
     successful_attack_count: Mapped[int] = mapped_column(default=0)
     current_reward_stage: Mapped[int] = mapped_column(default=0)
     max_attacks_reached: Mapped[bool] = mapped_column(default=False)
