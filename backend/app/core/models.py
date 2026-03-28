@@ -19,12 +19,17 @@ class Base(DeclarativeBase):
 def pg_enum(enum_cls: type[StrEnum], *, name: str) -> SAEnum:
     """Create a SQLAlchemy Enum mapped to a PostgreSQL ENUM type.
 
-    Uses native PostgreSQL ENUMs. ``create_all`` will auto-create the type
-    if it doesn't exist yet (idempotent via ``checkfirst=True`` default).
-    The migration SQL in ``migrations/001_initial_schema.sql`` is the
-    canonical schema reference for production.
+    Uses native PostgreSQL ENUMs with enum VALUES (lowercase) as labels.
+    SQLAlchemy 2.x with StrEnum sends the .value (lowercase) when writing
+    and must also accept lowercase when reading. We pass the values explicitly
+    to ensure PG enum labels match what SQLAlchemy actually sends/reads.
     """
-    return SAEnum(enum_cls, name=name, native_enum=True)
+    return SAEnum(
+        *(member.value for member in enum_cls),
+        name=name,
+        native_enum=True,
+        create_constraint=False,
+    )
 
 
 # ── Temporary placeholder (supports current frontend dashboard) ───────────
@@ -81,3 +86,4 @@ from app.modules.settings.models import SettingDefinition, SettingValue  # noqa:
 from app.modules.media.models import ExportArtifact, ImportJob, MediaAsset  # noqa: E402, F401
 from app.modules.landing.models import LandingLink  # noqa: E402, F401
 from app.modules.announcements.models import Announcement  # noqa: E402, F401
+from app.modules.owner.models import IPBan  # noqa: E402, F401

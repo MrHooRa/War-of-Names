@@ -100,7 +100,7 @@ export default function LobbyPage() {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen flex flex-col relative"
+      className="min-h-screen flex flex-col relative overflow-x-hidden"
       style={{ backgroundColor: '#0a0d14', color: '#FFFFFF' }}
     >
       {/* Background Visual Zone: Ambient Tavern/Club Vibe */}
@@ -138,10 +138,10 @@ export default function LobbyPage() {
       </div>
 
       {/* Header (Minimal) */}
-      <header className="relative z-30 w-full p-6 flex justify-between items-center opacity-0 animate-[slideDownFade_0.5s_ease_0.5s_forwards] pointer-events-none">
-        <div className="flex items-center gap-4 pointer-events-auto">
+      <header className="relative z-30 w-full p-4 sm:p-6 flex justify-between items-center opacity-0 animate-[slideDownFade_0.5s_ease_0.5s_forwards] pointer-events-none">
+        <div className="flex items-center gap-2 sm:gap-4 pointer-events-auto min-w-0">
           <CompetitionSwitcher variant="dark" />
-          <div className="flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg">
+          <div className="hidden sm:flex items-center gap-3 bg-brand-surface/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/5 shadow-lg">
             <div className="w-2.5 h-2.5 rounded-full bg-brand-emerald animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
             <span className="text-sm font-bold text-gray-200 tracking-wide">
               {seasonName || 'المركز الرئيسي متصل'}
@@ -149,7 +149,7 @@ export default function LobbyPage() {
             </span>
           </div>
         </div>
-        <div className="flex gap-4 pointer-events-auto">
+        <div className="flex gap-2 sm:gap-4 pointer-events-auto flex-shrink-0">
           <Link
             to="/notifications"
             id="nav-notifications-link"
@@ -177,7 +177,7 @@ export default function LobbyPage() {
             src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png"
             alt="شعار حرب الأسماء"
             className="h-[clamp(8rem,20vw,16rem)] w-auto object-contain object-center animate-fade-in-scale trans-mid will-change-transform"
-            style={{ width: 492, height: 244 }}
+            style={{ maxWidth: 492, height: 'auto' }}
           />
         </div>
 

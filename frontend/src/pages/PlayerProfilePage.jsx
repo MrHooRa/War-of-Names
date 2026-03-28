@@ -81,21 +81,48 @@ export default function PlayerProfilePage() {
       </Link>
 
       {/* Hero Card */}
-      <div className="bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm flex flex-col md:flex-row items-center gap-6">
+      <div className={`bg-white dark:bg-brand-card-dark border rounded-3xl p-8 shadow-sm flex flex-col md:flex-row items-center gap-6 relative overflow-hidden smooth-transition ${
+        profile.rank === 1
+          ? 'border-amber-300/50 dark:border-amber-500/30 shadow-amber-200/20 dark:shadow-amber-500/10'
+          : 'border-gray-100 dark:border-gray-800'
+      }`}>
+        {/* Rank #1 ambient glow */}
+        {profile.rank === 1 && (
+          <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full blur-3xl bg-amber-400/10 dark:bg-amber-500/10 pointer-events-none"></div>
+        )}
+
         {/* Avatar */}
-        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center font-black text-4xl shrink-0 ${
-          profile.is_bankrupt
-            ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600'
-            : 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate'
-        }`}>
-          {profile.alias.charAt(0)}
+        <div className="relative shrink-0">
+          {profile.rank === 1 && !profile.is_bankrupt && (
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-20 floating">
+              <iconify-icon icon="lucide:crown" class="text-2xl text-amber-400 drop-shadow-[0_2px_8px_rgba(245,158,11,0.5)]"></iconify-icon>
+            </div>
+          )}
+          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center font-black text-4xl ${
+            profile.is_bankrupt
+              ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600'
+              : profile.rank === 1
+                ? 'bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-600 text-white shadow-lg shadow-amber-400/30 dark:shadow-amber-500/20 ring-2 ring-amber-400/40'
+                : 'bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate'
+          }`}>
+            {profile.alias.charAt(0)}
+          </div>
         </div>
 
-        <div className="flex-1 text-center md:text-right space-y-2">
+        <div className="flex-1 text-center md:text-right space-y-2 relative z-10">
           <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+            {profile.rank === 1 && !profile.is_bankrupt && (
+              <iconify-icon icon="lucide:crown" class="text-amber-400 text-xl drop-shadow-[0_2px_8px_rgba(245,158,11,0.5)]"></iconify-icon>
+            )}
             <h1 className={`font-heading text-2xl font-black ${profile.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
               {profile.alias}
             </h1>
+            {profile.rank === 1 && !profile.is_bankrupt && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500/15 to-yellow-400/15 dark:from-amber-500/20 dark:to-yellow-400/20 border border-amber-400/30 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-heading font-black">
+                <iconify-icon icon="lucide:star" class="text-xs"></iconify-icon>
+                المتصدر
+              </span>
+            )}
             {profile.is_bankrupt ? (
               <span className="bg-red-50 text-red-500 dark:bg-red-900/10 dark:text-red-400 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
                 <iconify-icon icon="lucide:ghost"></iconify-icon> مفلس

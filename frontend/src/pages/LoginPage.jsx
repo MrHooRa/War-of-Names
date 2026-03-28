@@ -39,11 +39,6 @@ export default function LoginPage() {
     <div className="flex-1 flex flex-col items-center px-4 pb-20">
       <div className="w-full max-w-lg">
 
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <img src="/main-logo-v1.png" alt="حرب الأسماء" className="w-48 h-auto drop-shadow-lg" />
-        </div>
-
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-3xl shadow-xl p-8 md:p-10 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-brand-teal/5 dark:bg-brand-slate/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
 

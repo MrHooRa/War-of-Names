@@ -1,4 +1,9 @@
+from zoneinfo import ZoneInfo
+
 from pydantic_settings import BaseSettings
+
+# Platform timezone: Riyadh (UTC+3) — used for all time operations
+PLATFORM_TZ = ZoneInfo("Asia/Riyadh")
 
 
 class Settings(BaseSettings):

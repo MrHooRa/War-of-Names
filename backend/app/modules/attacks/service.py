@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.utils import jsonb_safe
 from app.core.enums import (
     AttackOutcome,
+    AuditActorType,
     BankruptcyState,
     EffectType,
     LedgerDirection,
@@ -37,6 +38,7 @@ from app.modules.competitions.models import Membership
 from app.modules.notifications.service import create_notification
 from app.modules.scoring.models import LedgerEntry
 from app.modules.settings.service import get_settings_batch
+from app.modules.audit.service import write_audit
 from app.modules.store.service import (
     get_active_item_effects,
     get_pending_item_effects,
@@ -810,6 +812,26 @@ async def execute_attack(
             reference_id=attempt.id,
             deep_link="/dashboard",
         )
+
+    # Audit trail for attack execution
+    await write_audit(
+        session,
+        actor_id=attacker.account_id,
+        actor_type=AuditActorType.PARTICIPANT,
+        subject_type="attack_attempt",
+        subject_id=attempt.id,
+        event_type="attack_executed",
+        summary=f"هجوم: {outcome} — المكافأة: {reward_amount}",
+        after_state={
+            "outcome": str(outcome),
+            "reward": reward_amount,
+            "penalty": penalty_amount,
+            "attacker_balance_after": attacker_balance_after,
+            "target_balance_after": target_balance_after,
+        },
+        related_type="competition",
+        related_id=competition_id,
+    )
 
     await session.commit()
     await session.refresh(attempt)

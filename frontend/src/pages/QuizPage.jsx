@@ -6,17 +6,19 @@ import useSubmitAnswer from '../hooks/useSubmitAnswer'
 const OPTION_LETTERS = ['أ', 'ب', 'ج', 'د']
 
 export default function QuizPage() {
-  const { quiz, loading, error } = useQuiz()
+  const { quiz, sessions, loading, error, selectSession } = useQuiz()
   const { submitting, result: answerResult, submitAnswer } = useSubmitAnswer()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedOption, setSelectedOption] = useState(null)
-  const [totalEarned, setTotalEarned] = useState(0)
   const [answered, setAnswered] = useState({})
-  const [timer, setTimer] = useState(0)
+  const [timer, setTimer] = useState(-1)
+  const [timedOut, setTimedOut] = useState(false)
   const timerRef = useRef(null)
 
   const questions = quiz?.questions ?? []
   const totalQuestions = questions.length
+  // Compute total earned from answered map (survives re-renders, not incremental state)
+  const totalEarned = Object.values(answered).reduce((sum, a) => sum + (a?.points_awarded || 0), 0)
 
   // Seed answered state from server-reported already_answered flags & skip to first unanswered
   useEffect(() => {
@@ -41,6 +43,7 @@ export default function QuizPage() {
   // Timer countdown
   useEffect(() => {
     if (!currentQ || answered[currentQ.session_question_id]) return
+    setTimedOut(false)
     const duration = quiz?.answer_duration_seconds || 30
     setTimer(duration)
     timerRef.current = setInterval(() => {
@@ -55,24 +58,43 @@ export default function QuizPage() {
     return () => clearInterval(timerRef.current)
   }, [currentIndex, currentQ, answered, quiz?.answer_duration_seconds])
 
+  // Auto-advance when time runs out — use ref so cleanup doesn't cancel it
+  const autoAdvanceRef = useRef(null)
+  useEffect(() => {
+    if (timer !== 0 || !currentQ || answered[currentQ.session_question_id] || timedOut) return
+    setTimedOut(true)
+    autoAdvanceRef.current = setTimeout(() => {
+      setTimedOut(false)
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex(prev => prev + 1)
+        setSelectedOption(null)
+      } else {
+        setCurrentIndex(totalQuestions)
+      }
+    }, 2000)
+  }, [timer]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Clean up only on unmount
+  useEffect(() => () => clearTimeout(autoAdvanceRef.current), [])
+
   async function handleAnswer(option) {
-    if (!currentQ || submitting || answered[currentQ.session_question_id]) return
+    if (!currentQ || submitting || answered[currentQ.session_question_id] || timedOut) return
     setSelectedOption(option)
     clearInterval(timerRef.current)
 
     const data = await submitAnswer(quiz.session_id, currentQ.session_question_id, option)
     if (data) {
       setAnswered(prev => ({ ...prev, [currentQ.session_question_id]: data }))
-      if (data.is_correct) {
-        setTotalEarned(prev => prev + data.points_awarded)
-      }
     }
   }
 
   function handleNext() {
+    setTimedOut(false)
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex(prev => prev + 1)
       setSelectedOption(null)
+    } else {
+      // Last question — advance past to show completion screen
+      setCurrentIndex(totalQuestions)
     }
   }
 
@@ -81,6 +103,58 @@ export default function QuizPage() {
     return (
       <div className="flex-1 flex items-center justify-center py-20">
         <iconify-icon icon="lucide:loader-2" class="text-4xl text-brand-teal dark:text-brand-slate animate-spin"></iconify-icon>
+      </div>
+    )
+  }
+
+  // Multiple sessions available — show picker
+  if (!quiz && sessions.length > 0) {
+    return (
+      <div className="flex-1 w-full max-w-2xl mx-auto px-4 py-12 space-y-6">
+        <div className="text-center mb-8">
+          <iconify-icon icon="lucide:brain" class="text-5xl text-amber-500 mb-4"></iconify-icon>
+          <h1 className="font-display text-3xl font-black text-gray-900 dark:text-white">جلسات الأسئلة</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-bold mt-2">اختر الجلسة التي تريد المشاركة فيها</p>
+        </div>
+        <div className="space-y-3">
+          {sessions.map(s => (
+            <button
+              key={s.session_id}
+              onClick={() => selectSession(s.session_id)}
+              disabled={s.completed}
+              className={`w-full bg-white dark:bg-brand-card-dark border rounded-2xl p-5 flex items-center justify-between smooth-transition ${
+                s.completed
+                  ? 'border-gray-200 dark:border-gray-800 opacity-60 cursor-default'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-brand-teal dark:hover:border-brand-slate hover:shadow-md cursor-pointer'
+              }`}
+            >
+              <div className="flex items-center gap-4 text-right">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
+                  s.completed
+                    ? 'bg-brand-success/10 text-brand-success'
+                    : 'bg-amber-500/10 text-amber-500'
+                }`}>
+                  <iconify-icon icon={s.completed ? 'lucide:check-circle' : 'lucide:play-circle'}></iconify-icon>
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-gray-900 dark:text-white">{s.title}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {s.total_questions} سؤال • {s.answer_duration_seconds}ث لكل سؤال
+                    {s.completed && ' • مكتملة ✓'}
+                  </p>
+                </div>
+              </div>
+              {!s.completed && s.answered_count > 0 && (
+                <span className="text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg">
+                  {s.answered_count}/{s.total_questions}
+                </span>
+              )}
+              {!s.completed && (
+                <iconify-icon icon="lucide:chevron-left" class="text-xl text-gray-300 dark:text-gray-600"></iconify-icon>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
     )
   }
@@ -113,7 +187,7 @@ export default function QuizPage() {
   }
 
   const currentResult = answered[currentQ?.session_question_id]
-  const timerPercent = (timer / (quiz.answer_duration_seconds || 30)) * 100
+  const timerPercent = (Math.max(0, timer) / (quiz.answer_duration_seconds || 30)) * 100
   const circumference = 2 * Math.PI * 28
 
   return (
@@ -144,7 +218,7 @@ export default function QuizPage() {
       {/* Question Card */}
       <div className="w-full relative">
         {/* Timer */}
-        {!currentResult && (
+        {!currentResult && !timedOut && (
           <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
             <div className="relative w-16 h-16 bg-white dark:bg-brand-card-dark rounded-full shadow-md border-2 border-gray-300 dark:border-gray-700 flex items-center justify-center">
               <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -157,7 +231,7 @@ export default function QuizPage() {
                   style={{ transition: 'stroke-dashoffset 1s linear' }}
                 />
               </svg>
-              <span className="font-display text-xl font-black text-gray-900 dark:text-white">{timer}</span>
+              <span className="font-display text-xl font-black text-gray-900 dark:text-white">{Math.max(0, timer)}</span>
             </div>
           </div>
         )}
@@ -196,7 +270,7 @@ export default function QuizPage() {
                 <button
                   key={i}
                   onClick={() => handleAnswer(option)}
-                  disabled={!!currentResult || submitting}
+                  disabled={!!currentResult || submitting || timedOut}
                   className={`btn-press group relative flex items-center justify-between p-5 rounded-2xl smooth-transition text-right shadow-sm ${classes} disabled:cursor-default`}
                 >
                   <span className={`font-heading text-lg font-bold ${currentResult && isCorrect ? 'text-brand-success' : currentResult && isWrong ? 'text-brand-danger' : 'text-gray-800 dark:text-gray-300'}`}>
@@ -217,6 +291,17 @@ export default function QuizPage() {
           </div>
         </div>
       </div>
+
+      {/* Timed out feedback */}
+      {timedOut && !currentResult && (
+        <div className="mt-8 flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3 text-amber-500 font-heading font-black text-xl">
+            <iconify-icon icon="lucide:timer-off" class="text-2xl"></iconify-icon>
+            انتهى الوقت!
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-bold">سيتم الانتقال للسؤال التالي تلقائياً...</p>
+        </div>
+      )}
 
       {/* Next / Result feedback */}
       {currentResult && (

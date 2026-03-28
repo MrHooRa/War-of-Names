@@ -76,14 +76,24 @@ export default function DashboardPage() {
     <div className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-8 relative z-10">
 
       {/* 1. Hero Section */}
-      <section className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-[2rem] p-6 md:p-10 shadow-sm relative overflow-hidden group smooth-transition hover:shadow-md dark:hover:shadow-black/20">
-        <div className="absolute -top-12 -right-12 w-64 h-64 bg-brand-teal/5 dark:bg-brand-slate/10 rounded-full blur-3xl group-hover:bg-brand-teal/10 transition-colors"></div>
-        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-brand-orange/5 dark:bg-[#D84315]/10 rounded-full blur-2xl"></div>
+      <section className={`bg-white dark:bg-brand-card-dark border rounded-[2rem] p-6 md:p-10 shadow-sm relative overflow-hidden group smooth-transition hover:shadow-md dark:hover:shadow-black/20 ${data.rank === 1 ? 'border-amber-300/50 dark:border-amber-500/30 shadow-amber-200/20 dark:shadow-amber-500/10' : 'border-gray-200 dark:border-gray-700'}`}>
+        <div className={`absolute -top-12 -right-12 w-64 h-64 rounded-full blur-3xl transition-colors ${data.rank === 1 ? 'bg-amber-400/10 dark:bg-amber-500/10 group-hover:bg-amber-400/20' : 'bg-brand-teal/5 dark:bg-brand-slate/10 group-hover:bg-brand-teal/10'}`}></div>
+        <div className={`absolute -bottom-10 -left-10 w-48 h-48 rounded-full blur-2xl ${data.rank === 1 ? 'bg-yellow-400/5 dark:bg-yellow-500/10' : 'bg-brand-orange/5 dark:bg-[#D84315]/10'}`}></div>
 
         <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 relative z-10">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-40 h-40 md:w-48 md:h-48 bg-gradient-to-br from-brand-teal to-brand-teal-light dark:from-brand-slate dark:to-[#4f5c6e] rounded-3xl flex items-center justify-center text-white text-7xl font-black shadow-lg shadow-brand-teal/20 dark:shadow-none smooth-transition group-hover:scale-105">
+            {/* Rank #1 golden glow behind avatar */}
+            {data.rank === 1 && (
+              <div className="absolute -inset-3 bg-gradient-to-br from-amber-400/30 via-yellow-300/20 to-amber-500/30 dark:from-amber-500/20 dark:via-yellow-400/15 dark:to-amber-600/20 rounded-[2rem] blur-xl animate-pulse pointer-events-none"></div>
+            )}
+            {/* Rank #1 crown floating above avatar */}
+            {data.rank === 1 && (
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 floating">
+                <iconify-icon icon="lucide:crown" class="text-4xl text-amber-400 drop-shadow-[0_2px_8px_rgba(245,158,11,0.5)]"></iconify-icon>
+              </div>
+            )}
+            <div className={`w-40 h-40 md:w-48 md:h-48 rounded-3xl flex items-center justify-center text-white text-7xl font-black smooth-transition group-hover:scale-105 ${data.rank === 1 ? 'bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-600 shadow-lg shadow-amber-400/30 dark:shadow-amber-500/20 ring-2 ring-amber-400/40' : 'bg-gradient-to-br from-brand-teal to-brand-teal-light dark:from-brand-slate dark:to-[#4f5c6e] shadow-lg shadow-brand-teal/20 dark:shadow-none'}`}>
               {avatarLetter}
             </div>
           </div>
@@ -92,7 +102,11 @@ export default function DashboardPage() {
           <div className="flex-1 text-center md:text-right space-y-4">
             <div className="flex flex-col md:flex-row md:items-center gap-4 justify-center md:justify-start">
               <div className="flex items-center gap-3">
-                <iconify-icon icon="lucide:crown" class="text-amber-500 text-4xl drop-shadow-sm"></iconify-icon>
+                {data.rank === 1 ? (
+                  <iconify-icon icon="lucide:crown" class="text-amber-400 text-4xl drop-shadow-[0_2px_8px_rgba(245,158,11,0.5)] animate-pulse"></iconify-icon>
+                ) : (
+                  <iconify-icon icon="lucide:crown" class="text-amber-500 text-4xl drop-shadow-sm"></iconify-icon>
+                )}
                 <h1 className="text-4xl lg:text-5xl font-display font-black text-gray-900 dark:text-white tracking-tight">{data.alias}</h1>
                 {aliasChange?.can_change && (
                   <button
@@ -103,6 +117,12 @@ export default function DashboardPage() {
                     <iconify-icon icon="lucide:pen-line" class="text-sm"></iconify-icon>
                     غيّر لقبك
                   </button>
+                )}
+                {data.rank === 1 && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-yellow-400/15 dark:from-amber-500/20 dark:to-yellow-400/20 border border-amber-400/30 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm font-heading font-black">
+                    <iconify-icon icon="lucide:star" class="text-sm"></iconify-icon>
+                    المتصدر
+                  </span>
                 )}
               </div>
             </div>
@@ -137,9 +157,9 @@ export default function DashboardPage() {
             )}
 
             <div className="pt-3 flex flex-wrap justify-center md:justify-start gap-4">
-              <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/40 px-5 py-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md smooth-transition">
-                <iconify-icon icon="lucide:trophy" class="text-brand-orange text-xl"></iconify-icon>
-                <span className="font-bold text-gray-800 dark:text-white">المركز {data.rank}</span>
+              <div className={`flex items-center gap-2 px-5 py-3 rounded-xl border shadow-sm hover:shadow-md smooth-transition ${data.rank === 1 ? 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-300/50 dark:border-amber-500/30' : 'bg-gray-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700'}`}>
+                <iconify-icon icon="lucide:trophy" class={`text-xl ${data.rank === 1 ? 'text-amber-500' : 'text-brand-orange'}`}></iconify-icon>
+                <span className={`font-bold ${data.rank === 1 ? 'text-amber-700 dark:text-amber-400' : 'text-gray-800 dark:text-white'}`}>المركز {data.rank}</span>
               </div>
               <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/40 px-5 py-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md smooth-transition">
                 <iconify-icon icon="lucide:zap" class="text-brand-teal dark:text-brand-slate text-xl"></iconify-icon>
@@ -197,6 +217,20 @@ export default function DashboardPage() {
           <div className="text-5xl md:text-6xl font-black text-brand-danger">{data.attacks_received}</div>
         </div>
       </section>
+
+      {/* Quiz Quick Access */}
+      <Link to="/quiz" className="block bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md smooth-transition group">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 rounded-xl flex items-center justify-center">
+            <iconify-icon icon="lucide:brain" class="text-2xl"></iconify-icon>
+          </div>
+          <div>
+            <h3 className="font-heading font-bold text-gray-900 dark:text-white">جلسة الأسئلة</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">أجب واكسب نقاط إضافية</p>
+          </div>
+          <iconify-icon icon="lucide:chevron-left" class="text-xl text-gray-300 dark:text-gray-600 mr-auto group-hover:text-amber-500 smooth-transition"></iconify-icon>
+        </div>
+      </Link>
 
       {/* 3. Secondary Content Grid (2/3 + 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

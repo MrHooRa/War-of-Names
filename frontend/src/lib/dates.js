@@ -12,13 +12,27 @@ const TIMEZONE = 'Asia/Riyadh'
 const LOCALE = 'ar-SA'
 
 /**
+ * Parse backend timestamps safely.
+ * Backend stores naive UTC (no Z suffix) — we append Z so JS treats them as UTC.
+ */
+function parseUTC(isoOrDate) {
+  if (!isoOrDate) return null
+  if (isoOrDate instanceof Date) return isoOrDate
+  // Append Z if no timezone indicator at the END of the string.
+  // Must not match date separators (2026-03-27 has dashes mid-string).
+  const s = String(isoOrDate)
+  const hasTimezone = /Z$|[+-]\d{2}:\d{2}$|[+-]\d{4}$/.test(s)
+  const d = new Date(hasTimezone ? s : s + 'Z')
+  return isNaN(d.getTime()) ? null : d
+}
+
+/**
  * Format a date string or Date object as a localized date (no time).
  * Example: "١٤ مارس ٢٠٢٦"
  */
 export function formatDate(isoOrDate) {
-  if (!isoOrDate) return ''
-  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate
-  if (isNaN(d.getTime())) return ''
+  const d = parseUTC(isoOrDate)
+  if (!d) return ''
   return d.toLocaleDateString(LOCALE, { timeZone: TIMEZONE })
 }
 
@@ -27,9 +41,8 @@ export function formatDate(isoOrDate) {
  * Example: "١٤ مارس ٢٠٢٦ ٠٣:٤٥ م"
  */
 export function formatDateTime(isoOrDate) {
-  if (!isoOrDate) return ''
-  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate
-  if (isNaN(d.getTime())) return ''
+  const d = parseUTC(isoOrDate)
+  if (!d) return ''
   return d.toLocaleString(LOCALE, { timeZone: TIMEZONE })
 }
 
@@ -38,8 +51,9 @@ export function formatDateTime(isoOrDate) {
  * Example: "منذ ٥ دقائق"
  */
 export function timeAgo(isoString) {
-  if (!isoString) return ''
-  const diff = Date.now() - new Date(isoString).getTime()
+  const d = parseUTC(isoString)
+  if (!d) return ''
+  const diff = Date.now() - d.getTime()
   const minutes = Math.floor(diff / 60000)
   if (minutes < 1) return 'الآن'
   if (minutes < 60) return `منذ ${minutes} دقيقة`

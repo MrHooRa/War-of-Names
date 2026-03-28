@@ -159,7 +159,10 @@ export default function AdminAccountsPage() {
                         </div>
                         <div>
                           <span className="font-bold text-gray-900 dark:text-white">{a.username}</span>
-                          {a.is_admin && (
+                          {a.is_owner && (
+                            <span className="mr-2 text-[10px] font-black bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 px-1.5 py-0.5 rounded">مالك</span>
+                          )}
+                          {a.is_admin && !a.is_owner && (
                             <span className="mr-2 text-[10px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/20 dark:text-brand-slate px-1.5 py-0.5 rounded">مشرف</span>
                           )}
                         </div>
@@ -238,7 +241,12 @@ export default function AdminAccountsPage() {
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
                 <div className="text-[10px] font-black text-gray-400 mb-1">الدور</div>
                 <div className="font-bold text-gray-900 dark:text-white">
-                  {selectedAccount.is_admin ? (
+                  {selectedAccount.is_owner ? (
+                    <span className="text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                      <iconify-icon icon="lucide:crown" class="text-sm"></iconify-icon>
+                      مالك
+                    </span>
+                  ) : selectedAccount.is_admin ? (
                     <span className="text-brand-teal dark:text-brand-slate flex items-center gap-1">
                       <iconify-icon icon="lucide:shield" class="text-sm"></iconify-icon>
                       مشرف

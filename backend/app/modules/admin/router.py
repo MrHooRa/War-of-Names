@@ -2,9 +2,11 @@
 
 import uuid
 from datetime import datetime
+from io import BytesIO
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select, update, case, literal
 from sqlalchemy.orm import selectinload
@@ -38,9 +40,11 @@ from app.modules.attacks.models import AttackAttempt
 from app.modules.auth.models import Account
 from app.modules.competitions.models import AliasRecord, Competition, CompetitionInvite, Cycle, Membership, Season
 from app.modules.notifications.models import Notification
+from app.modules.notifications.service import create_notification
 from app.modules.quiz.models import AnswerSubmission, Question, QuestionGroup, QuizSession, SessionQuestion
 from app.modules.scoring.models import LedgerEntry
 from app.modules.settings.models import SettingDefinition, SettingValue
+from app.modules.settings.service import get_setting
 from app.modules.store.models import ItemDefinition, ItemEffect, OwnedItem, StoreListing
 from app.modules.audit.service import write_audit
 from app.modules.competitions.invite_service import (
@@ -49,7 +53,9 @@ from app.modules.competitions.invite_service import (
     get_invite_state,
     regenerate_invite,
 )
+from app.modules.quiz.excel_service import export_questions_to_excel, import_questions_from_excel
 from app.modules.store.effect_config import validate_effect, generate_effect_summary, get_effect_types_schema
+from app.modules.admin.json_engine import export_competition_config, import_competition_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 AdminAccount = Annotated[Account, Depends(get_admin_account)]
@@ -1128,6 +1134,76 @@ async def update_player_protection(membership_id: uuid.UUID, body: AdminPlayerPr
     return {"success": True, "message": f"تم تحديث الحماية إلى: {labels.get(body.protection, body.protection)}"}
 
 
+@router.patch("/players/{membership_id}/remove-bankruptcy")
+async def remove_player_bankruptcy(membership_id: uuid.UUID, admin: AdminAccount):
+    """Remove bankruptcy status from a single player."""
+    async with async_session() as session:
+        membership = await session.get(Membership, membership_id)
+        if not membership:
+            raise HTTPException(status_code=404, detail="اللاعب غير موجود")
+
+        if not membership.is_bankrupt:
+            raise HTTPException(status_code=400, detail="اللاعب ليس مفلساً")
+
+        membership.is_bankrupt = False
+
+        # Grant default starting balance if player has 0 or negative balance
+        balance_granted = 0
+        if membership.current_balance <= 0:
+            default_balance = await get_setting(
+                session, "initial_balance",
+                competition_id=membership.competition_id,
+            ) or 1000
+            balance_before = membership.current_balance
+            membership.current_balance = default_balance
+            balance_granted = default_balance
+
+            # Record in ledger
+            ledger = LedgerEntry(
+                membership_id=membership.id,
+                competition_id=membership.competition_id,
+                entry_type=LedgerEntryType.ADMIN_ADJUSTMENT,
+                amount=default_balance - balance_before,
+                direction=LedgerDirection.CREDIT,
+                balance_before=balance_before,
+                balance_after=default_balance,
+                source_type="bankruptcy_removal",
+                reason="رصيد ابتدائي بعد إلغاء الإفلاس",
+            )
+            session.add(ledger)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="membership",
+            subject_id=membership.id,
+            event_type="bankruptcy_removed",
+            summary=f"إلغاء إفلاس اللاعب يدوياً — الرصيد الجديد: {membership.current_balance}",
+            before_state={"is_bankrupt": True, "balance": membership.current_balance - balance_granted},
+            after_state={"is_bankrupt": False, "balance": membership.current_balance},
+            related_type="competition",
+            related_id=membership.competition_id,
+        )
+
+        # Notify the player
+        msg = "قام المشرف بإلغاء حالة الإفلاس عنك. أنت الآن نشط مجدداً!"
+        if balance_granted > 0:
+            msg += f" وتم منحك {balance_granted} نقطة كرصيد ابتدائي."
+        await create_notification(
+            session,
+            recipient_id=membership.account_id,
+            notification_type=NotificationType.ADMIN_CHANGE,
+            title="تم إلغاء الإفلاس",
+            message=msg,
+            membership_id=membership_id,
+            deep_link="/dashboard",
+        )
+
+        await session.commit()
+
+    return {"success": True, "message": "تم إلغاء حالة الإفلاس بنجاح"}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # INVENTORY MANAGEMENT (admin grant / revoke items)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1614,6 +1690,8 @@ async def list_quiz_sessions(admin: AdminAccount):
 class UpdateQuizSessionRequest(BaseModel):
     status: str | None = None
     title: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
 
 
 @router.patch("/quiz-sessions/{session_id}")
@@ -1628,6 +1706,10 @@ async def update_quiz_session(session_id: uuid.UUID, body: UpdateQuizSessionRequ
             qs.status = body.status
         if body.title is not None:
             qs.title = body.title
+        if body.starts_at is not None:
+            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')).replace(tzinfo=None) if body.starts_at else None
+        if body.ends_at is not None:
+            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')).replace(tzinfo=None) if body.ends_at else None
         after = {"status": str(qs.status), "title": qs.title}
         await write_audit(
             session,
@@ -1639,6 +1721,29 @@ async def update_quiz_session(session_id: uuid.UUID, body: UpdateQuizSessionRequ
             before_state=before,
             after_state=after,
         )
+
+        # ── QUIZ_OPENED notification: when status transitions to "open" ──
+        if body.status == "open" and before["status"] != "open":
+            members_result = await session.execute(
+                select(Membership).where(
+                    Membership.competition_id == qs.competition_id,
+                    Membership.status == MembershipStatus.ACTIVE,
+                )
+            )
+            for m in members_result.scalars().all():
+                notif = Notification(
+                    recipient_id=m.account_id,
+                    membership_id=m.id,
+                    notification_type=NotificationType.QUIZ_OPENED,
+                    title="جلسة أسئلة جديدة!",
+                    message=f"تم فتح جلسة أسئلة: {qs.title}",
+                    priority=NotificationPriority.HIGH,
+                    reference_type="quiz_session",
+                    reference_id=qs.id,
+                    deep_link="/quiz",
+                )
+                session.add(notif)
+
         await session.commit()
     return {"success": True, "message": "تم تحديث جلسة الأسئلة"}
 
@@ -1750,6 +1855,8 @@ class CreateQuizSessionRequest(BaseModel):
     source_group_id: uuid.UUID
     answer_duration_seconds: int = 30
     session_type: str = "timed_window"
+    starts_at: str | None = None  # ISO datetime string
+    ends_at: str | None = None    # ISO datetime string
 
 
 @router.post("/quiz-sessions", status_code=201)
@@ -1783,6 +1890,10 @@ async def create_quiz_session(body: CreateQuizSessionRequest, admin: AdminAccoun
             source_group_id=body.source_group_id,
             created_by=admin.id,
         )
+        if body.starts_at:
+            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')).replace(tzinfo=None)
+        if body.ends_at:
+            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')).replace(tzinfo=None)
         session.add(qs)
         await session.flush()
 
@@ -2503,6 +2614,7 @@ async def list_accounts(admin: AdminAccount):
                 "real_name": a.real_name,
                 "status": a.status,
                 "is_admin": a.is_admin,
+                "is_owner": a.is_owner,
                 "membership_count": mem_count,
                 "created_at": a.created_at.isoformat() if a.created_at else None,
                 "last_login_at": a.last_login_at.isoformat() if a.last_login_at else None,
@@ -2603,6 +2715,7 @@ async def get_account_detail(account_id: uuid.UUID, admin: AdminAccount):
             "real_name": acct.real_name,
             "status": acct.status,
             "is_admin": acct.is_admin,
+            "is_owner": acct.is_owner,
             "created_at": acct.created_at.isoformat() if acct.created_at else None,
             "last_login_at": acct.last_login_at.isoformat() if acct.last_login_at else None,
             "notification_count": notif_count,
@@ -3781,4 +3894,150 @@ async def admin_change_alias(
         "success": True,
         "data": {"old_alias": old_alias, "new_alias": body.new_alias},
         "message": f"تم تغيير اللقب: {old_alias} → {body.new_alias}",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUESTIONS EXCEL IMPORT / EXPORT
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.post("/questions/import")
+async def import_questions(
+    admin: AdminAccount,
+    file: UploadFile = File(...),
+    group_id: uuid.UUID = Form(...),
+):
+    """Import questions from an Excel file into a question group."""
+    # Validate file type
+    if file.content_type not in (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "application/octet-stream",
+    ):
+        raise HTTPException(status_code=400, detail="نوع الملف غير مدعوم — يرجى رفع ملف Excel (.xlsx)")
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="الملف فارغ")
+
+    async with async_session() as session:
+        # Verify the group exists
+        group = await session.get(QuestionGroup, group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="مجموعة الأسئلة غير موجودة")
+
+        result = await import_questions_from_excel(session, file_bytes, group_id)
+
+        # Audit trail
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question_group",
+            subject_id=group_id,
+            event_type="questions_imported",
+            summary=f"استيراد أسئلة من Excel — {result['imported']} من {result['total_rows']} صف",
+            after_state=result,
+        )
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result,
+        "message": f"تم استيراد {result['imported']} سؤال من أصل {result['total_rows']}",
+    }
+
+
+@router.get("/questions/groups/{group_id}/export")
+async def export_questions(group_id: uuid.UUID, admin: AdminAccount):
+    """Export all active questions in a group to an Excel file."""
+    async with async_session() as session:
+        group = await session.get(QuestionGroup, group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="مجموعة الأسئلة غير موجودة")
+
+        excel_bytes = await export_questions_to_excel(session, group_id)
+
+        # Audit trail
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="question_group",
+            subject_id=group_id,
+            event_type="questions_exported",
+            summary=f"تصدير أسئلة مجموعة: {group.title}",
+        )
+        await session.commit()
+
+    filename = f"questions_{group_id}.xlsx"
+    return StreamingResponse(
+        BytesIO(excel_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# JSON CONFIG ENGINE — EXPORT / IMPORT
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/competitions/{competition_id}/export-config")
+async def export_config(competition_id: uuid.UUID, admin: AdminAccount):
+    """Export a full competition configuration as JSON (items, listings, settings)."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        config = await export_competition_config(session, competition_id)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="competition",
+            subject_id=competition_id,
+            event_type="config_exported",
+            summary=f"تصدير إعدادات المنافسة: {comp.name}",
+        )
+        await session.commit()
+
+    return {"success": True, "data": config, "message": "تم تصدير إعدادات المنافسة بنجاح"}
+
+
+class ImportConfigRequest(BaseModel):
+    """JSON config payload for competition import."""
+    version: str
+    competition: dict | None = None
+    items: list[dict] = []
+    store_listings: list[dict] = []
+    settings: dict = {}
+
+
+@router.post("/competitions/{competition_id}/import-config")
+async def import_config(competition_id: uuid.UUID, body: ImportConfigRequest, admin: AdminAccount):
+    """Import a JSON configuration into a competition (items, listings, settings)."""
+    async with async_session() as session:
+        comp = await session.get(Competition, competition_id)
+        if not comp:
+            raise HTTPException(status_code=404, detail="المنافسة غير موجودة")
+
+        config = body.model_dump()
+        result = await import_competition_config(session, competition_id, config, admin.id)
+
+        if result["errors"] and result["items_created"] == 0 and result["listings_created"] == 0 and result["settings_updated"] == 0:
+            # Pure validation failure — nothing was created
+            raise HTTPException(status_code=422, detail={
+                "errors": result["errors"],
+                "message": "فشل استيراد الإعدادات — تحقق من صحة البيانات",
+            })
+
+        await session.commit()
+
+    return {
+        "success": True,
+        "data": result,
+        "message": (
+            f"تم الاستيراد: {result['items_created']} عنصر، "
+            f"{result['listings_created']} عرض متجر، "
+            f"{result['settings_updated']} إعداد"
+        ),
     }

@@ -105,6 +105,12 @@ export default function AttackModal({
   const [search, setSearch] = useState('')
   const [selectedIdentity, setSelectedIdentity] = useState(null)
 
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
   const { identities, loading: identitiesLoading } = useMemberIdentities(competitionId)
   const { preview, loading: previewLoading, fetchPreview } = useAttackPreview(competitionId)
   const { executing, error: executeError, executeAttack } = useAttackExecute(competitionId)
@@ -139,7 +145,7 @@ export default function AttackModal({
   return (
     /* Backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="w-full max-w-lg bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden max-h-[90vh] flex flex-col">

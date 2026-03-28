@@ -312,6 +312,21 @@ async def buy_item(
             deep_link="/store",
         )
 
+        # Audit trail for store purchase
+        await session.flush()  # ensure owned.id is available
+        await write_audit(
+            session,
+            actor_id=account.id,
+            actor_type=AuditActorType.PARTICIPANT,
+            subject_type="store_purchase",
+            subject_id=owned.id,
+            event_type="item_purchased",
+            summary=f"شراء عنصر: {item_def.name} بـ {listing.price} نقطة",
+            after_state={"item": item_def.name, "price": listing.price, "balance_after": balance_after},
+            related_type="competition",
+            related_id=competition_id,
+        )
+
         await session.commit()
         await session.refresh(owned)
 

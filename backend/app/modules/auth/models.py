@@ -22,6 +22,7 @@ class Account(Base):
         pg_enum(AccountStatus, name="account_status"), nullable=False, default=AccountStatus.ACTIVE
     )
     is_admin: Mapped[bool] = mapped_column(default=False)
+    is_owner: Mapped[bool] = mapped_column(default=False)
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="ar")
     last_login_at: Mapped[datetime | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
+import OwnerRoute from './components/OwnerRoute'
 import AppLayout from './components/AppLayout'
 import AdminLayout from './components/AdminLayout'
 import AuthLayout from './components/AuthLayout'
@@ -24,23 +25,29 @@ import NotificationsPage from './pages/NotificationsPage'
 import PlayerProfilePage from './pages/PlayerProfilePage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import RulesPage from './pages/RulesPage'
+import TermsPage from './pages/TermsPage'
+import PrivacyPage from './pages/PrivacyPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 import { AdminCompetitionProvider } from './context/AdminCompetitionContext'
 
-import AdminDashboardPage from './pages/admin/AdminDashboardPage'
-import AdminCompetitionPage from './pages/admin/AdminCompetitionPage'
-import AdminAccountsPage from './pages/admin/AdminAccountsPage'
-import AdminMembersPage from './pages/admin/AdminMembersPage'
-import AdminPlayerDetailPage from './pages/admin/AdminPlayerDetailPage'
-import AdminSeasonsPage from './pages/admin/AdminSeasonsPage'
-import AdminAttacksPage from './pages/admin/AdminAttacksPage'
-import AdminQuizPage from './pages/admin/AdminQuizPage'
-import AdminStorePage from './pages/admin/AdminStorePage'
-import AdminLedgerPage from './pages/admin/AdminLedgerPage'
-import AdminNotificationsPage from './pages/admin/AdminNotificationsPage'
-import AdminSettingsPage from './pages/admin/AdminSettingsPage'
-import AdminPlatformSettingsPage from './pages/admin/AdminPlatformSettingsPage'
+// ── Lazy-loaded admin pages (code-split into separate chunk) ──
+const OwnerLayout = lazy(() => import('./pages/owner/OwnerLayout'))
+const OwnerDashboardPage = lazy(() => import('./pages/owner/OwnerDashboardPage'))
+
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
+const AdminCompetitionPage = lazy(() => import('./pages/admin/AdminCompetitionPage'))
+const AdminAccountsPage = lazy(() => import('./pages/admin/AdminAccountsPage'))
+const AdminMembersPage = lazy(() => import('./pages/admin/AdminMembersPage'))
+const AdminPlayerDetailPage = lazy(() => import('./pages/admin/AdminPlayerDetailPage'))
+const AdminSeasonsPage = lazy(() => import('./pages/admin/AdminSeasonsPage'))
+const AdminAttacksPage = lazy(() => import('./pages/admin/AdminAttacksPage'))
+const AdminQuizPage = lazy(() => import('./pages/admin/AdminQuizPage'))
+const AdminStorePage = lazy(() => import('./pages/admin/AdminStorePage'))
+const AdminLedgerPage = lazy(() => import('./pages/admin/AdminLedgerPage'))
+const AdminNotificationsPage = lazy(() => import('./pages/admin/AdminNotificationsPage'))
+const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
+const AdminPlatformSettingsPage = lazy(() => import('./pages/admin/AdminPlatformSettingsPage'))
 
 function useCaptureRef() {
   useEffect(() => {
@@ -83,6 +90,10 @@ function GameRoutes() {
           </AuthLayout>
         }
       />
+
+      {/* ── Public legal pages (no auth required) ── */}
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       {/* ── Invite link (public, handles auth redirect internally) ── */}
       <Route path="/invite/:token" element={<InviteLinkPage />} />
@@ -189,23 +200,28 @@ function GameRoutes() {
         }
       />
 
-      {/* ── Admin Panel ── */}
-      <Route path="/admin" element={<AdminRoute><AdminCompetitionProvider><AdminLayout /></AdminCompetitionProvider></AdminRoute>}>
+      {/* ── Admin Panel (lazy-loaded) ── */}
+      <Route path="/admin" element={<AdminRoute><AdminCompetitionProvider><Suspense fallback={null}><AdminLayout /></Suspense></AdminCompetitionProvider></AdminRoute>}>
         {/* Platform level */}
-        <Route index element={<AdminDashboardPage />} />
-        <Route path="accounts" element={<AdminAccountsPage />} />
-        <Route path="platform-settings" element={<AdminPlatformSettingsPage />} />
+        <Route index element={<Suspense fallback={null}><AdminDashboardPage /></Suspense>} />
+        <Route path="accounts" element={<Suspense fallback={null}><AdminAccountsPage /></Suspense>} />
+        <Route path="platform-settings" element={<Suspense fallback={null}><AdminPlatformSettingsPage /></Suspense>} />
         {/* Competition level */}
-        <Route path="competition" element={<AdminCompetitionPage />} />
-        <Route path="members" element={<AdminMembersPage />} />
-        <Route path="members/:membershipId" element={<AdminPlayerDetailPage />} />
-        <Route path="seasons" element={<AdminSeasonsPage />} />
-        <Route path="attacks" element={<AdminAttacksPage />} />
-        <Route path="quiz" element={<AdminQuizPage />} />
-        <Route path="store" element={<AdminStorePage />} />
-        <Route path="ledger" element={<AdminLedgerPage />} />
-        <Route path="notifications" element={<AdminNotificationsPage />} />
-        <Route path="settings" element={<AdminSettingsPage />} />
+        <Route path="competition" element={<Suspense fallback={null}><AdminCompetitionPage /></Suspense>} />
+        <Route path="members" element={<Suspense fallback={null}><AdminMembersPage /></Suspense>} />
+        <Route path="members/:membershipId" element={<Suspense fallback={null}><AdminPlayerDetailPage /></Suspense>} />
+        <Route path="seasons" element={<Suspense fallback={null}><AdminSeasonsPage /></Suspense>} />
+        <Route path="attacks" element={<Suspense fallback={null}><AdminAttacksPage /></Suspense>} />
+        <Route path="quiz" element={<Suspense fallback={null}><AdminQuizPage /></Suspense>} />
+        <Route path="store" element={<Suspense fallback={null}><AdminStorePage /></Suspense>} />
+        <Route path="ledger" element={<Suspense fallback={null}><AdminLedgerPage /></Suspense>} />
+        <Route path="notifications" element={<Suspense fallback={null}><AdminNotificationsPage /></Suspense>} />
+        <Route path="settings" element={<Suspense fallback={null}><AdminSettingsPage /></Suspense>} />
+      </Route>
+
+      {/* ── Owner Panel (lazy-loaded) ── */}
+      <Route path="/owner" element={<OwnerRoute><Suspense fallback={null}><OwnerLayout /></Suspense></OwnerRoute>}>
+        <Route index element={<Suspense fallback={null}><OwnerDashboardPage /></Suspense>} />
       </Route>
 
       {/* ── Lobby — standalone dark immersive page ── */}

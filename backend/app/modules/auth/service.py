@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import hash_password, verify_password
-from app.core.enums import AccountStatus
+from app.core.enums import AccountStatus, AuditActorType
+from app.modules.audit.service import write_audit
 from app.modules.auth.models import Account
 
 
@@ -31,6 +32,20 @@ async def register_account(
         status=AccountStatus.ACTIVE,
     )
     session.add(account)
+    await session.flush()  # ensure account.id is available for audit
+
+    # Audit trail for user registration
+    await write_audit(
+        session,
+        actor_id=account.id,
+        actor_type=AuditActorType.PARTICIPANT,
+        subject_type="account",
+        subject_id=account.id,
+        event_type="account_registered",
+        summary=f"تسجيل حساب جديد: {username}",
+        after_state={"username": username, "real_name": real_name},
+    )
+
     await session.commit()
     await session.refresh(account)
     return account

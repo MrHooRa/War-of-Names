@@ -365,27 +365,126 @@ function QuestionModal({ question, groups, onClose, onSuccess }) {
   )
 }
 
+// ─── Import Questions from Excel Modal ────────────────────────────────────────
+function ImportModal({ groups, onClose, onSuccess }) {
+  const [file, setFile] = useState(null)
+  const [groupId, setGroupId] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+
+  async function handleImport() {
+    if (!file || !groupId) { setError('اختر ملف ومجموعة'); return }
+    setImporting(true); setError(null); setResult(null)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('group_id', groupId)
+    const token = localStorage.getItem('won_token')
+    try {
+      const res = await fetch('/api/admin/questions/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.success) {
+        setResult(data.data)
+        onSuccess(`تم استيراد ${data.data.imported} سؤال`)
+      } else {
+        setError(data.detail || 'فشل الاستيراد')
+      }
+    } catch (err) { setError(err.message) }
+    setImporting(false)
+  }
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <ModalTitle icon="lucide:upload">استيراد أسئلة من Excel</ModalTitle>
+      {error && <div className="bg-brand-danger/10 text-brand-danger px-3 py-2 rounded-xl text-sm font-bold">{error}</div>}
+
+      {result && (
+        <div className="space-y-2">
+          <div className="bg-brand-success/10 text-brand-success px-3 py-2 rounded-xl text-sm font-bold">
+            تم استيراد {result.imported} سؤال بنجاح
+          </div>
+          {result.errors && result.errors.length > 0 && (
+            <div className="bg-brand-danger/10 rounded-xl p-3 space-y-1 max-h-40 overflow-y-auto">
+              <p className="text-xs font-black text-brand-danger mb-1">أخطاء ({result.errors.length}):</p>
+              {result.errors.map((err, i) => (
+                <p key={i} className="text-xs text-brand-danger/80">{err}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <FieldLabel>المجموعة *</FieldLabel>
+        <SelectInput value={groupId} onChange={setGroupId}>
+          <option value="">-- اختر المجموعة --</option>
+          {groups?.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+        </SelectInput>
+      </div>
+
+      <div>
+        <FieldLabel>ملف Excel *</FieldLabel>
+        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:border-brand-teal dark:hover:border-brand-slate smooth-transition bg-gray-50 dark:bg-gray-800">
+          <div className="flex flex-col items-center justify-center gap-1">
+            <iconify-icon icon="lucide:file-spreadsheet" class={`text-2xl ${file ? 'text-brand-success' : 'text-gray-400'}`}></iconify-icon>
+            {file ? (
+              <span className="text-sm font-bold text-brand-success">{file.name}</span>
+            ) : (
+              <span className="text-sm font-bold text-gray-400">اختر ملف .xlsx أو .xls</span>
+            )}
+          </div>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={e => setFile(e.target.files?.[0] || null)}
+          />
+        </label>
+      </div>
+
+      <ModalActions
+        onCancel={onClose}
+        onSubmit={handleImport}
+        submitLabel={importing ? 'جاري الاستيراد...' : 'استيراد'}
+        submitting={importing}
+      />
+    </ModalOverlay>
+  )
+}
+
 // ─── Create Quiz Session Modal ────────────────────────────────────────────────
-function CreateSessionModal({ groups, onClose, onSuccess }) {
+function CreateSessionModal({ groups, competitionId, onClose, onSuccess }) {
   const [title, setTitle] = useState('')
   const [sourceGroupId, setSourceGroupId] = useState('')
   const [answerDuration, setAnswerDuration] = useState(30)
+  const [startsAt, setStartsAt] = useState('')
+  const [endsAt, setEndsAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
   async function handleSubmit() {
     if (!title.trim()) { setError('عنوان الجلسة مطلوب'); return }
     if (!sourceGroupId) { setError('اختر مجموعة الأسئلة'); return }
+    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+      setError('وقت الانتهاء يجب أن يكون بعد وقت البدء'); return
+    }
     setSubmitting(true); setError(null)
     try {
+      const payload = {
+        competition_id: competitionId,
+        title: title.trim(),
+        source_group_id: sourceGroupId,
+        answer_duration_seconds: Number(answerDuration),
+      }
+      if (startsAt) payload.starts_at = new Date(startsAt).toISOString()
+      if (endsAt) payload.ends_at = new Date(endsAt).toISOString()
       await apiFetch('/api/admin/quiz-sessions', {
         method: 'POST',
-        body: JSON.stringify({
-          competition_id: selectedId,
-          title: title.trim(),
-          source_group_id: sourceGroupId,
-          answer_duration_seconds: Number(answerDuration),
-        }),
+        body: JSON.stringify(payload),
       })
       onSuccess('تم إنشاء الجلسة بنجاح')
     } catch (err) {
@@ -418,6 +517,27 @@ function CreateSessionModal({ groups, onClose, onSuccess }) {
         <TextInput type="number" value={answerDuration} onChange={v => setAnswerDuration(v)} placeholder="30" min="5" />
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <FieldLabel>وقت البدء</FieldLabel>
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={e => setStartsAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/30 smooth-transition"
+          />
+        </div>
+        <div>
+          <FieldLabel>وقت الانتهاء</FieldLabel>
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={e => setEndsAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/30 smooth-transition"
+          />
+        </div>
+      </div>
+
       <ModalActions onCancel={onClose} onSubmit={handleSubmit} submitLabel="إنشاء الجلسة" submitting={submitting} />
     </ModalOverlay>
   )
@@ -440,6 +560,7 @@ export default function AdminQuizPage() {
   const [showCreateSession, setShowCreateSession] = useState(false)
   const [deletingSession, setDeletingSession] = useState(null) // session object or null
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null) // group object for inline editing
   const [editGroupTitle, setEditGroupTitle] = useState('')
   const [editGroupDesc, setEditGroupDesc] = useState('')
@@ -551,6 +672,35 @@ export default function AdminQuizPage() {
     }
   }
 
+  async function handleExportGroup(groupId, groupTitle) {
+    const activeComp = localStorage.getItem('won_active_competition')
+    const qs = activeComp ? `?competition_id=${activeComp}` : ''
+    const token = localStorage.getItem('won_token')
+    try {
+      const res = await fetch(`/api/admin/questions/groups/${groupId}/export${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) { setActionMsg('فشل التصدير'); setTimeout(() => setActionMsg(null), 3000); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${groupTitle}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setActionMsg(`خطأ: ${err.message}`)
+      setTimeout(() => setActionMsg(null), 3000)
+    }
+  }
+
+  function handleImportSuccess(msg) {
+    setShowImportModal(false)
+    showSuccess(msg)
+    refetchQuestions()
+    refetchGroups()
+  }
+
   const loading = tab === 'sessions' ? loadingSessions : tab === 'questions' ? loadingQuestions : loadingGroups
 
   if (!selected) {
@@ -602,7 +752,18 @@ export default function AdminQuizPage() {
 
         {/* Create Buttons */}
         {tab === 'sessions' && <CreateButton icon="lucide:plus" label="إنشاء جلسة" onClick={() => setShowCreateSession(true)} />}
-        {tab === 'questions' && <CreateButton icon="lucide:plus" label="إنشاء سؤال" onClick={() => setShowCreateQuestion(true)} />}
+        {tab === 'questions' && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl px-4 py-2.5 font-heading font-black text-sm smooth-transition hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              <iconify-icon icon="lucide:upload" class="text-base"></iconify-icon>
+              استيراد من Excel
+            </button>
+            <CreateButton icon="lucide:plus" label="إنشاء سؤال" onClick={() => setShowCreateQuestion(true)} />
+          </div>
+        )}
         {tab === 'groups' && <CreateButton icon="lucide:plus" label="إنشاء مجموعة" onClick={() => setShowCreateGroup(true)} />}
       </div>
 
@@ -732,12 +893,17 @@ export default function AdminQuizPage() {
 
       {/* Groups Tab */}
       {tab === 'groups' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {groups?.map(g => (
-            <div key={g.id} className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
+        <div className="space-y-4">
+          {groups?.map(g => {
+            const groupQuestions = questions?.filter(q => q.group_id === g.id) || []
+            const activeCount = groupQuestions.filter(q => q.status === 'active').length
+            const totalScore = groupQuestions.reduce((sum, q) => sum + (q.score_value || 0), 0)
+
+            return (
+            <div key={g.id} className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
               {editingGroup?.id === g.id ? (
                 /* Inline Edit Mode */
-                <div className="space-y-3">
+                <div className="p-5 space-y-3">
                   <input
                     type="text"
                     value={editGroupTitle}
@@ -771,45 +937,95 @@ export default function AdminQuizPage() {
                   </div>
                 </div>
               ) : (
-                /* Display Mode */
                 <>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-heading font-black text-gray-900 dark:text-white">{g.title}</h3>
+                  {/* Group Header */}
+                  <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-brand-teal/10 dark:bg-brand-slate/20 text-brand-teal dark:text-brand-slate flex items-center justify-center shrink-0">
+                        <iconify-icon icon="lucide:folder-open" class="text-xl"></iconify-icon>
+                      </div>
+                      <div>
+                        <h3 className="font-heading font-black text-gray-900 dark:text-white">{g.title}</h3>
+                        {g.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{g.description}</p>}
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={g.status} />
                       <button
-                        onClick={() => openEditGroup(g)}
+                        onClick={() => handleExportGroup(g.id, g.title)}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition"
-                        title="تعديل"
+                        title="تصدير Excel"
                       >
+                        <iconify-icon icon="lucide:download" class="text-sm"></iconify-icon>
+                      </button>
+                      <button onClick={() => openEditGroup(g)} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل">
                         <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
                       </button>
                       {g.status !== 'archived' && (
-                        <button
-                          onClick={() => handleArchiveGroup(g.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition"
-                          title="أرشفة"
-                        >
+                        <button onClick={() => handleArchiveGroup(g.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="أرشفة">
                           <iconify-icon icon="lucide:archive" class="text-sm"></iconify-icon>
                         </button>
                       )}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-500 mb-3">{g.description}</p>
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
-                    <span>{g.question_count} سؤال</span>
+
+                  {/* Group Stats */}
+                  <div className="px-5 py-3 flex flex-wrap gap-4 text-xs font-bold border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
+                    <span className="flex items-center gap-1.5 text-brand-teal dark:text-brand-slate">
+                      <iconify-icon icon="lucide:hash" class="text-sm"></iconify-icon>
+                      {g.question_count || groupQuestions.length} سؤال
+                    </span>
+                    <span className="flex items-center gap-1.5 text-brand-success">
+                      <iconify-icon icon="lucide:check-circle" class="text-sm"></iconify-icon>
+                      {activeCount} نشط
+                    </span>
+                    <span className="flex items-center gap-1.5 text-amber-500">
+                      <iconify-icon icon="lucide:star" class="text-sm"></iconify-icon>
+                      {totalScore} نقطة إجمالية
+                    </span>
                   </div>
+
+                  {/* Questions Preview */}
+                  {groupQuestions.length > 0 ? (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {groupQuestions.slice(0, 5).map((q, idx) => (
+                        <div key={q.id} className="px-5 py-3 flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 text-[10px] font-black flex items-center justify-center shrink-0">{idx + 1}</span>
+                          <span className="flex-1 text-sm font-bold text-gray-700 dark:text-gray-300 truncate">{q.prompt}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${q.question_type === 'true_false' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'}`}>
+                            {q.question_type === 'true_false' ? 'ص/خ' : 'متعدد'}
+                          </span>
+                          <span className="text-xs font-heading font-black text-gray-400">{q.score_value}pt</span>
+                        </div>
+                      ))}
+                      {groupQuestions.length > 5 && (
+                        <div className="px-5 py-2 text-center text-xs text-gray-400 font-bold">
+                          +{groupQuestions.length - 5} سؤال آخر
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="px-5 py-6 text-center text-sm text-gray-400">
+                      <iconify-icon icon="lucide:file-question" class="text-2xl mb-2 block"></iconify-icon>
+                      لا توجد أسئلة — أضف أسئلة من تبويب "الأسئلة"
+                    </div>
+                  )}
                 </>
               )}
             </div>
-          ))}
+            )
+          })}
           {(!groups || groups.length === 0) && (
-            <div className="text-center py-12 text-gray-400 font-bold col-span-2">لا توجد مجموعات</div>
+            <div className="text-center py-12 text-gray-400 font-bold">لا توجد مجموعات</div>
           )}
         </div>
       )}
 
       {/* ─── Modals ─────────────────────────────────────────────────────────── */}
+
+      {showImportModal && (
+        <ImportModal groups={groups} onClose={() => setShowImportModal(false)} onSuccess={handleImportSuccess} />
+      )}
 
       {showCreateGroup && (
         <CreateGroupModal onClose={() => setShowCreateGroup(false)} onSuccess={handleGroupCreated} />
@@ -834,7 +1050,7 @@ export default function AdminQuizPage() {
       )}
 
       {showCreateSession && (
-        <CreateSessionModal groups={groups} onClose={() => setShowCreateSession(false)} onSuccess={handleSessionCreated} />
+        <CreateSessionModal groups={groups} competitionId={selectedId} onClose={() => setShowCreateSession(false)} onSuccess={handleSessionCreated} />
       )}
 
       {deletingSession && (

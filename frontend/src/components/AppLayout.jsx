@@ -117,10 +117,19 @@ export default function AppLayout({ activeItem = 'home', children }) {
               <iconify-icon icon="lucide:sun" class="hidden dark:block"></iconify-icon>
             </button>
 
-            {/* Admin Panel Link */}
+            {/* Owner Panel Link */}
+            {currentUser?.is_owner && (
+              <Link to="/owner" className="flex items-center gap-2 h-11 px-4 bg-purple-500/15 dark:bg-purple-500/20 border border-purple-500/30 dark:border-purple-400/30 rounded-xl text-purple-600 dark:text-purple-400 hover:bg-purple-500/25 dark:hover:bg-purple-500/30 smooth-transition hover:-translate-y-0.5 shadow-sm" title="لوحة المالك">
+                <iconify-icon icon="lucide:crown" class="text-xl"></iconify-icon>
+                <span className="text-sm font-black hidden sm:inline">المالك</span>
+              </Link>
+            )}
+
+            {/* Admin Panel Link — visible for ALL admins including owners */}
             {currentUser?.is_admin && (
-              <Link to="/admin" className="w-11 h-11 bg-brand-teal/10 dark:bg-brand-slate/20 border border-brand-teal/20 dark:border-brand-slate/30 flex items-center justify-center rounded-xl text-xl text-brand-teal dark:text-brand-slate hover:bg-brand-teal/20 dark:hover:bg-brand-slate/30 smooth-transition hover:-translate-y-0.5 shadow-sm" title="لوحة التحكم">
-                <iconify-icon icon="lucide:shield-check"></iconify-icon>
+              <Link to="/admin" className="flex items-center gap-2 h-11 px-4 bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-400/30 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 dark:hover:bg-amber-500/30 smooth-transition hover:-translate-y-0.5 shadow-sm" title="لوحة التحكم">
+                <iconify-icon icon="lucide:shield-check" class="text-xl"></iconify-icon>
+                <span className="text-sm font-black hidden sm:inline">التحكم</span>
               </Link>
             )}
 
@@ -165,23 +174,20 @@ export default function AppLayout({ activeItem = 'home', children }) {
         {children}
       </main>
 
-      {/* ===== Footer — from templates 02, 05, 06 ===== */}
+      {/* ===== Footer ===== */}
+      {/* Desktop: full footer */}
       <footer
-        className="bg-footer-pattern py-12 pb-24 md:pb-12 px-6 mt-8"
+        className="hidden md:block bg-footer-pattern py-12 px-6 mt-8"
         style={{ viewTransitionName: 'footer' }}
       >
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
           <Link to="/lobby" id="footer-logo-link" className="smooth-transition hover:opacity-80 block">
-            <img
-              src={LOGO_URL}
-              alt="شعار حرب الأسماء"
-              className="w-[110px] object-contain opacity-80"
-            />
+            <img src={LOGO_URL} alt="شعار حرب الأسماء" className="w-[110px] object-contain opacity-80" />
           </Link>
           <div className="flex flex-col items-center md:items-start gap-4">
             <div className="flex gap-6 font-medium text-sm text-gray-400">
-              <a href="#terms" className="hover:text-white transition-all duration-200 ease-in-out">شروط الاستخدام</a>
-              <a href="#privacy" className="hover:text-white transition-all duration-200 ease-in-out">سياسة الخصوصية</a>
+              <Link to="/terms" className="hover:text-white transition-all duration-200 ease-in-out">شروط الاستخدام</Link>
+              <Link to="/privacy" className="hover:text-white transition-all duration-200 ease-in-out">سياسة الخصوصية</Link>
             </div>
             <div className="text-sm text-gray-500">
               جميع الحقوق محفوظة © 2026 حرب الأسماء - تطوير سلمان
@@ -189,6 +195,14 @@ export default function AppLayout({ activeItem = 'home', children }) {
           </div>
         </div>
       </footer>
+      {/* Mobile: minimal credit line above bottom nav */}
+      <div className="md:hidden bg-gray-100 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-2 mb-14 flex items-center justify-between text-[10px] text-gray-400">
+        <span>© 2026 حرب الأسماء — سلمان</span>
+        <div className="flex gap-3">
+          <Link to="/terms" className="hover:text-gray-600 dark:hover:text-gray-300">الشروط</Link>
+          <Link to="/privacy" className="hover:text-gray-600 dark:hover:text-gray-300">الخصوصية</Link>
+        </div>
+      </div>
 
       {/* ===== Mobile Bottom Nav ===== */}
       <nav
