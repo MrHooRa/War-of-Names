@@ -2054,22 +2054,37 @@ class UpdateListingRequest(BaseModel):
     status: str | None = None
     price: int | None = None
     total_stock: int | None = None
+    max_per_participant: int | None = None
+    available_from: str | None = None
+    available_until: str | None = None
+    eligibility_rules: dict | None = None
 
 
 @router.patch("/store/listings/{listing_id}")
 async def update_listing(listing_id: uuid.UUID, body: UpdateListingRequest, admin: AdminAccount):
-    """Update store listing status, price, or stock."""
+    """Update store listing — status, price, stock, availability, eligibility."""
     async with async_session() as session:
         listing = await session.get(StoreListing, listing_id)
         if not listing:
             raise HTTPException(status_code=404, detail="العنصر غير موجود في المتجر")
-        before = {"status": listing.status, "price": listing.price, "total_stock": listing.total_stock}
+        before = {
+            "status": listing.status, "price": listing.price,
+            "total_stock": listing.total_stock, "max_per_participant": listing.max_per_participant,
+        }
         if body.status is not None:
             listing.status = body.status
         if body.price is not None:
             listing.price = body.price
         if body.total_stock is not None:
             listing.total_stock = body.total_stock
+        if body.max_per_participant is not None:
+            listing.max_per_participant = body.max_per_participant
+        if body.available_from is not None:
+            listing.available_from = datetime.fromisoformat(body.available_from.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_from else None
+        if body.available_until is not None:
+            listing.available_until = datetime.fromisoformat(body.available_until.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_until else None
+        if body.eligibility_rules is not None:
+            listing.eligibility_rules = body.eligibility_rules
 
         await write_audit(
             session, actor_id=admin.id, subject_type="store_listing", subject_id=listing_id,
@@ -2089,11 +2104,15 @@ class CreateItemDefinitionRequest(BaseModel):
     category: str | None = None
     usage_type: str = "consumable"
     max_uses: int | None = None
+    is_stackable: bool = False
+    expires_after_minutes: int | None = None
+    visibility: str = "visible"
+    effects: list | None = None  # Optional inline effects for JSON mode
 
 
 @router.post("/store/items", status_code=201)
 async def create_item_definition(body: CreateItemDefinitionRequest, admin: AdminAccount):
-    """Create a new item definition."""
+    """Create a new item definition with optional inline effects."""
     async with async_session() as session:
         item = ItemDefinition(
             name=body.name,
@@ -2102,20 +2121,59 @@ async def create_item_definition(body: CreateItemDefinitionRequest, admin: Admin
             category=body.category,
             usage_type=body.usage_type,
             max_uses=body.max_uses,
+            is_stackable=body.is_stackable,
+            expires_after_minutes=body.expires_after_minutes,
+            visibility=body.visibility,
             status=ItemStatus.ACTIVE,
         )
         session.add(item)
         await session.flush()
 
+        # Create inline effects if provided (JSON mode)
+        effects_created = 0
+        if body.effects:
+            from app.modules.store.effect_config import validate_effect
+            for idx, eff in enumerate(body.effects):
+                if isinstance(eff, dict):
+                    # Validate effect before creating
+                    eff_errors = validate_effect(
+                        eff.get("effect_type", ""),
+                        eff.get("parameters", {}),
+                        eff.get("target_scope", "self"),
+                        eff.get("duration_minutes"),
+                        eff.get("trigger_on", "activation"),
+                    )
+                    if eff_errors:
+                        raise HTTPException(
+                            status_code=422,
+                            detail=f"خطأ في التأثير #{idx + 1}: {' | '.join(eff_errors)}",
+                        )
+                    effect = ItemEffect(
+                        item_definition_id=item.id,
+                        effect_type=eff.get("effect_type"),
+                        parameters=eff.get("parameters", {}),
+                        target_scope=eff.get("target_scope", "self"),
+                        duration_minutes=eff.get("duration_minutes"),
+                        is_stackable=eff.get("is_stackable", False),
+                        trigger_on=eff.get("trigger_on", "activation"),
+                        order_index=eff.get("order_index", idx),
+                    )
+                    session.add(effect)
+                    effects_created += 1
+
         await write_audit(
             session, actor_id=admin.id, subject_type="item_definition", subject_id=item.id,
             event_type="item_definition_created",
-            summary=f"أنشأ عنصر: {item.name}",
-            after_state={"name": item.name, "rarity": body.rarity, "category": body.category, "usage_type": body.usage_type},
+            summary=f"أنشأ عنصر: {item.name} ({effects_created} تأثير)",
+            after_state={
+                "name": item.name, "rarity": body.rarity, "category": body.category,
+                "usage_type": body.usage_type, "is_stackable": body.is_stackable,
+                "expires_after_minutes": body.expires_after_minutes, "effects": effects_created,
+            },
         )
         await session.commit()
         await session.refresh(item)
-    return {"success": True, "data": {"id": str(item.id)}, "message": "تم إنشاء العنصر بنجاح"}
+    return {"success": True, "data": {"id": str(item.id), "effects_created": effects_created}, "message": "تم إنشاء العنصر بنجاح"}
 
 
 class UpdateItemDefinitionRequest(BaseModel):
@@ -2125,17 +2183,29 @@ class UpdateItemDefinitionRequest(BaseModel):
     category: str | None = None
     usage_type: str | None = None
     max_uses: int | None = None
+    is_stackable: bool | None = None
+    expires_after_minutes: int | None = None
+    visibility: str | None = None
     status: str | None = None
 
 
 @router.patch("/store/items/{item_id}")
 async def update_item_definition(item_id: uuid.UUID, body: UpdateItemDefinitionRequest, admin: AdminAccount):
-    """Edit an item definition."""
+    """Edit an item definition — accepts ALL configurable fields."""
     async with async_session() as session:
         item = await session.get(ItemDefinition, item_id)
         if not item:
             raise HTTPException(status_code=404, detail="العنصر غير موجود")
-        before = {"name": item.name, "rarity": item.rarity, "category": item.category, "status": item.status}
+
+        # Capture before state for audit
+        before = {
+            "name": item.name, "description": item.description, "rarity": item.rarity,
+            "category": item.category, "usage_type": item.usage_type, "max_uses": item.max_uses,
+            "is_stackable": item.is_stackable, "expires_after_minutes": item.expires_after_minutes,
+            "visibility": item.visibility, "status": item.status,
+        }
+
+        # Apply all provided fields
         if body.name is not None:
             item.name = body.name
         if body.description is not None:
@@ -2148,15 +2218,27 @@ async def update_item_definition(item_id: uuid.UUID, body: UpdateItemDefinitionR
             item.usage_type = body.usage_type
         if body.max_uses is not None:
             item.max_uses = body.max_uses
+        if body.is_stackable is not None:
+            item.is_stackable = body.is_stackable
+        if body.expires_after_minutes is not None:
+            item.expires_after_minutes = body.expires_after_minutes
+        if body.visibility is not None:
+            item.visibility = body.visibility
         if body.status is not None:
             item.status = body.status
+
+        after = {
+            "name": item.name, "description": item.description, "rarity": item.rarity,
+            "category": item.category, "usage_type": item.usage_type, "max_uses": item.max_uses,
+            "is_stackable": item.is_stackable, "expires_after_minutes": item.expires_after_minutes,
+            "visibility": item.visibility, "status": item.status,
+        }
 
         await write_audit(
             session, actor_id=admin.id, subject_type="item_definition", subject_id=item_id,
             event_type="item_definition_updated",
             summary=f"عدّل عنصر: {item.name}",
-            before_state=before,
-            after_state={"name": item.name, "rarity": item.rarity, "category": item.category, "status": item.status},
+            before_state=before, after_state=after,
         )
         await session.commit()
     return {"success": True, "message": "تم تحديث العنصر بنجاح"}
@@ -2237,6 +2319,9 @@ class CreateStoreListingRequest(BaseModel):
     price: int
     total_stock: int | None = None
     max_per_participant: int | None = None
+    available_from: str | None = None  # ISO datetime
+    available_until: str | None = None  # ISO datetime
+    eligibility_rules: dict | None = None
 
 
 @router.post("/store/listings", status_code=201)
@@ -2259,6 +2344,9 @@ async def create_store_listing(body: CreateStoreListingRequest, admin: AdminAcco
             total_stock=body.total_stock,
             max_per_participant=body.max_per_participant,
             status=ListingStatus.ACTIVE,
+            available_from=datetime.fromisoformat(body.available_from.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_from else None,
+            available_until=datetime.fromisoformat(body.available_until.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_until else None,
+            eligibility_rules=body.eligibility_rules or {},
         )
         session.add(listing)
         await session.flush()
