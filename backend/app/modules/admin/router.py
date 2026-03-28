@@ -2313,6 +2313,72 @@ async def archive_item_definition(item_id: uuid.UUID, admin: AdminAccount):
     }
 
 
+@router.patch("/store/items/{item_id}/restore")
+async def restore_item_definition(item_id: uuid.UUID, admin: AdminAccount):
+    """Restore an archived item back to active status."""
+    async with async_session() as session:
+        item = await session.get(ItemDefinition, item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="العنصر غير موجود")
+        if item.status != ItemStatus.ARCHIVED:
+            raise HTTPException(status_code=400, detail="العنصر ليس مؤرشفاً")
+
+        item.status = ItemStatus.ACTIVE
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_definition", subject_id=item_id,
+            event_type="item_definition_restored",
+            summary=f"استعاد عنصر مؤرشف: {item.name}",
+            before_state={"status": "archived"}, after_state={"status": "active"},
+        )
+        await session.commit()
+    return {"success": True, "message": f"تم استعادة العنصر «{item.name}» بنجاح"}
+
+
+@router.delete("/store/items/{item_id}/permanent")
+async def permanently_delete_item(item_id: uuid.UUID, admin: AdminAccount):
+    """Permanently delete an archived item and all its effects, listings, and owned items.
+
+    DANGEROUS: This cannot be undone. Only works on archived items with 0 active owners.
+    """
+    async with async_session() as session:
+        item = await session.get(ItemDefinition, item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="العنصر غير موجود")
+        if item.status != ItemStatus.ARCHIVED:
+            raise HTTPException(status_code=400, detail="يجب أرشفة العنصر أولاً قبل الحذف النهائي")
+
+        # Check no active owners
+        active_owners = (await session.execute(
+            select(func.count()).select_from(OwnedItem).where(
+                OwnedItem.item_definition_id == item_id,
+                OwnedItem.status.in_([OwnedItemStatus.AVAILABLE, OwnedItemStatus.ACTIVATED, OwnedItemStatus.PENDING]),
+            )
+        )).scalar() or 0
+        if active_owners > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"لا يمكن حذف العنصر نهائياً — لا يزال {active_owners} لاعب يملكه. صادر العنصر أولاً.",
+            )
+
+        item_name = item.name
+        # Delete effects, listings, owned items (consumed/expired), then the item itself
+        await session.execute(select(ItemEffect).where(ItemEffect.item_definition_id == item_id))
+        from sqlalchemy import delete
+        await session.execute(delete(ItemEffect).where(ItemEffect.item_definition_id == item_id))
+        await session.execute(delete(StoreListing).where(StoreListing.item_definition_id == item_id))
+        await session.execute(delete(OwnedItem).where(OwnedItem.item_definition_id == item_id))
+        await session.delete(item)
+
+        await write_audit(
+            session, actor_id=admin.id, subject_type="item_definition", subject_id=item_id,
+            event_type="item_definition_deleted_permanently",
+            summary=f"حذف نهائي للعنصر: {item_name}",
+            before_state={"name": item_name, "status": "archived"},
+        )
+        await session.commit()
+    return {"success": True, "message": f"تم حذف العنصر «{item_name}» نهائياً"}
+
+
 class CreateStoreListingRequest(BaseModel):
     item_definition_id: uuid.UUID
     competition_id: uuid.UUID

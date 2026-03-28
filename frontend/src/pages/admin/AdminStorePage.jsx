@@ -961,12 +961,38 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
                         className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 smooth-transition" title="أرشفة — إيقاف البيع">
                         <iconify-icon icon="lucide:archive" class="text-sm"></iconify-icon>
                       </button>
-                    ) : item.owned_count > 0 ? (
-                      <button onClick={() => setRevokingItem(item)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="مصادرة من جميع اللاعبين">
-                        <iconify-icon icon="lucide:user-x" class="text-sm"></iconify-icon>
-                      </button>
-                    ) : null}
+                    ) : (
+                      <>
+                        <button onClick={async () => {
+                          try {
+                            await apiFetch(`/api/admin/store/items/${item.id}/restore`, { method: 'PATCH' })
+                            flashMessage('تم استعادة العنصر')
+                            refetchItems()
+                          } catch (err) { flashMessage(err.message) }
+                        }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-brand-success hover:bg-brand-success/10 smooth-transition" title="استعادة">
+                          <iconify-icon icon="lucide:rotate-ccw" class="text-sm"></iconify-icon>
+                        </button>
+                        {item.owned_count > 0 ? (
+                          <button onClick={() => setRevokingItem(item)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="مصادرة من اللاعبين">
+                            <iconify-icon icon="lucide:user-x" class="text-sm"></iconify-icon>
+                          </button>
+                        ) : (
+                          <button onClick={async () => {
+                            if (!confirm(`هل أنت متأكد من الحذف النهائي للعنصر "${item.name}"؟\n\nهذا الإجراء لا يمكن التراجع عنه!`)) return
+                            try {
+                              await apiFetch(`/api/admin/store/items/${item.id}/permanent`, { method: 'DELETE' })
+                              flashMessage('تم الحذف النهائي')
+                              refetchItems()
+                            } catch (err) { flashMessage(err.message) }
+                          }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="حذف نهائي">
+                            <iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon>
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
                 {item.description && (
