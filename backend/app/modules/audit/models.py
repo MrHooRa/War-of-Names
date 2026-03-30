@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.enums import AuditActorType
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class AuditEvent(Base):
@@ -29,4 +30,4 @@ class AuditEvent(Base):
     related_type: Mapped[str | None] = mapped_column(String(50))
     related_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     ip_address: Mapped[str | None] = mapped_column(INET)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)

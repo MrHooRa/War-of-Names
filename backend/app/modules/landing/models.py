@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base
+from app.core.utils import now_riyadh_naive
 
 
 class LandingLink(Base):
@@ -27,4 +28,4 @@ class LandingLink(Base):
     total_clicks: Mapped[int] = mapped_column(default=0)
     total_joins: Mapped[int] = mapped_column(default=0)
     last_clicked_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)

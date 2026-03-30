@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.enums import AttackOutcome, BankruptcyState, ProtectionType
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class AttackAttempt(Base):
@@ -31,8 +32,8 @@ class AttackAttempt(Base):
     penalty_amount: Mapped[int] = mapped_column(default=0)
     modifiers_applied: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     blocking_reason: Mapped[str | None] = mapped_column(Text)
-    executed_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    executed_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 class ProtectionRecord(Base):
@@ -48,9 +49,9 @@ class ProtectionRecord(Base):
     season_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("seasons.id", ondelete="SET NULL"))
     cycle_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cycles.id", ondelete="SET NULL"))
     reason: Mapped[str | None] = mapped_column(Text)
-    starts_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    starts_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     ends_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 class AttackExposure(Base):
@@ -67,7 +68,7 @@ class AttackExposure(Base):
     successful_attack_count: Mapped[int] = mapped_column(default=0)
     current_reward_stage: Mapped[int] = mapped_column(default=0)
     max_attacks_reached: Mapped[bool] = mapped_column(default=False)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
 
 class BankruptcyRecord(Base):
@@ -81,7 +82,7 @@ class BankruptcyRecord(Base):
     )
     trigger_reason: Mapped[str | None] = mapped_column(Text)
     trigger_source_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
-    triggered_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    triggered_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     active_until: Mapped[datetime | None] = mapped_column()
     resolved_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)

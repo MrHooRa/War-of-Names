@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import useAdminData from '../../hooks/useAdminData'
+import { formatNumber } from '../../lib/numbers'
 
 function StatCard({ icon, label, value, color = 'text-brand-teal dark:text-brand-slate', to }) {
   const inner = (
@@ -125,11 +126,11 @@ export default function AdminDashboardPage() {
           <div className="space-y-3">
             <div className="flex justify-between items-center p-3 bg-brand-success/5 rounded-xl">
               <span className="text-sm font-bold text-gray-600 dark:text-gray-400">إجمالي الإيداعات</span>
-              <span className="font-heading font-black text-brand-success">+{d.total_credits?.toLocaleString('ar-SA')}</span>
+              <span className="font-heading font-black text-brand-success">+{formatNumber(d.total_credits)}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-brand-danger/5 rounded-xl">
               <span className="text-sm font-bold text-gray-600 dark:text-gray-400">إجمالي الخصومات</span>
-              <span className="font-heading font-black text-brand-danger">-{d.total_debits?.toLocaleString('ar-SA')}</span>
+              <span className="font-heading font-black text-brand-danger">-{formatNumber(d.total_debits)}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
               <span className="text-sm font-bold text-gray-600 dark:text-gray-400">إشعارات غير مقروءة</span>

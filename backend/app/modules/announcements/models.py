@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class AnnouncementScope(StrEnum):
@@ -69,5 +70,5 @@ class Announcement(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("accounts.id", ondelete="SET NULL"), nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)

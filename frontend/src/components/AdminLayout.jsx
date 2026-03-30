@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../context/AuthContext'
 import { useAdminCompetition } from '../context/AdminCompetitionContext'
+import { toggleTheme } from '../lib/theme'
 
 const PLATFORM_NAV = [
   {
@@ -79,6 +80,10 @@ function CompetitionSelector() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls="admin-competition-menu"
         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold bg-brand-teal/5 dark:bg-brand-slate/10 border border-brand-teal/20 dark:border-brand-slate/20 text-gray-800 dark:text-white hover:bg-brand-teal/10 dark:hover:bg-brand-slate/20 smooth-transition"
       >
         <div className="w-7 h-7 bg-brand-teal/20 dark:bg-brand-slate/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -92,10 +97,17 @@ function CompetitionSelector() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden">
+        <div
+          id="admin-competition-menu"
+          role="listbox"
+          className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden"
+        >
           {competitions.map(c => (
             <button
               key={c.id}
+              type="button"
+              role="option"
+              aria-selected={c.id === selected?.id}
               onClick={() => { selectCompetition(c.id); setOpen(false) }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-right hover:bg-gray-50 dark:hover:bg-gray-700/50 smooth-transition ${
                 c.id === selected?.id ? 'bg-brand-teal/5 dark:bg-brand-slate/10 text-brand-teal dark:text-brand-slate' : 'text-gray-700 dark:text-gray-300'
@@ -117,17 +129,15 @@ export default function AdminLayout() {
   const { selected } = useAdminCompetition()
   const navigate = useNavigate()
 
-  function toggleDarkMode() {
-    const html = document.documentElement
-    html.classList.toggle('dark')
-    localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light')
-  }
-
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-brand-dark-bg transition-colors duration-300">
+      <a href="#admin-main-content" className="skip-link">تخط إلى المحتوى</a>
 
       {/* ═══ Sidebar ═══ */}
-      <aside className={`fixed inset-y-0 right-0 z-40 w-[272px] bg-white dark:bg-brand-card-dark border-l border-gray-200 dark:border-gray-800 flex flex-col transition-transform duration-300 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+      <aside
+        id="admin-sidebar"
+        className={`fixed inset-y-0 right-0 z-40 w-[272px] bg-white dark:bg-brand-card-dark border-l border-gray-200 dark:border-gray-800 flex flex-col transition-transform duration-300 md:translate-x-0 safe-area-pb ${sidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}
+      >
         {/* Brand */}
         <div className="px-5 py-5 border-b border-gray-200 dark:border-gray-800">
           <Link to="/admin" className="flex items-center gap-3">
@@ -142,7 +152,7 @@ export default function AdminLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+        <nav aria-label="تنقل لوحة التحكم" className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
           {/* Platform section */}
           {PLATFORM_NAV.map((section) => (
             <div key={section.label}>
@@ -214,11 +224,15 @@ export default function AdminLayout() {
       <div className="flex-1 md:mr-[272px] flex flex-col min-h-screen">
 
         {/* Top bar */}
-        <header className="sticky top-0 z-20 bg-white/80 dark:bg-brand-card-dark/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-3">
+        <header className="sticky top-0 z-20 bg-white/80 dark:bg-brand-card-dark/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-3 safe-area-pt">
           <div className="flex items-center justify-between">
             {/* Mobile hamburger */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              type="button"
+              aria-label={sidebarOpen ? 'إغلاق القائمة الجانبية' : 'فتح القائمة الجانبية'}
+              aria-expanded={sidebarOpen}
+              aria-controls="admin-sidebar"
               className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
             >
               <iconify-icon icon="lucide:menu" class="text-xl"></iconify-icon>
@@ -237,7 +251,8 @@ export default function AdminLayout() {
             {/* Controls */}
             <div className="flex items-center gap-3">
               <button
-                onClick={toggleDarkMode}
+                onClick={toggleTheme}
+                aria-label="تبديل الوضع الداكن"
                 className="w-9 h-9 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition"
               >
                 <iconify-icon icon="lucide:moon" class="text-sm dark:hidden"></iconify-icon>
@@ -253,6 +268,7 @@ export default function AdminLayout() {
 
               <button
                 onClick={() => { logout(); navigate('/login') }}
+                aria-label="تسجيل الخروج"
                 className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition"
                 title="تسجيل الخروج"
               >
@@ -263,7 +279,7 @@ export default function AdminLayout() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
+        <main id="admin-main-content" tabIndex="-1" className="flex-1 p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

@@ -22,6 +22,7 @@ from app.core.enums import (
     RewardType,
 )
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class ItemDefinition(Base):
@@ -48,8 +49,8 @@ class ItemDefinition(Base):
     expires_after_minutes: Mapped[int | None] = mapped_column()
     scope_competition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("competitions.id", ondelete="SET NULL"))
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="visible")
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     effects = relationship("ItemEffect", back_populates="item_definition", lazy="selectin")
 
@@ -68,7 +69,7 @@ class ItemEffect(Base):
     is_stackable: Mapped[bool] = mapped_column(default=False)
     trigger_on: Mapped[str] = mapped_column(String(20), nullable=False, default="activation")
     order_index: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
     item_definition = relationship("ItemDefinition", back_populates="effects")
 
@@ -97,8 +98,8 @@ class StoreListing(Base):
     available_from: Mapped[datetime | None] = mapped_column()
     available_until: Mapped[datetime | None] = mapped_column()
     eligibility_rules: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
 
 class OwnedItem(Base):
@@ -117,11 +118,11 @@ class OwnedItem(Base):
     status: Mapped[OwnedItemStatus] = mapped_column(
         pg_enum(OwnedItemStatus, name="owned_item_status"), nullable=False, default=OwnedItemStatus.AVAILABLE
     )
-    acquired_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    acquired_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     activated_at: Mapped[datetime | None] = mapped_column()
     expires_at: Mapped[datetime | None] = mapped_column()
     consumed_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 class ItemActivation(Base):
@@ -138,8 +139,8 @@ class ItemActivation(Base):
     result_state: Mapped[str] = mapped_column(String(20), nullable=False, default="success")
     effect_summary: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     denial_reason: Mapped[str | None] = mapped_column(Text)
-    activated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    activated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -159,8 +160,8 @@ class RewardDefinition(Base):
     rules: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     competition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("competitions.id", ondelete="SET NULL"))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
 
 class RewardGrant(Base):
@@ -176,10 +177,10 @@ class RewardGrant(Base):
     status: Mapped[RewardGrantStatus] = mapped_column(
         pg_enum(RewardGrantStatus, name="reward_grant_status"), nullable=False, default=RewardGrantStatus.PENDING
     )
-    granted_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    granted_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     claimed_at: Mapped[datetime | None] = mapped_column()
     expires_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 class BoxOutcome(Base):
@@ -193,8 +194,8 @@ class BoxOutcome(Base):
     outcome_content: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     ledger_entry_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     granted_item_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("owned_items.id", ondelete="SET NULL"))
-    opened_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    opened_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 class Distribution(Base):
@@ -220,5 +221,5 @@ class Distribution(Base):
     executed_at: Mapped[datetime | None] = mapped_column()
     result_summary: Mapped[dict | None] = mapped_column(JSONB)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)

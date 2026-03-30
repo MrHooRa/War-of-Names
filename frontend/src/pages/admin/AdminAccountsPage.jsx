@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
 import { formatDate, formatDateTime } from '../../lib/dates'
+import { formatNumber } from '../../lib/numbers'
 
 const STATUS_LABELS = {
   active: { text: 'نشط', color: 'bg-brand-success/10 text-brand-success', icon: 'lucide:check-circle' },
@@ -28,6 +29,79 @@ const COMP_STATUS_LABELS = {
   paused: { text: 'متوقفة', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' },
   completed: { text: 'منتهية', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' },
   archived: { text: 'مؤرشفة', color: 'bg-gray-100 dark:bg-gray-800 text-gray-400' },
+}
+
+function AccountMobileCard({ account, isSelected, onToggleDetail, onUpdateStatus }) {
+  const status = STATUS_LABELS[account.status] || STATUS_LABELS.active
+
+  return (
+    <div className={`space-y-3 p-4 ${isSelected ? 'bg-brand-teal/5 dark:bg-brand-slate/5' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-teal/10 text-sm font-black text-brand-teal dark:bg-brand-slate/20 dark:text-brand-slate">
+            {account.username?.[0] || '?'}
+          </div>
+          <div className="min-w-0">
+            <div className="font-bold text-gray-900 dark:text-white">{account.username}</div>
+            <div className="text-[11px] font-bold text-gray-400">{account.real_name}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {account.is_owner && (
+                <span className="text-[10px] font-black bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 px-1.5 py-0.5 rounded">مالك</span>
+              )}
+              {account.is_admin && !account.is_owner && (
+                <span className="text-[10px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/20 dark:text-brand-slate px-1.5 py-0.5 rounded">مشرف</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <span className={`text-xs font-black px-2 py-1 rounded-lg ${status.color}`}>{status.text}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">العضويات</div>
+          <div className="font-heading font-black text-gray-900 dark:text-white">{account.membership_count}</div>
+        </div>
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">آخر دخول</div>
+          <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
+            {account.last_login_at ? formatDate(account.last_login_at) : '—'}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => onToggleDetail(account.id)}
+          className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 smooth-transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          {isSelected ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+        </button>
+        {!account.is_admin && (
+          <>
+            {account.status === 'active' ? (
+              <button
+                type="button"
+                onClick={() => onUpdateStatus(account.id, 'suspended')}
+                className="rounded-lg px-3 py-1.5 text-xs font-bold text-yellow-600 smooth-transition hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+              >
+                تعليق
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onUpdateStatus(account.id, 'active')}
+                className="rounded-lg px-3 py-1.5 text-xs font-bold text-brand-success smooth-transition hover:bg-green-50 dark:hover:bg-green-900/20"
+              >
+                تفعيل
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function AdminAccountsPage() {
@@ -131,74 +205,93 @@ export default function AdminAccountsPage() {
 
       {/* Accounts table */}
       <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">المستخدم</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">الاسم الحقيقي</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">الحالة</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">العضويات</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">آخر دخول</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filtered.map(a => {
-                const st = STATUS_LABELS[a.status] || STATUS_LABELS.active
-                return (
-                  <tr
-                    key={a.id}
-                    className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 smooth-transition cursor-pointer ${selectedAccount?.id === a.id ? 'bg-brand-teal/5 dark:bg-brand-slate/5' : ''}`}
-                    onClick={() => loadAccountDetail(a.id)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-brand-teal/10 dark:bg-brand-slate/20 rounded-lg flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-sm">
-                          {a.username[0]}
-                        </div>
-                        <div>
-                          <span className="font-bold text-gray-900 dark:text-white">{a.username}</span>
-                          {a.is_owner && (
-                            <span className="mr-2 text-[10px] font-black bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 px-1.5 py-0.5 rounded">مالك</span>
-                          )}
-                          {a.is_admin && !a.is_owner && (
-                            <span className="mr-2 text-[10px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/20 dark:text-brand-slate px-1.5 py-0.5 rounded">مشرف</span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{a.real_name}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs font-black px-2 py-1 rounded-lg ${st.color}`}>{st.text}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center font-bold text-gray-600 dark:text-gray-400">{a.membership_count}</td>
-                    <td className="px-4 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500">
-                      {a.last_login_at ? formatDate(a.last_login_at) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {!a.is_admin && (
-                        <div className="flex items-center justify-center gap-1">
-                          {a.status === 'active' ? (
-                            <button
-                              onClick={e => { e.stopPropagation(); updateAccountStatus(a.id, 'suspended') }}
-                              className="text-xs font-bold text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 px-2 py-1 rounded-lg smooth-transition"
-                            >تعليق</button>
-                          ) : (
-                            <button
-                              onClick={e => { e.stopPropagation(); updateAccountStatus(a.id, 'active') }}
-                              className="text-xs font-bold text-brand-success hover:bg-green-50 dark:hover:bg-green-900/20 px-2 py-1 rounded-lg smooth-transition"
-                            >تفعيل</button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        {filtered.length === 0 ? (
+          <div className="px-4 py-10 text-center font-bold text-gray-400">لا توجد حسابات مطابقة</div>
+        ) : (
+          <>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 md:hidden">
+              {filtered.map(account => (
+                <AccountMobileCard
+                  key={account.id}
+                  account={account}
+                  isSelected={selectedAccount?.id === account.id}
+                  onToggleDetail={loadAccountDetail}
+                  onUpdateStatus={updateAccountStatus}
+                />
+              ))}
+            </div>
+            <div className="hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-800">
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">المستخدم</th>
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">الاسم الحقيقي</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">الحالة</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">العضويات</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">آخر دخول</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {filtered.map(a => {
+                      const st = STATUS_LABELS[a.status] || STATUS_LABELS.active
+                      return (
+                        <tr
+                          key={a.id}
+                          className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 smooth-transition cursor-pointer ${selectedAccount?.id === a.id ? 'bg-brand-teal/5 dark:bg-brand-slate/5' : ''}`}
+                          onClick={() => loadAccountDetail(a.id)}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-brand-teal/10 dark:bg-brand-slate/20 rounded-lg flex items-center justify-center text-brand-teal dark:text-brand-slate font-black text-sm">
+                                {a.username[0]}
+                              </div>
+                              <div>
+                                <span className="font-bold text-gray-900 dark:text-white">{a.username}</span>
+                                {a.is_owner && (
+                                  <span className="mr-2 text-[10px] font-black bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 px-1.5 py-0.5 rounded">مالك</span>
+                                )}
+                                {a.is_admin && !a.is_owner && (
+                                  <span className="mr-2 text-[10px] font-black bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/20 dark:text-brand-slate px-1.5 py-0.5 rounded">مشرف</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{a.real_name}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`text-xs font-black px-2 py-1 rounded-lg ${st.color}`}>{st.text}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center font-bold text-gray-600 dark:text-gray-400">{a.membership_count}</td>
+                          <td className="px-4 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500">
+                            {a.last_login_at ? formatDate(a.last_login_at) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {!a.is_admin && (
+                              <div className="flex items-center justify-center gap-1">
+                                {a.status === 'active' ? (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); updateAccountStatus(a.id, 'suspended') }}
+                                    className="text-xs font-bold text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 px-2 py-1 rounded-lg smooth-transition"
+                                  >تعليق</button>
+                                ) : (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); updateAccountStatus(a.id, 'active') }}
+                                    className="text-xs font-bold text-brand-success hover:bg-green-50 dark:hover:bg-green-900/20 px-2 py-1 rounded-lg smooth-transition"
+                                  >تفعيل</button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ══ Account Detail Panel ══ */}
@@ -344,7 +437,7 @@ export default function AdminAccountsPage() {
                           <div className="grid grid-cols-3 gap-3 text-center">
                             <div>
                               <div className={`font-black text-sm ${m.is_bankrupt ? 'text-brand-danger' : 'text-brand-teal dark:text-brand-slate'}`}>
-                                {m.balance?.toLocaleString()}
+                                {formatNumber(m.balance)}
                               </div>
                               <div className="text-[10px] font-bold text-gray-400">الرصيد</div>
                             </div>
@@ -363,6 +456,7 @@ export default function AdminAccountsPage() {
                           </div>
                           <Link
                             to={`/admin/members/${m.membership_id}`}
+                            aria-label={`فتح ملف اللاعب ${m.alias}`}
                             className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-teal/10 text-brand-teal dark:bg-brand-slate/20 dark:text-brand-slate hover:bg-brand-teal/20 smooth-transition"
                             title="فتح ملف اللاعب"
                           >

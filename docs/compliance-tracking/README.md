@@ -8,7 +8,7 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 - Terms of Use: `frontend/src/pages/TermsPage.jsx` (11 sections)
 - Privacy Policy: `frontend/src/pages/PrivacyPage.jsx` (11 sections)
 
-**Last Audited:** 2026-03-27
+**Last Audited:** 2026-03-29
 
 ---
 
@@ -29,7 +29,7 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 |---|-------|--------|-------|
 | T-01 | Platform is operated from Saudi Arabia | IMPLEMENTED | VPS may be outside KSA but platform is managed from KSA |
 | T-02 | Platform is subject to KSA regulations | N/A | Legal statement, no implementation needed |
-| T-03 | By using the platform you agree to these terms | PARTIAL | No explicit checkbox/acceptance flow — agreement is implied by usage |
+| T-03 | By using the platform you agree to these terms | IMPLEMENTED | Registration now requires an explicit terms/privacy consent checkbox and backend-enforced consent flag |
 | T-04 | We reserve the right to modify terms at any time | N/A | Legal reservation |
 | T-05 | Modifications will be announced via in-platform notification or registered email | PARTIAL | Announcement overlay system exists (AnnouncementOverlay.jsx); admin can notify users of terms changes via announcements. No email field exists in Account model |
 | T-06 | Continued use after modifications constitutes acceptance | N/A | Legal statement |
@@ -158,8 +158,8 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 | P-05 | Collect: email address | IMPLEMENTED | Email reference removed from Privacy Policy — page no longer claims email is collected, matching actual behavior |
 | P-06 | Collect: password (stored encrypted, nobody can see it) | IMPLEMENTED | bcrypt hash stored; not reversible |
 | P-07 | Collect: alias chosen in competition | IMPLEMENTED | `alias_records` table |
-| P-08 | Collect: IP address | NOT IMPLEMENTED | Not stored in database — Privacy Policy claims this is collected |
-| P-09 | Collect: browser type, version, OS | NOT IMPLEMENTED | Not stored — Privacy Policy claims this |
+| P-08 | Collect: IP address | PARTIAL | IP is now stored on auth/security audit events, but not yet for all request/session activity |
+| P-09 | Collect: browser type, version, OS | PARTIAL | Browser/OS metadata is now captured on auth/security audit events, but no full telemetry pipeline exists |
 | P-10 | Collect: device identifier and session info | PARTIAL | JWT tokens for sessions; no device identifier stored |
 | P-11 | Collect: activity log (pages visited, login/logout times) | PARTIAL | `last_login_at` tracked; no page visit tracking |
 | P-12 | Collect: performance and interaction data | NOT IMPLEMENTED | No performance/interaction tracking |
@@ -234,12 +234,12 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 
 | # | Claim | Status | Notes |
 |---|-------|--------|-------|
-| P-49 | Right of access: obtain copy of personal data (Art. 4) | NOT IMPLEMENTED | No data export endpoint |
+| P-49 | Right of access: obtain copy of personal data (Art. 4) | IMPLEMENTED | `GET /api/auth/me/export-data` provides self-service machine-readable export; owner export also exists |
 | P-50 | Right of correction: request correction of inaccurate data (Art. 4) | PARTIAL | Users can update `real_name` via account settings; cannot correct other data fields |
 | P-51 | Right of deletion: request deletion when data no longer needed (Art. 4) | IMPLEMENTED | `POST /api/auth/me/request-deletion` endpoint + button in AccountSettingsPage; Privacy Policy text updated to reflect availability |
 | P-52 | Right of consent withdrawal (Art. 6) | NOT IMPLEMENTED | No consent management; no withdrawal mechanism |
 | P-53 | Right of objection: object to processing in certain cases | NOT IMPLEMENTED | No objection process |
-| P-54 | Right of portability: data transfer in machine-readable format (Art. 4) | NOT IMPLEMENTED | No data export in any format |
+| P-54 | Right of portability: data transfer in machine-readable format (Art. 4) | IMPLEMENTED | Account settings now allow downloading a JSON export from `GET /api/auth/me/export-data` |
 | P-55 | Requests responded to within 30 days | NOT IMPLEMENTED | No formal request intake/tracking system |
 
 ### Section 10 — Children's Privacy (خصوصية الأطفال)
@@ -263,14 +263,14 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 
 | Status | Terms of Use | Privacy Policy | Total |
 |--------|-------------|----------------|-------|
-| IMPLEMENTED | 13 | 19 | 32 |
-| PARTIAL | 9 | 8 | 17 |
-| NOT IMPLEMENTED | 2 | 13 | 15 |
+| IMPLEMENTED | 14 | 21 | 35 |
+| PARTIAL | 8 | 10 | 18 |
+| NOT IMPLEMENTED | 2 | 9 | 11 |
 | PLANNED | 0 | 0 | 0 |
 | N/A | 36 | 11 | 47 |
 
 **Total trackable claims (excluding N/A):** 64
-**Compliance coverage:** 50.0% IMPLEMENTED, 26.6% PARTIAL, 23.4% NOT IMPLEMENTED
+**Compliance coverage:** 54.7% IMPLEMENTED, 28.1% PARTIAL, 17.2% NOT IMPLEMENTED
 
 ---
 
@@ -279,10 +279,10 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 ### Critical — Legal Compliance Risk
 
 1. [x] **Implement account self-deletion** — `POST /api/auth/me/request-deletion` + AccountSettingsPage button. Creates audit event for owner review. (T-50, P-51)
-2. [ ] **Implement user data export** — Privacy Policy promises right of access (P-49) and portability (P-54). No export endpoint exists.
+2. [x] **Implement user data export** — `GET /api/auth/me/export-data` + AccountSettingsPage download action now provide self-service access/portability export. (P-49, P-54)
 3. [x] **Fix email discrepancy** — Privacy Policy no longer claims email is collected; page was rewritten to match actual data collection. (P-05)
-4. [ ] **Implement IP address collection or remove claim** — Privacy Policy claims IP is collected (P-08) but it is not stored. Either implement or correct the policy.
-5. [ ] **Remove claims about browser/OS/device data** if not collecting, or implement collection (P-09, P-10, P-12).
+4. [ ] **Expand IP address collection or narrow the claim** — Auth/security audit events now store IPs, but collection is not yet comprehensive across all activity. (P-08)
+5. [ ] **Complete browser/OS/device/activity telemetry or narrow the claims** — Auth/security audit events now capture browser/OS metadata, but device/activity/performance claims remain broader than the implementation. (P-09, P-10, P-12)
 6. [ ] **Execute DPA with hosting provider** — Privacy Policy promises DPA-backed data sharing (P-31) but no DPA exists.
 7. [ ] **Document cross-border data transfer** — Privacy Policy references PDPL Art. 29 compliance (P-27) but no documentation or safeguards exist.
 8. [ ] **Create breach notification procedure** — Privacy Policy promises regulatory notification (P-29) but no procedure exists.
@@ -304,7 +304,7 @@ a compliance obligation — this file ensures nothing is promised but undelivere
 18. [ ] **Create formal bug report mechanism** — Terms requires users to report exploits (T-23) but provides no channel beyond email.
 19. [ ] **Document security review schedule** — Commit to periodic reviews as promised (P-28).
 20. [ ] **Implement admin warning system** — Terms mentions warnings as an escalation step (T-27) but no formal warning feature exists.
-21. [ ] **Add explicit terms acceptance checkbox** at registration — Currently agreement is only implicit (T-03).
+21. [x] **Add explicit terms acceptance checkbox** at registration — Registration now requires explicit consent in frontend and backend. (T-03)
 
 ---
 

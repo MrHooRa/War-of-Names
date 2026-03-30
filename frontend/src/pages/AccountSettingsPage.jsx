@@ -10,6 +10,7 @@ export default function AccountSettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState(null)
   const [deletionRequested, setDeletionRequested] = useState(false)
 
@@ -21,6 +22,30 @@ export default function AccountSettingsPage() {
     } catch (err) {
       // Don't set deletionRequested on error — show the error instead
       alert(err.message || 'فشل إرسال الطلب')
+    }
+  }
+
+  async function handleExportData() {
+    setExporting(true)
+    setMessage(null)
+    try {
+      const json = await apiFetch('/api/auth/me/export-data')
+      const exportedAt = new Date().toISOString().slice(0, 10)
+      const blob = new Blob(
+        [JSON.stringify(json.data, null, 2)],
+        { type: 'application/json;charset=utf-8' },
+      )
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `won-account-export-${currentUser?.username || 'me'}-${exportedAt}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      setMessage({ type: 'success', text: 'تم تنزيل نسخة بياناتك بنجاح' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'فشل تنزيل بيانات الحساب' })
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -75,7 +100,11 @@ export default function AccountSettingsPage() {
       </div>
 
       {message && (
-        <div className={`px-4 py-3 rounded-xl text-sm font-bold ${message.type === 'error' ? 'bg-brand-danger/10 text-brand-danger' : 'bg-brand-success/10 text-brand-success'}`}>
+        <div
+          role={message.type === 'error' ? 'alert' : 'status'}
+          aria-live={message.type === 'error' ? 'assertive' : 'polite'}
+          className={`px-4 py-3 rounded-xl text-sm font-bold ${message.type === 'error' ? 'bg-brand-danger/10 text-brand-danger' : 'bg-brand-success/10 text-brand-success'}`}
+        >
           {message.text}
         </div>
       )}
@@ -89,9 +118,12 @@ export default function AccountSettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">اسم المستخدم</label>
+            <label htmlFor="account-username" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">اسم المستخدم</label>
             <input
               type="text"
+              id="account-username"
+              name="username"
+              autoComplete="username"
               value={currentUser?.username || ''}
               disabled
               className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed"
@@ -99,9 +131,12 @@ export default function AccountSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">الاسم الحقيقي</label>
+            <label htmlFor="account-real-name" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">الاسم الحقيقي</label>
             <input
               type="text"
+              id="account-real-name"
+              name="real_name"
+              autoComplete="name"
               value={realName}
               onChange={e => setRealName(e.target.value)}
               className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
@@ -134,9 +169,12 @@ export default function AccountSettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">كلمة المرور الحالية</label>
+            <label htmlFor="account-current-password" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">كلمة المرور الحالية</label>
             <input
               type="password"
+              id="account-current-password"
+              name="current_password"
+              autoComplete="current-password"
               value={currentPassword}
               onChange={e => setCurrentPassword(e.target.value)}
               className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
@@ -145,9 +183,12 @@ export default function AccountSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">كلمة المرور الجديدة</label>
+            <label htmlFor="account-new-password" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">كلمة المرور الجديدة</label>
             <input
               type="password"
+              id="account-new-password"
+              name="new_password"
+              autoComplete="new-password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
@@ -157,9 +198,12 @@ export default function AccountSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">تأكيد كلمة المرور</label>
+            <label htmlFor="account-confirm-password" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">تأكيد كلمة المرور</label>
             <input
               type="password"
+              id="account-confirm-password"
+              name="confirm_password"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
@@ -184,6 +228,31 @@ export default function AccountSettingsPage() {
           </button>
         </div>
       </form>
+
+      <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-4">
+        <h2 className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
+          <iconify-icon icon="lucide:download" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
+          تصدير البيانات
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          يمكنك تنزيل نسخة JSON قابلة للقراءة الآلية من بيانات حسابك وبيانات اللعب المرتبطة به.
+        </p>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleExportData}
+            disabled={exporting}
+            className="flex items-center gap-2 bg-brand-teal hover:bg-brand-teal-hover text-white px-5 py-2.5 rounded-xl font-heading font-black text-sm smooth-transition disabled:opacity-50"
+          >
+            {exporting ? (
+              <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
+            ) : (
+              <iconify-icon icon="lucide:hard-drive-download"></iconify-icon>
+            )}
+            تنزيل بياناتي
+          </button>
+        </div>
+      </div>
 
       {/* Danger Zone */}
       <div className="mt-10 border-t border-red-200 dark:border-red-900/30 pt-8">

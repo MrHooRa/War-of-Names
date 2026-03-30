@@ -1,13 +1,12 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
 
 from app.config import settings
 from app.core.database import async_session, check_db_connection, engine
-from app.core.models import Base, GameInfo
+from app.core.models import Base
 from app.core.seed import seed
 from app.modules.auth.router import router as auth_router
 from app.modules.competitions.router import router as competitions_router
@@ -93,6 +92,11 @@ async def _apply_schema_patches(conn):
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS consent_at TIMESTAMP WITHOUT TIME ZONE"
     ))
 
+    # Remove the obsolete placeholder table.
+    await conn.execute(text(
+        "DROP TABLE IF EXISTS game_info"
+    ))
+
     # 003: Add lowercase enum values for ALL PostgreSQL enum types.
     # create_all generates UPPERCASE labels (enum NAMES), but pg_enum() now
     # uses lowercase VALUES. Both must exist so data can be normalized.
@@ -137,21 +141,6 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass  # Already normalized or not needed
 
-    # Seed game_info if empty
-    async with async_session() as session:
-        result = await session.execute(select(GameInfo))
-        if not result.scalars().first():
-            session.add(
-                GameInfo(
-                    title="حرب الأسماء",
-                    subtitle="من سيكشف الأقنعة أولاً؟",
-                    current_season="الموسم الأول",
-                    status="active",
-                    announcement="مرحباً بكم في حرب الأسماء! الموسم الأول يبدأ قريباً",
-                )
-            )
-            await session.commit()
-
     # Run seeder (idempotent)
     async with async_session() as session:
         await seed(session)
@@ -189,6 +178,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def ip_ban_middleware(request: Request, call_next):
+    """Block banned client IPs before they reach application routes."""
+    path = request.url.path
+    if path.startswith(("/health", "/docs", "/openapi.json")):
+        return await call_next(request)
+
+    from app.core.middleware import check_ip_ban
+
+    try:
+        await check_ip_ban(request)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "message": exc.detail},
+            )
+        raise
+
+    return await call_next(request)
+
 
 @app.middleware("http")
 async def maintenance_middleware(request: Request, call_next):
@@ -290,61 +301,3 @@ async def get_public_branding():
         "google_ads_id": vals.get("google_ads_id") or "",
     }
 
-
-# --- Game Info ---
-
-
-@app.get("/api/game-info")
-async def get_game_info():
-    from app.modules.competitions.models import Competition, Season, Cycle
-
-    async with async_session() as session:
-        result = await session.execute(select(GameInfo).limit(1))
-        info = result.scalars().first()
-
-        # Find the active season/cycle from the first active competition
-        active_season_name = None
-        active_cycle_label = None
-        comp_result = await session.execute(
-            select(Competition).where(Competition.status == "active").limit(1)
-        )
-        active_comp = comp_result.scalars().first()
-        if active_comp:
-            season_result = await session.execute(
-                select(Season).where(Season.competition_id == active_comp.id, Season.status == "active").limit(1)
-            )
-            active_season = season_result.scalars().first()
-            if active_season:
-                active_season_name = active_season.name
-                cycle_result = await session.execute(
-                    select(Cycle).where(Cycle.season_id == active_season.id, Cycle.status == "active").limit(1)
-                )
-                active_cycle = cycle_result.scalars().first()
-                if active_cycle:
-                    active_cycle_label = active_cycle.label
-
-    if not info:
-        return JSONResponse(
-            status_code=404,
-            content={"success": False, "message": "Game info not found"},
-        )
-
-    # Build season text: prefer real season/cycle, fall back to static current_season
-    season_text = info.current_season
-    if active_season_name:
-        season_text = active_season_name
-        if active_cycle_label:
-            season_text = f"{active_season_name} — {active_cycle_label}"
-
-    return {
-        "success": True,
-        "data": {
-            "title": info.title,
-            "subtitle": info.subtitle,
-            "current_season": season_text,
-            "status": info.status,
-            "announcement": info.announcement,
-            "active_season": active_season_name,
-            "active_cycle": active_cycle_label,
-        },
-    }

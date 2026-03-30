@@ -4,7 +4,8 @@ import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
 import { RARITY_ADMIN, RARITY_LABELS, RARITY_DOT_COLORS, RARITY_OPTIONS } from '../../config/rarity'
-import { formatDate } from '../../lib/dates'
+import { formatDate, toDateTimeLocalValue } from '../../lib/dates'
+import AccessibleDialog from '../../components/AccessibleDialog'
 import JsonEditorToggle, { parseJsonInput } from '../../components/admin/JsonEditorToggle'
 
 /* ────────── Constants ────────── */
@@ -30,6 +31,7 @@ const USAGE_TYPE_OPTIONS = [
 ]
 
 const inputClass = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-gray-900 dark:text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/30 focus:border-brand-teal smooth-transition'
+const modalPanelClass = 'max-w-md rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-brand-card-dark overflow-hidden'
 
 /* ────────── Shared UI ────────── */
 
@@ -61,34 +63,39 @@ function StatCard({ icon, label, value, color }) {
   )
 }
 
-function ModalBackdrop({ children, onClose }) {
+function ModalBackdrop({ children, onClose, titleId, descriptionId, panelClassName = modalPanelClass }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white dark:bg-brand-card-dark rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {children}
-      </div>
-    </div>
+    <AccessibleDialog
+      onClose={onClose}
+      titleId={titleId}
+      descriptionId={descriptionId}
+      panelClassName={panelClassName}
+    >
+      {children}
+    </AccessibleDialog>
   )
 }
 
 function ConfirmDialog({ title, message, onConfirm, onCancel, loading }) {
+  const titleId = React.useId()
+  const descriptionId = React.useId()
+
   return (
-    <ModalBackdrop onClose={onCancel}>
+    <ModalBackdrop onClose={onCancel} titleId={titleId} descriptionId={descriptionId}>
       <div className="p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-danger/10 flex items-center justify-center">
             <iconify-icon icon="lucide:alert-triangle" class="text-brand-danger text-xl"></iconify-icon>
           </div>
-          <h3 className="font-display font-black text-lg text-gray-900 dark:text-white">{title}</h3>
+          <h3 id={titleId} className="font-display font-black text-lg text-gray-900 dark:text-white">{title}</h3>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+        <p id={descriptionId} className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
         <div className="flex gap-3 pt-2">
           <button onClick={onConfirm} disabled={loading}
             className="flex-1 px-4 py-2.5 rounded-xl bg-brand-danger text-white text-sm font-bold hover:bg-red-600 smooth-transition disabled:opacity-50">
             {loading ? <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon> : 'تأكيد'}
           </button>
-          <button onClick={onCancel} disabled={loading}
+          <button onClick={onCancel} disabled={loading} data-dialog-initial-focus
             className="flex-1 px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition disabled:opacity-50">
             إلغاء
           </button>
@@ -207,6 +214,13 @@ const ITEM_BULK_TEMPLATE = [
 /* ────────── Item Definition Form Modal ────────── */
 function ItemFormModal({ item, onClose, onSaved }) {
   const isEdit = !!item
+  const titleId = React.useId()
+  const nameInputId = React.useId()
+  const descriptionInputId = React.useId()
+  const rarityInputId = React.useId()
+  const categoryInputId = React.useId()
+  const usageTypeInputId = React.useId()
+  const maxUsesInputId = React.useId()
   const [form, setForm] = useState({
     name: item?.name || '', description: item?.description || '',
     rarity: item?.rarity || 'common', category: item?.category || 'weapon',
@@ -336,18 +350,18 @@ function ItemFormModal({ item, onClose, onSaved }) {
   }
 
   return (
-    <ModalBackdrop onClose={onClose}>
+    <ModalBackdrop onClose={onClose} titleId={titleId}>
       <form onSubmit={handleSubmit}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-display font-black text-lg text-gray-900 dark:text-white">
+          <h3 id={titleId} className="font-display font-black text-lg text-gray-900 dark:text-white">
             {isEdit ? 'تعديل العنصر' : 'إنشاء عنصر جديد'}
           </h3>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 smooth-transition">
+          <button type="button" onClick={onClose} aria-label="إغلاق نافذة العنصر" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 smooth-transition">
             <iconify-icon icon="lucide:x" class="text-xl"></iconify-icon>
           </button>
         </div>
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-          {error && <div className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
+          {error && <div role="alert" className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
           {bulkProgress && <div className="bg-brand-teal/10 text-brand-teal px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><iconify-icon icon="lucide:loader-2" class="animate-spin text-sm"></iconify-icon>{bulkProgress}</div>}
 
           <JsonEditorToggle
@@ -361,45 +375,45 @@ function ItemFormModal({ item, onClose, onSaved }) {
           {mode === 'form' && (
             <>
               <div>
-                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">اسم العنصر *</label>
-                <input type="text" value={form.name} onChange={e => updateField('name', e.target.value)} className={inputClass} placeholder="مثال: درع الحماية" />
+                <label htmlFor={nameInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">اسم العنصر *</label>
+                <input id={nameInputId} name="item_name" autoComplete="off" data-dialog-initial-focus type="text" value={form.name} onChange={e => updateField('name', e.target.value)} className={inputClass} placeholder="مثال: درع الحماية" />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الوصف</label>
-                <textarea value={form.description} onChange={e => updateField('description', e.target.value)} rows={3} className={inputClass + ' resize-none'} placeholder="وصف مختصر للعنصر..." />
+                <label htmlFor={descriptionInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الوصف</label>
+                <textarea id={descriptionInputId} name="item_description" autoComplete="off" value={form.description} onChange={e => updateField('description', e.target.value)} rows={3} className={inputClass + ' resize-none'} placeholder="وصف مختصر للعنصر..." />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الندرة</label>
-                  <select value={form.rarity} onChange={e => updateField('rarity', e.target.value)} className={inputClass}>
+                  <label htmlFor={rarityInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الندرة</label>
+                  <select id={rarityInputId} name="item_rarity" value={form.rarity} onChange={e => updateField('rarity', e.target.value)} className={inputClass}>
                     {RARITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الفئة</label>
-                  <select value={form.category} onChange={e => updateField('category', e.target.value)} className={inputClass}>
+                  <label htmlFor={categoryInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الفئة</label>
+                  <select id={categoryInputId} name="item_category" value={form.category} onChange={e => updateField('category', e.target.value)} className={inputClass}>
                     {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
               </div>
               {!isEdit && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع الاستخدام</label>
-                    <select value={form.usage_type} onChange={e => updateField('usage_type', e.target.value)} className={inputClass}>
+                    <label htmlFor={usageTypeInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع الاستخدام</label>
+                    <select id={usageTypeInputId} name="item_usage_type" value={form.usage_type} onChange={e => updateField('usage_type', e.target.value)} className={inputClass}>
                       {USAGE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد الأقصى للاستخدام</label>
-                    <input type="number" min="1" value={form.max_uses} onChange={e => updateField('max_uses', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                    <label htmlFor={maxUsesInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد الأقصى للاستخدام</label>
+                    <input id={maxUsesInputId} name="item_max_uses" autoComplete="off" inputMode="numeric" type="number" min="1" value={form.max_uses} onChange={e => updateField('max_uses', e.target.value)} className={inputClass} placeholder="غير محدود" />
                   </div>
                 </div>
               )}
             </>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col-reverse gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 sm:flex-row">
           <button type="submit" disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-bold hover:bg-brand-teal-hover smooth-transition disabled:opacity-50">
             {saving ? <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
@@ -442,14 +456,22 @@ const LISTING_BULK_TEMPLATE = [
 /* ────────── Listing Form Modal (Create + Edit) ────────── */
 function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
   const isEdit = !!listing
+  const titleId = React.useId()
+  const itemInputId = React.useId()
+  const priceInputId = React.useId()
+  const totalStockInputId = React.useId()
+  const maxPerParticipantInputId = React.useId()
+  const statusInputId = React.useId()
+  const availableFromInputId = React.useId()
+  const availableUntilInputId = React.useId()
   const [form, setForm] = useState({
     item_definition_id: listing?.item_id || items?.[0]?.id || '',
     price: listing?.price ?? '',
     total_stock: listing?.total_stock ?? '',
     max_per_participant: listing?.max_per_participant ?? '',
     status: listing?.status || 'active',
-    available_from: listing?.available_from || '',
-    available_until: listing?.available_until || '',
+    available_from: listing?.available_from ? toDateTimeLocalValue(listing.available_from) : '',
+    available_until: listing?.available_until ? toDateTimeLocalValue(listing.available_until) : '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -515,8 +537,8 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
           patch.max_per_participant = Number(form.max_per_participant)
         }
         if (form.status !== listing.status) patch.status = form.status
-        if (form.available_from) patch.available_from = new Date(form.available_from).toISOString()
-        if (form.available_until) patch.available_until = new Date(form.available_until).toISOString()
+        if (form.available_from) patch.available_from = form.available_from
+        if (form.available_until) patch.available_until = form.available_until
         if (Object.keys(patch).length > 0) {
           await apiFetch(`/api/admin/store/listings/${listing.listing_id}`, { method: 'PATCH', body: JSON.stringify(patch) })
         }
@@ -531,18 +553,18 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
   }
 
   return (
-    <ModalBackdrop onClose={onClose}>
+    <ModalBackdrop onClose={onClose} titleId={titleId}>
       <form onSubmit={handleSubmit}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-display font-black text-lg text-gray-900 dark:text-white">
+          <h3 id={titleId} className="font-display font-black text-lg text-gray-900 dark:text-white">
             {isEdit ? 'تعديل العرض' : 'إنشاء عرض جديد'}
           </h3>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 smooth-transition">
+          <button type="button" onClick={onClose} aria-label="إغلاق نافذة العرض" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 smooth-transition">
             <iconify-icon icon="lucide:x" class="text-xl"></iconify-icon>
           </button>
         </div>
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-          {error && <div className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
+          {error && <div role="alert" className="bg-brand-danger/10 text-brand-danger px-4 py-2 rounded-xl text-sm font-bold">{error}</div>}
           {bulkProgress && <div className="bg-brand-teal/10 text-brand-teal px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><iconify-icon icon="lucide:loader-2" class="animate-spin text-sm"></iconify-icon>{bulkProgress}</div>}
 
           <JsonEditorToggle
@@ -557,8 +579,8 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
             <>
               {!isEdit && (
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">العنصر *</label>
-                  <select value={form.item_definition_id} onChange={e => updateField('item_definition_id', e.target.value)} className={inputClass}>
+                  <label htmlFor={itemInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">العنصر *</label>
+                  <select id={itemInputId} name="listing_item_definition_id" data-dialog-initial-focus value={form.item_definition_id} onChange={e => updateField('item_definition_id', e.target.value)} className={inputClass}>
                     <option value="" disabled>اختر عنصراً...</option>
                     {items?.map(item => (
                       <option key={item.id} value={item.id}>{item.name} ({RARITY_LABELS[item.rarity] || item.rarity})</option>
@@ -574,23 +596,23 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">السعر (نقاط) *</label>
-                <input type="number" min="1" value={form.price} onChange={e => updateField('price', e.target.value)} className={inputClass} placeholder="مثال: 100" />
+                <label htmlFor={priceInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">السعر (نقاط) *</label>
+                <input id={priceInputId} name="listing_price" autoComplete="off" inputMode="numeric" data-dialog-initial-focus={isEdit ? true : undefined} type="number" min="1" value={form.price} onChange={e => updateField('price', e.target.value)} className={inputClass} placeholder="مثال: 100" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">المخزون الكلي</label>
-                  <input type="number" min="1" value={form.total_stock} onChange={e => updateField('total_stock', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                  <label htmlFor={totalStockInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">المخزون الكلي</label>
+                  <input id={totalStockInputId} name="listing_total_stock" autoComplete="off" inputMode="numeric" type="number" min="1" value={form.total_stock} onChange={e => updateField('total_stock', e.target.value)} className={inputClass} placeholder="غير محدود" />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد لكل لاعب</label>
-                  <input type="number" min="1" value={form.max_per_participant} onChange={e => updateField('max_per_participant', e.target.value)} className={inputClass} placeholder="غير محدود" />
+                  <label htmlFor={maxPerParticipantInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحد لكل لاعب</label>
+                  <input id={maxPerParticipantInputId} name="listing_max_per_participant" autoComplete="off" inputMode="numeric" type="number" min="1" value={form.max_per_participant} onChange={e => updateField('max_per_participant', e.target.value)} className={inputClass} placeholder="غير محدود" />
                 </div>
               </div>
               {isEdit && (
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحالة</label>
-                  <select value={form.status} onChange={e => updateField('status', e.target.value)} className={inputClass}>
+                  <label htmlFor={statusInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الحالة</label>
+                  <select id={statusInputId} name="listing_status" value={form.status} onChange={e => updateField('status', e.target.value)} className={inputClass}>
                     <option value="active">نشط</option>
                     <option value="hidden">مخفي</option>
                     <option value="expired">منتهي</option>
@@ -598,20 +620,20 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
                   </select>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">متاح من</label>
-                  <input type="datetime-local" value={form.available_from} onChange={e => updateField('available_from', e.target.value)} className={inputClass} />
+                  <label htmlFor={availableFromInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">متاح من</label>
+                  <input id={availableFromInputId} name="listing_available_from" autoComplete="off" type="datetime-local" value={form.available_from} onChange={e => updateField('available_from', e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">متاح حتى</label>
-                  <input type="datetime-local" value={form.available_until} onChange={e => updateField('available_until', e.target.value)} className={inputClass} />
+                  <label htmlFor={availableUntilInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">متاح حتى</label>
+                  <input id={availableUntilInputId} name="listing_available_until" autoComplete="off" type="datetime-local" value={form.available_until} onChange={e => updateField('available_until', e.target.value)} className={inputClass} />
                 </div>
               </div>
             </>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col-reverse gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 sm:flex-row">
           <button type="submit" disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-bold hover:bg-brand-teal-hover smooth-transition disabled:opacity-50">
             {saving ? <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
@@ -631,6 +653,13 @@ function ListingFormModal({ items, listing, competitionId, onClose, onSaved }) {
 /* ────────── Effect Form Modal ────────── */
 function EffectFormModal({ itemId, effect, onClose, onSaved }) {
   const isEdit = !!effect
+  const titleId = React.useId()
+  const effectTypeInputId = React.useId()
+  const triggerInputId = React.useId()
+  const targetScopeInputId = React.useId()
+  const durationInputId = React.useId()
+  const orderInputId = React.useId()
+  const isStackableInputId = React.useId()
   const [effectTypes, setEffectTypes] = useState(null)
   const [loadingTypes, setLoadingTypes] = useState(true)
   const [selectedType, setSelectedType] = useState(effect?.effect_type || '')
@@ -702,11 +731,13 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
   function renderField(field) {
     if (!shouldShowField(field)) return null
     const value = params[field.key] ?? field.default ?? ''
+    const fieldInputId = `${effectTypeInputId}-${field.key}`
+    const fieldInputName = `effect_${field.key}`
     if (field.type === 'select' && field.options) {
       return (
         <div key={field.key}>
-          <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">{field.label} {field.required && '*'}</label>
-          <select value={value} onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))} className={inputClass}>
+          <label htmlFor={fieldInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">{field.label} {field.required && '*'}</label>
+          <select id={fieldInputId} name={fieldInputName} value={value} onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))} className={inputClass}>
             <option value="">— اختر —</option>
             {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -715,25 +746,25 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
     }
     return (
       <div key={field.key}>
-        <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">{field.label} {field.required && '*'}</label>
-        <input type="number" value={value} onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))}
+        <label htmlFor={fieldInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">{field.label} {field.required && '*'}</label>
+        <input id={fieldInputId} name={fieldInputName} autoComplete="off" inputMode={field.type === 'decimal' ? 'decimal' : 'numeric'} type="number" value={value} onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))}
           min={field.min} max={field.max} step={field.type === 'decimal' ? '0.01' : '1'} className={inputClass} dir="ltr" />
       </div>
     )
   }
 
   return (
-    <ModalBackdrop onClose={onClose}>
+    <ModalBackdrop onClose={onClose} titleId={titleId}>
       <form onSubmit={handleSubmit}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-display font-black text-lg text-gray-900 dark:text-white">{isEdit ? 'تعديل التأثير' : 'إضافة تأثير'}</h3>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 smooth-transition">
+          <h3 id={titleId} className="font-display font-black text-lg text-gray-900 dark:text-white">{isEdit ? 'تعديل التأثير' : 'إضافة تأثير'}</h3>
+          <button type="button" onClick={onClose} aria-label="إغلاق نافذة التأثير" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 smooth-transition">
             <iconify-icon icon="lucide:x" class="text-xl"></iconify-icon>
           </button>
         </div>
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
           {errors.length > 0 && (
-            <div className="bg-brand-danger/10 text-brand-danger px-4 py-3 rounded-xl text-sm font-bold space-y-1">
+            <div role="alert" className="bg-brand-danger/10 text-brand-danger px-4 py-3 rounded-xl text-sm font-bold space-y-1">
               {errors.map((err, i) => <div key={i}>{err}</div>)}
             </div>
           )}
@@ -744,8 +775,8 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
           ) : (
             <>
               <div>
-                <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع التأثير *</label>
-                <select value={selectedType} onChange={e => handleTypeChange(e.target.value)} className={inputClass}>
+                <label htmlFor={effectTypeInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نوع التأثير *</label>
+                <select id={effectTypeInputId} name="effect_type" data-dialog-initial-focus value={selectedType} onChange={e => handleTypeChange(e.target.value)} className={inputClass}>
                   {effectTypes?.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
                 {currentType?.description && <p className="text-[11px] text-gray-400 mt-1">{currentType.description}</p>}
@@ -758,8 +789,8 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
               )}
               {currentType?.trigger_options?.length > 1 && (
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">وضع التشغيل *</label>
-                  <select value={triggerOn} onChange={e => {
+                  <label htmlFor={triggerInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">وضع التشغيل *</label>
+                  <select id={triggerInputId} name="effect_trigger_on" value={triggerOn} onChange={e => {
                     setTriggerOn(e.target.value)
                     if (!currentType?.requires_duration_for?.includes(e.target.value)) setDurationMinutes('')
                   }} className={inputClass}>
@@ -767,31 +798,31 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
                   </select>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نطاق الهدف</label>
-                  <select value={targetScope} onChange={e => setTargetScope(e.target.value)} className={inputClass}>
+                  <label htmlFor={targetScopeInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">نطاق الهدف</label>
+                  <select id={targetScopeInputId} name="effect_target_scope" value={targetScope} onChange={e => setTargetScope(e.target.value)} className={inputClass}>
                     {(currentType?.allowed_scopes || ['self', 'target', 'all']).map(s => (
                       <option key={s} value={s}>{SCOPE_LABELS[s] || s}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">
+                  <label htmlFor={durationInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">
                     المدة (دقائق) {currentType?.requires_duration_for?.includes(triggerOn) && '*'}
                   </label>
-                  <input type="number" min="1" value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)} className={inputClass}
+                  <input id={durationInputId} name="effect_duration_minutes" autoComplete="off" inputMode="numeric" type="number" min="1" value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)} className={inputClass}
                     placeholder={currentType?.requires_duration_for?.includes(triggerOn) ? 'مطلوب' : 'اختياري'} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الترتيب</label>
-                  <input type="number" min="0" value={orderIndex} onChange={e => setOrderIndex(e.target.value)} className={inputClass} />
+                  <label htmlFor={orderInputId} className="block text-xs font-black text-gray-500 dark:text-gray-400 mb-1.5">الترتيب</label>
+                  <input id={orderInputId} name="effect_order_index" autoComplete="off" inputMode="numeric" type="number" min="0" value={orderIndex} onChange={e => setOrderIndex(e.target.value)} className={inputClass} />
                 </div>
                 <div className="flex items-end pb-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={isStackable} onChange={e => setIsStackable(e.target.checked)}
+                  <label htmlFor={isStackableInputId} className="flex items-center gap-2 cursor-pointer">
+                    <input id={isStackableInputId} name="effect_is_stackable" type="checkbox" checked={isStackable} onChange={e => setIsStackable(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-teal focus:ring-brand-teal/30" />
                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300">قابل للتراكم</span>
                   </label>
@@ -800,7 +831,7 @@ function EffectFormModal({ itemId, effect, onClose, onSaved }) {
             </>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col-reverse gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 sm:flex-row">
           <button type="submit" disabled={saving || loadingTypes}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-bold hover:bg-brand-teal-hover smooth-transition disabled:opacity-50">
             {saving ? <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
@@ -953,11 +984,13 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
                   </div>
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     <button onClick={() => { setEditingItem(item); setShowItemForm(true) }}
+                      aria-label={`تعديل العنصر ${item.name}`}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل">
                       <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
                     </button>
                     {item.status !== 'archived' ? (
                       <button onClick={() => setArchivingItem(item)}
+                        aria-label={`أرشفة العنصر ${item.name}`}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 smooth-transition" title="أرشفة — إيقاف البيع">
                         <iconify-icon icon="lucide:archive" class="text-sm"></iconify-icon>
                       </button>
@@ -970,11 +1003,13 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
                             refetchItems()
                           } catch (err) { flashMessage(err.message) }
                         }}
+                          aria-label={`استعادة العنصر ${item.name}`}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-brand-success hover:bg-brand-success/10 smooth-transition" title="استعادة">
                           <iconify-icon icon="lucide:rotate-ccw" class="text-sm"></iconify-icon>
                         </button>
                         {item.owned_count > 0 ? (
                           <button onClick={() => setRevokingItem(item)}
+                            aria-label={`مصادرة العنصر ${item.name} من اللاعبين`}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="مصادرة من اللاعبين">
                             <iconify-icon icon="lucide:user-x" class="text-sm"></iconify-icon>
                           </button>
@@ -987,6 +1022,7 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
                               refetchItems()
                             } catch (err) { flashMessage(err.message) }
                           }}
+                            aria-label={`حذف العنصر ${item.name} نهائياً`}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="حذف نهائي">
                             <iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon>
                           </button>
@@ -1068,10 +1104,12 @@ function ItemCatalogTab({ items, refetchItems, flashMessage }) {
                               </div>
                               <div className="flex items-center gap-0.5 flex-shrink-0">
                                 <button onClick={() => { setEditingEffect(eff); setShowEffectForm(true) }}
+                                  aria-label={`تعديل تأثير ${eff.effect_type}`}
                                   className="p-1 rounded text-gray-400 hover:text-brand-teal smooth-transition" title="تعديل">
                                   <iconify-icon icon="lucide:pencil" class="text-xs"></iconify-icon>
                                 </button>
                                 <button onClick={() => handleDeleteEffect(eff.id)}
+                                  aria-label={`حذف تأثير ${eff.effect_type}`}
                                   className="p-1 rounded text-gray-400 hover:text-brand-danger smooth-transition" title="حذف">
                                   <iconify-icon icon="lucide:trash-2" class="text-xs"></iconify-icon>
                                 </button>
@@ -1201,6 +1239,7 @@ function StoreListingsTab({ listings, items, competitionId, refetchListings, fla
                   </div>
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     <button onClick={() => { setEditingListing(l); setShowListingForm(true) }}
+                      aria-label={`تعديل عرض ${l.item_name}`}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل السعر/المخزون">
                       <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
                     </button>
@@ -1214,6 +1253,7 @@ function StoreListingsTab({ listings, items, competitionId, refetchListings, fla
                     </button>
                     {l.status !== 'hidden' ? (
                       <button onClick={() => setDeletingListing(l)}
+                        aria-label={`إخفاء عرض ${l.item_name}`}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="إخفاء">
                         <iconify-icon icon="lucide:eye-off" class="text-sm"></iconify-icon>
                       </button>
@@ -1226,6 +1266,7 @@ function StoreListingsTab({ listings, items, competitionId, refetchListings, fla
                           refetchListings()
                         } catch (err) { flashMessage(err.message) }
                       }}
+                        aria-label={`حذف عرض ${l.item_name} نهائياً`}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="حذف نهائي">
                         <iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon>
                       </button>
@@ -1280,6 +1321,62 @@ function StoreListingsTab({ listings, items, competitionId, refetchListings, fla
 /* ════════════════════════════════════════════════════════════════
    TAB: Ownership (ملكية اللاعبين)
    ════════════════════════════════════════════════════════════════ */
+function OwnershipMobileCard({ item }) {
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">اللاعب</div>
+          <Link to={`/admin/players/${item.membership_id}`} className="font-bold text-gray-900 dark:text-white hover:text-brand-teal dark:hover:text-brand-slate smooth-transition">
+            {item.player_alias || '—'}
+          </Link>
+          <div className="text-[11px] text-gray-400">@{item.player_username}</div>
+        </div>
+        <StatusBadge status={item.status} />
+      </div>
+
+      <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: RARITY_DOT_COLORS[item.item_rarity] || '#94A3B8' }} />
+          <div className="min-w-0">
+            <div className="font-bold text-gray-900 dark:text-white">{item.item_name}</div>
+            <div className="text-[10px] text-gray-400">{RARITY_LABELS[item.item_rarity] || item.item_rarity} • {CATEGORY_LABELS[item.item_category] || item.item_category}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">المصدر</div>
+          <div className="mt-1">
+            <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${
+              item.source_type === 'admin_grant' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
+              item.source_type === 'purchase' ? 'bg-brand-teal/10 text-brand-teal' :
+              'bg-gray-100 dark:bg-gray-800 text-gray-500'
+            }`}>
+              {SOURCE_LABELS[item.source_type] || item.source_type}
+            </span>
+          </div>
+        </div>
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">الكمية</div>
+          <div className="font-heading font-black text-gray-900 dark:text-white">{item.quantity}</div>
+          {item.uses_remaining != null && (
+            <div className="text-[10px] text-gray-400">{item.uses_remaining} استخدام</div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">التاريخ</div>
+        <div className="mt-1 text-xs font-bold text-gray-500 dark:text-gray-400">
+          {item.acquired_at ? formatDate(item.acquired_at) : '—'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function OwnershipTab({ ownership, loading }) {
   const [filter, setFilter] = useState('all') // all | active | consumed
 
@@ -1322,56 +1419,61 @@ function OwnershipTab({ ownership, loading }) {
         </div>
       ) : (
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">اللاعب</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">العنصر</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">المصدر</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الكمية</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الحالة</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">التاريخ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(o => (
-                  <tr key={o.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 smooth-transition">
-                    <td className="px-4 py-3">
-                      <Link to={`/admin/players/${o.membership_id}`} className="hover:text-brand-teal dark:hover:text-brand-slate smooth-transition">
-                        <div className="font-bold text-gray-900 dark:text-white">{o.player_alias || '—'}</div>
-                        <div className="text-[11px] text-gray-400">@{o.player_username}</div>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: RARITY_DOT_COLORS[o.item_rarity] || '#94A3B8' }} />
-                        <div>
-                          <div className="font-bold text-gray-900 dark:text-white">{o.item_name}</div>
-                          <div className="text-[10px] text-gray-400">{RARITY_LABELS[o.item_rarity] || o.item_rarity} • {CATEGORY_LABELS[o.item_category] || o.item_category}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${
-                        o.source_type === 'admin_grant' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
-                        o.source_type === 'purchase' ? 'bg-brand-teal/10 text-brand-teal' :
-                        'bg-gray-100 dark:bg-gray-800 text-gray-500'
-                      }`}>
-                        {SOURCE_LABELS[o.source_type] || o.source_type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-heading font-black text-gray-900 dark:text-white">
-                      {o.quantity}{o.uses_remaining != null && <span className="text-[10px] text-gray-400 font-normal mr-1">({o.uses_remaining} استخدام)</span>}
-                    </td>
-                    <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
-                    <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">
-                      {o.acquired_at ? formatDate(o.acquired_at) : '—'}
-                    </td>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800 md:hidden">
+            {filtered.map(item => <OwnershipMobileCard key={item.id} item={item} />)}
+          </div>
+          <div className="hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+                    <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">اللاعب</th>
+                    <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">العنصر</th>
+                    <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">المصدر</th>
+                    <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الكمية</th>
+                    <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الحالة</th>
+                    <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">التاريخ</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map(o => (
+                    <tr key={o.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 smooth-transition">
+                      <td className="px-4 py-3">
+                        <Link to={`/admin/players/${o.membership_id}`} className="hover:text-brand-teal dark:hover:text-brand-slate smooth-transition">
+                          <div className="font-bold text-gray-900 dark:text-white">{o.player_alias || '—'}</div>
+                          <div className="text-[11px] text-gray-400">@{o.player_username}</div>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: RARITY_DOT_COLORS[o.item_rarity] || '#94A3B8' }} />
+                          <div>
+                            <div className="font-bold text-gray-900 dark:text-white">{o.item_name}</div>
+                            <div className="text-[10px] text-gray-400">{RARITY_LABELS[o.item_rarity] || o.item_rarity} • {CATEGORY_LABELS[o.item_category] || o.item_category}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${
+                          o.source_type === 'admin_grant' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
+                          o.source_type === 'purchase' ? 'bg-brand-teal/10 text-brand-teal' :
+                          'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                        }`}>
+                          {SOURCE_LABELS[o.source_type] || o.source_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-heading font-black text-gray-900 dark:text-white">
+                        {o.quantity}{o.uses_remaining != null && <span className="text-[10px] text-gray-400 font-normal mr-1">({o.uses_remaining} استخدام)</span>}
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
+                      <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">
+                        {o.acquired_at ? formatDate(o.acquired_at) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
           <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/40 text-[11px] text-gray-400 font-bold border-t border-gray-100 dark:border-gray-800">
             إجمالي: {filtered.length} عنصر

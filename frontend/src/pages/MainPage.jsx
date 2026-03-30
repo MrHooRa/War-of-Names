@@ -15,6 +15,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import useAuth from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
+import { formatNumber } from '../lib/numbers'
 
 const LOGO_URL =
   'https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png'
@@ -84,6 +85,7 @@ function MinimalHeader({ isAuthenticated, onLogout, username, isAdmin, isOwner }
             </span>
             <button
               onClick={onLogout}
+              aria-label="تسجيل الخروج"
               className="w-12 h-12 flex items-center justify-center rounded-2xl bg-brand-surface/60 border border-white/5 text-gray-300 hover:text-white hover:border-brand-danger/50 transition-colors backdrop-blur-md"
               title="تسجيل الخروج"
             >
@@ -98,8 +100,6 @@ function MinimalHeader({ isAuthenticated, onLogout, username, isAdmin, isOwner }
 
 /* ── State: Guest splash (not logged in) ── */
 function GuestView({ ctaBtnRef, centerGlowRef }) {
-  const navigate = useNavigate()
-
   useEffect(() => {
     const btn = ctaBtnRef.current
     const glow = centerGlowRef.current
@@ -140,9 +140,10 @@ function GuestView({ ctaBtnRef, centerGlowRef }) {
         <iconify-icon icon="mdi:star-four-points" class="absolute top-1/2 -right-10 text-brand-teal-light-lobby text-2xl animate-float-fast drop-shadow-[0_0_10px_rgba(0,217,233,0.8)]"></iconify-icon>
         <iconify-icon icon="mdi:sparkles" class="absolute -bottom-4 -left-4 text-brand-orange text-xl animate-float-medium drop-shadow-[0_0_10px_rgba(216,67,21,0.8)]"></iconify-icon>
 
-        <button
+        <Link
           ref={ctaBtnRef}
-          onClick={() => navigate('/login')}
+          to="/login"
+          aria-label="الانتقال إلى تسجيل الدخول"
           className="btn-mega-cta relative block w-full sm:w-[450px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-teal to-brand-orange p-[2px] focus:outline-none focus:ring-4 focus:ring-brand-orange/50 transition-all duration-300 hover:scale-[1.08] active:scale-95 group cursor-pointer border-0"
         >
           <div className="absolute inset-0 rounded-[2rem] glow-pulse opacity-70 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -153,7 +154,7 @@ function GuestView({ ctaBtnRef, centerGlowRef }) {
               <span className="font-heading font-black text-3xl md:text-4xl tracking-wide drop-shadow-md">ابدأ اللعبة الآن</span>
             </div>
           </div>
-        </button>
+        </Link>
       </div>
 
       {/* Secondary link — register */}
@@ -182,6 +183,14 @@ function JoinView() {
   async function handleJoin(e) {
     e.preventDefault()
     setError('')
+    if (!form.invite_code.trim() || form.invite_code.trim().length < 4) {
+      setError('رمز الدعوة غير صالح')
+      return
+    }
+    if (!form.alias.trim() || form.alias.trim().length < 2) {
+      setError('اللقب يجب أن يكون حرفين على الأقل')
+      return
+    }
     setLoading(true)
     try {
       await apiFetch('/api/join', {
@@ -219,13 +228,19 @@ function JoinView() {
         <form onSubmit={handleJoin} className="space-y-5">
           {/* Invite Code */}
           <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-300 mr-1">كود الدعوة</label>
+            <label htmlFor="main-join-invite-code" className="text-sm font-bold text-gray-300 mr-1">كود الدعوة</label>
             <div className="relative">
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
                 <iconify-icon icon="lucide:key" class="text-lg"></iconify-icon>
               </span>
               <input
                 type="text"
+                id="main-join-invite-code"
+                name="invite_code"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                dir="ltr"
                 value={form.invite_code}
                 onChange={e => setForm(f => ({ ...f, invite_code: e.target.value }))}
                 placeholder="مثال: WAR2026"
@@ -237,13 +252,16 @@ function JoinView() {
 
           {/* Alias */}
           <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-300 mr-1">اللقب القتالي</label>
+            <label htmlFor="main-join-alias" className="text-sm font-bold text-gray-300 mr-1">اللقب القتالي</label>
             <div className="relative">
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
                 <iconify-icon icon="lucide:user" class="text-lg"></iconify-icon>
               </span>
               <input
                 type="text"
+                id="main-join-alias"
+                name="alias"
+                autoComplete="nickname"
                 value={form.alias}
                 onChange={e => setForm(f => ({ ...f, alias: e.target.value }))}
                 placeholder="اختر لقبك..."
@@ -255,7 +273,7 @@ function JoinView() {
           </div>
 
           {error && (
-            <p className="text-brand-danger text-sm font-bold text-center py-3 bg-red-500/10 rounded-xl border border-red-500/20">
+            <p role="alert" className="text-brand-danger text-sm font-bold text-center py-3 bg-red-500/10 rounded-xl border border-red-500/20">
               {error}
             </p>
           )}
@@ -325,7 +343,7 @@ function ServerSelectView({ memberships, onJoinAnother }) {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <iconify-icon icon="lucide:coins" class="text-amber-400"></iconify-icon>
-                    {m.balance?.toLocaleString()} نقطة
+                    {formatNumber(m.balance)} نقطة
                   </span>
                 </div>
               </div>
@@ -440,6 +458,7 @@ export default function MainPage() {
       className="min-h-screen flex flex-col relative"
       style={{ backgroundColor: '#0a0d14', color: '#FFFFFF', overflowX: 'hidden', WebkitFontSmoothing: 'antialiased' }}
     >
+      <a href="#main-content" className="skip-link">تخط إلى المحتوى</a>
       <Helmet>
         <title>حرب الأسماء — أقوى لعبة تنافسية عربية</title>
         <meta name="description" content="اكشف الأقنعة، هاجم الخصوم، واربح النقاط في أقوى منافسة موسمية عربية. انضم الآن!" />
@@ -478,7 +497,7 @@ export default function MainPage() {
         isOwner={currentUser?.is_owner}
       />
 
-      <main className="relative z-20 flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-4 py-12 md:py-8">
+      <main id="main-content" tabIndex="-1" className="relative z-20 flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-4 py-12 md:py-8">
         {/* Central Logo — always shown */}
         <div className="relative flex flex-col items-center z-30 mb-12 md:mb-16">
           <img

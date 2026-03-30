@@ -1,7 +1,7 @@
 """Store endpoints — list items, purchase, view inventory, use items."""
 
+import logging
 import uuid
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,12 +9,13 @@ from sqlalchemy import func, select
 
 from app.core.auth import get_current_account
 from app.core.database import async_session
-from app.core.utils import jsonb_safe
+from app.core.utils import jsonb_safe, now_riyadh_naive
 from app.core.enums import (
     AuditActorType,
     CycleStatus,
     LedgerDirection,
     LedgerEntryType,
+    ItemStatus,
     ListingStatus,
     MembershipStatus,
     NotificationType,
@@ -34,6 +35,7 @@ from app.modules.settings.service import get_setting
 
 router = APIRouter(tags=["store"])
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
+logger = logging.getLogger("store")
 
 
 # ── Shared membership resolution ─────────────────────────────────────────
@@ -99,35 +101,65 @@ async def _resolve_season_cycle(session, competition_id):
     return season, cycle
 
 
+def _build_effect_summaries(item_effects: list[ItemEffect], item_id: uuid.UUID) -> list[str]:
+    """Generate human-readable effect summaries without crashing the store page."""
+    summaries: list[str] = []
+    for eff in item_effects:
+        try:
+            summaries.append(
+                generate_effect_summary(
+                    eff.effect_type,
+                    eff.parameters or {},
+                    eff.duration_minutes,
+                    eff.target_scope or "self",
+                    eff.trigger_on or "activation",
+                )
+            )
+        except Exception:
+            logger.exception(
+                "Failed to build effect summary for item %s effect %s",
+                item_id,
+                getattr(eff, "id", None),
+            )
+            summaries.append("تأثير خاص")
+    return summaries
+
+
 # ── Store catalog (already competition-scoped via path param) ─────────────
 
 @router.get("/api/competitions/{competition_id}/store")
 async def list_store(competition_id: uuid.UUID, account: CurrentAccount):
     """List all active store listings with their item details, enforcing time windows."""
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     async with async_session() as session:
+        membership = await _get_membership(session, account.id, competition_id)
+        if not membership:
+            raise HTTPException(status_code=403, detail="أنت لست عضواً في هذه المنافسة")
+        player_balance = membership.current_balance or 0
+
         result = await session.execute(
             select(StoreListing, ItemDefinition)
             .join(ItemDefinition, StoreListing.item_definition_id == ItemDefinition.id)
             .where(
                 StoreListing.competition_id == competition_id,
                 StoreListing.status == ListingStatus.ACTIVE,
+                ItemDefinition.status == ItemStatus.ACTIVE,
             )
             .order_by(StoreListing.price.asc())
         )
         all_rows = result.all()
 
-    # Filter by time window: exclude listings not yet available or already expired
-    rows = []
-    for listing, item in all_rows:
-        if listing.available_from and now < listing.available_from:
-            continue
-        if listing.available_until and now > listing.available_until:
-            continue
-        rows.append((listing, item))
+        # Filter by time window: exclude listings not yet available or already expired
+        rows = []
+        item_ids = set()
+        for listing, item in all_rows:
+            if listing.available_from and now < listing.available_from:
+                continue
+            if listing.available_until and now > listing.available_until:
+                continue
+            rows.append((listing, item))
+            item_ids.add(item.id)
 
-        # Collect item IDs to fetch effects
-        item_ids = [item.id for _, item in rows]
         effects_by_item = {}
         if item_ids:
             effects_result = await session.execute(
@@ -138,41 +170,34 @@ async def list_store(competition_id: uuid.UUID, account: CurrentAccount):
             for eff in effects_result.scalars().all():
                 effects_by_item.setdefault(eff.item_definition_id, []).append(eff)
 
-    listings = []
-    for listing, item in rows:
-        stock_remaining = None
-        if listing.total_stock is not None:
-            stock_remaining = listing.total_stock - listing.sold_count
+        listings = []
+        for listing, item in rows:
+            stock_remaining = None
+            if listing.total_stock is not None:
+                stock_remaining = max(0, listing.total_stock - (listing.sold_count or 0))
 
-        # Generate effect summaries for this item
-        item_effects = effects_by_item.get(item.id, [])
-        effect_summaries = [
-            generate_effect_summary(
-                eff.effect_type, eff.parameters or {}, eff.duration_minutes,
-                eff.target_scope or "self", eff.trigger_on or "activation",
-            )
-            for eff in item_effects
-        ]
+            item_effects = effects_by_item.get(item.id, [])
+            effect_summaries = _build_effect_summaries(item_effects, item.id)
 
-        listings.append({
-            "listing_id": str(listing.id),
-            "item_id": str(item.id),
-            "name": item.name,
-            "description": item.description,
-            "rarity": item.rarity,
-            "category": item.category,
-            "usage_type": item.usage_type,
-            "price": listing.price,
-            "max_per_participant": listing.max_per_participant,
-            "stock_remaining": stock_remaining,
-            "icon": item.category or "lucide:package",
-            "effects": effect_summaries,
-        })
+            listings.append({
+                "listing_id": str(listing.id),
+                "item_id": str(item.id),
+                "name": item.name,
+                "description": item.description,
+                "rarity": str(item.rarity),
+                "category": item.category,
+                "usage_type": str(item.usage_type),
+                "price": listing.price,
+                "max_per_participant": listing.max_per_participant,
+                "stock_remaining": stock_remaining,
+                "icon": item.category or "lucide:package",
+                "effects": effect_summaries,
+            })
 
     return {
         "success": True,
         "data": listings,
-        "player_balance": membership.current_balance,
+        "player_balance": player_balance,
     }
 
 
@@ -231,7 +256,7 @@ async def buy_item(
             raise HTTPException(status_code=400, detail="هذا العنصر لم يعد متاحاً للشراء")
 
         # Enforce listing time window
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
         if listing.available_from and now < listing.available_from:
             raise HTTPException(status_code=400, detail="هذا العنصر لم يتوفر بعد للشراء")
         if listing.available_until and now > listing.available_until:
@@ -411,7 +436,7 @@ async def get_inventory(account: CurrentAccount, competition_id: str | None = No
         all_rows = result.all()
 
         # Enforce expiry: auto-transition expired items to EXPIRED status
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
         rows = []
         for owned, item_def in all_rows:
             if owned.expires_at and now > owned.expires_at:
@@ -492,7 +517,7 @@ async def use_item(
       - next_success / next_failure / next_defense → stored as PENDING,
         applied later by the attack engine when the trigger fires
     """
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     async with async_session() as session:
         # Resolve membership scoped to the selected competition
@@ -511,7 +536,7 @@ async def use_item(
             raise HTTPException(status_code=400, detail="هذا العنصر غير متاح للاستخدام")
 
         # Enforce expiry before allowing use
-        if owned.expires_at and datetime.utcnow() > owned.expires_at:
+        if owned.expires_at and now_riyadh_naive() > owned.expires_at:
             owned.status = OwnedItemStatus.EXPIRED
             await session.commit()
             raise HTTPException(status_code=400, detail="انتهت صلاحية هذا العنصر")
@@ -553,6 +578,16 @@ async def use_item(
         instant_effects = [e for e in all_effects if (e.trigger_on or "activation") == "activation"]
         pending_effects = [e for e in all_effects if (e.trigger_on or "activation") in PENDING_TRIGGERS]
 
+        unsupported_target_effect = next(
+            (e for e in instant_effects if (e.target_scope or "self") == "target"),
+            None,
+        )
+        if unsupported_target_effect:
+            raise HTTPException(
+                status_code=400,
+                detail="هذا العنصر يحتاج هدفاً مباشراً ولا يمكن استخدامه من المخزون بهذه الطريقة حالياً",
+            )
+
         # Execute instant effects via the effect engine
         instant_results = []
         if instant_effects:
@@ -573,7 +608,7 @@ async def use_item(
             effect_summary["pending_effects"] = pending_summaries
 
         # ── Determine item status ────────────────────────────────────
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
         owned.activated_at = now
 
         has_pending = len(pending_effects) > 0
@@ -731,8 +766,6 @@ async def change_alias(
     competition_id: str | None = None,
 ):
     """Change the player's alias using an ALLOW_ALIAS_CHANGE activation."""
-    from datetime import datetime
-
     if not body.new_alias or len(body.new_alias.strip()) < 2:
         raise HTTPException(status_code=400, detail="اللقب يجب أن يكون حرفين على الأقل")
 

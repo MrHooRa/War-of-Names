@@ -3,7 +3,7 @@ import { apiFetch } from '../lib/api'
 
 const STORAGE_KEY = 'won_active_competition'
 
-export default function useCompetitionContext() {
+export default function useCompetitionContext(overrideCompetitionId = null) {
   const [state, setState] = useState({
     competitionId: null,
     competitionName: null,
@@ -26,9 +26,9 @@ export default function useCompetitionContext() {
   })
 
   const fetchContext = useCallback(() => {
-    const activeComp = localStorage.getItem(STORAGE_KEY)
-    const url = activeComp
-      ? `/api/me/competition-context?competition_id=${activeComp}`
+    const requestedCompetitionId = overrideCompetitionId || localStorage.getItem(STORAGE_KEY)
+    const url = requestedCompetitionId
+      ? `/api/me/competition-context?competition_id=${requestedCompetitionId}`
       : '/api/me/competition-context'
 
     setState(s => ({ ...s, loading: true, error: null }))
@@ -53,13 +53,13 @@ export default function useCompetitionContext() {
           protection: d?.protection ?? null,
           is_bankrupt: d?.is_bankrupt ?? false,
           loading: false,
-          error: null,
+          error: d ? null : (overrideCompetitionId ? 'أنت لست عضواً في هذه المنافسة' : null),
         })
       })
       .catch(err => {
         setState(s => ({ ...s, loading: false, error: err.message }))
       })
-  }, [])
+  }, [overrideCompetitionId])
 
   useEffect(() => { fetchContext() }, [fetchContext])
 

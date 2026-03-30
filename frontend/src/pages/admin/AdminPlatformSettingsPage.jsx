@@ -1,11 +1,10 @@
 /**
  * AdminPlatformSettingsPage — Platform-level settings management.
- * Shows game info (title, subtitle, season text, announcement) and
- * global setting defaults that apply across all competitions.
+ * Shows global platform settings and default values that apply across competitions.
  * Separated from competition-scoped settings (AdminSettingsPage).
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useId } from 'react'
 import useAdminData from '../../hooks/useAdminData'
 import { apiFetch } from '../../lib/api'
 import { formatDate } from '../../lib/dates'
@@ -26,21 +25,20 @@ const CATEGORY_ICONS = {
   protection: 'lucide:shield',
 }
 
-const GAME_INFO_LABELS = {
-  title: 'عنوان اللعبة',
-  subtitle: 'العنوان الفرعي',
-  current_season: 'الموسم الحالي',
-  announcement: 'الإعلان',
-  status: 'حالة اللعبة',
+function getSettingFieldId(settingKey) {
+  return `platform-setting-${settingKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`
 }
 
-function SettingInput({ setting, value, onChange }) {
+function SettingInput({ setting, value, onChange, inputId, inputName, labelId }) {
   const dataType = setting.data_type
 
   if (dataType === 'boolean') {
     return (
       <button
         type="button"
+        role="switch"
+        aria-checked={Boolean(value)}
+        aria-labelledby={labelId}
         onClick={() => onChange(!value)}
         className={`relative w-12 h-6 rounded-full smooth-transition flex-shrink-0 ${value ? 'bg-brand-teal' : 'bg-gray-300 dark:bg-gray-600'}`}
       >
@@ -54,8 +52,12 @@ function SettingInput({ setting, value, onChange }) {
   if (dataType === 'integer') {
     return (
       <input
+        id={inputId}
+        name={inputName}
         type="number"
         step="1"
+        autoComplete="off"
+        inputMode="numeric"
         value={value ?? ''}
         onChange={e => onChange(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
         className="w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm font-bold text-gray-900 dark:text-white text-left focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
@@ -66,8 +68,12 @@ function SettingInput({ setting, value, onChange }) {
   if (dataType === 'decimal') {
     return (
       <input
+        id={inputId}
+        name={inputName}
         type="number"
         step="any"
+        autoComplete="off"
+        inputMode="decimal"
         value={value ?? ''}
         onChange={e => onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
         className="w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm font-bold text-gray-900 dark:text-white text-left focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
@@ -77,7 +83,11 @@ function SettingInput({ setting, value, onChange }) {
 
   return (
     <input
+      id={inputId}
+      name={inputName}
       type="text"
+      autoComplete="off"
+      aria-labelledby={labelId}
       value={value ?? ''}
       onChange={e => onChange(e.target.value)}
       className="w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
@@ -86,12 +96,6 @@ function SettingInput({ setting, value, onChange }) {
 }
 
 export default function AdminPlatformSettingsPage() {
-  // Game info
-  const { data: gameInfo, loading: gameInfoLoading, refetch: refetchGameInfo } = useAdminData('/api/admin/settings/game-info')
-  const [gameInfoEdits, setGameInfoEdits] = useState({})
-  const [gameInfoDirty, setGameInfoDirty] = useState(false)
-  const [savingGameInfo, setSavingGameInfo] = useState(false)
-
   // Global settings
   const { data: settingsRaw, loading: settingsLoading, refetch: refetchSettings } = useAdminData('/api/admin/settings')
   const [editedValues, setEditedValues] = useState({})
@@ -103,16 +107,9 @@ export default function AdminPlatformSettingsPage() {
   const [newLinkLabel, setNewLinkLabel] = useState('')
   const [creatingLink, setCreatingLink] = useState(false)
   const [copiedToken, setCopiedToken] = useState(null)
+  const newLinkLabelInputId = useId()
 
   const [actionMsg, setActionMsg] = useState(null)
-
-  // Initialize game info edits
-  useEffect(() => {
-    if (gameInfo) {
-      setGameInfoEdits({ ...gameInfo })
-      setGameInfoDirty(false)
-    }
-  }, [gameInfo])
 
   // Initialize settings edits
   useEffect(() => {
@@ -146,27 +143,6 @@ export default function AdminPlatformSettingsPage() {
   function showMsg(msg) {
     setActionMsg(msg)
     setTimeout(() => setActionMsg(null), 4000)
-  }
-
-  function handleGameInfoChange(key, val) {
-    setGameInfoEdits(prev => ({ ...prev, [key]: val }))
-    setGameInfoDirty(true)
-  }
-
-  async function handleSaveGameInfo() {
-    setSavingGameInfo(true)
-    try {
-      await apiFetch('/api/admin/settings/game-info', {
-        method: 'PATCH',
-        body: JSON.stringify(gameInfoEdits),
-      })
-      showMsg('تم حفظ معلومات اللعبة')
-      setGameInfoDirty(false)
-      refetchGameInfo()
-    } catch (err) {
-      showMsg(`خطأ: ${err.message}`)
-    }
-    setSavingGameInfo(false)
   }
 
   function handleSettingChange(key, newValue) {
@@ -233,6 +209,19 @@ export default function AdminPlatformSettingsPage() {
     }
   }
 
+  async function handleDeleteLink(linkId, label) {
+    if (!confirm(`حذف رابط التتبع "${label}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) return
+    try {
+      await apiFetch(`/api/admin/landing-links/${linkId}`, {
+        method: 'DELETE',
+      })
+      showMsg('تم حذف رابط التتبع')
+      refetchLinks()
+    } catch (err) {
+      showMsg(`خطأ: ${err.message}`)
+    }
+  }
+
   function copyShareUrl(token) {
     const url = `${window.location.origin}/l/${token}`
     navigator.clipboard.writeText(url).then(() => {
@@ -241,7 +230,7 @@ export default function AdminPlatformSettingsPage() {
     }).catch(() => {})
   }
 
-  if (settingsLoading || gameInfoLoading) {
+  if (settingsLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <iconify-icon icon="lucide:loader-2" class="text-3xl text-brand-teal animate-spin"></iconify-icon>
@@ -257,7 +246,7 @@ export default function AdminPlatformSettingsPage() {
       <div>
         <h1 className="font-heading font-black text-2xl text-gray-900 dark:text-white">إعدادات المنصة</h1>
         <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">
-          معلومات اللعبة والإعدادات العامة الافتراضية لجميع المنافسات
+          إعدادات المنصة العامة والقيم الافتراضية التي تطبق على جميع المنافسات
         </p>
       </div>
 
@@ -266,45 +255,6 @@ export default function AdminPlatformSettingsPage() {
           actionMsg.startsWith('خطأ') ? 'bg-brand-danger/10 text-brand-danger' : 'bg-brand-success/10 text-brand-success'
         }`}>{actionMsg}</div>
       )}
-
-      {/* ══ Game Info ══ */}
-      <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
-            <iconify-icon icon="lucide:gamepad-2" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
-            معلومات اللعبة
-          </h2>
-          {gameInfoDirty && (
-            <button
-              onClick={handleSaveGameInfo}
-              disabled={savingGameInfo}
-              className="flex items-center gap-2 bg-brand-teal hover:bg-brand-teal-hover text-white px-4 py-2 rounded-xl font-heading font-black text-sm smooth-transition disabled:opacity-50"
-            >
-              {savingGameInfo ? (
-                <iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon>
-              ) : (
-                <iconify-icon icon="lucide:save"></iconify-icon>
-              )}
-              حفظ
-            </button>
-          )}
-        </div>
-        <div className="space-y-3">
-          {['title', 'subtitle', 'current_season', 'announcement', 'status'].map(key => (
-            <div key={key} className="flex items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl">
-              <label className="font-bold text-sm text-gray-700 dark:text-gray-300 min-w-[120px]">
-                {GAME_INFO_LABELS[key] || key}
-              </label>
-              <input
-                type="text"
-                value={gameInfoEdits[key] ?? ''}
-                onChange={e => handleGameInfoChange(key, e.target.value)}
-                className="flex-1 max-w-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* ══ Global Setting Defaults ══ */}
       <div className="flex items-center justify-between">
@@ -347,6 +297,8 @@ export default function AdminPlatformSettingsPage() {
               <div className="space-y-3">
                 {settings.map(setting => {
                   const isDirty = dirtyKeys.has(setting.key)
+                  const inputId = getSettingFieldId(setting.key)
+                  const labelId = `${inputId}-label`
                   return (
                     <div
                       key={setting.key}
@@ -355,7 +307,11 @@ export default function AdminPlatformSettingsPage() {
                       }`}
                     >
                       <div className="flex-1 min-w-0">
-                        <label className="block font-bold text-sm text-gray-700 dark:text-gray-300">{setting.description}</label>
+                        {setting.data_type === 'boolean' ? (
+                          <span id={labelId} className="block font-bold text-sm text-gray-700 dark:text-gray-300">{setting.description}</span>
+                        ) : (
+                          <label id={labelId} htmlFor={inputId} className="block font-bold text-sm text-gray-700 dark:text-gray-300">{setting.description}</label>
+                        )}
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">{setting.key}</span>
                           {setting.is_per_competition && (
@@ -374,6 +330,7 @@ export default function AdminPlatformSettingsPage() {
                               setEditedValues(prev => ({ ...prev, [setting.key]: sv }))
                               setDirtyKeys(prev => { const n = new Set(prev); n.delete(setting.key); return n })
                             }}
+                            aria-label={`التراجع عن ${setting.description}`}
                             className="text-gray-400 hover:text-brand-danger smooth-transition"
                             title="تراجع"
                           >
@@ -384,6 +341,9 @@ export default function AdminPlatformSettingsPage() {
                           setting={setting}
                           value={editedValues[setting.key]}
                           onChange={val => handleSettingChange(setting.key, val)}
+                          inputId={inputId}
+                          inputName={setting.key}
+                          labelId={labelId}
                         />
                       </div>
                     </div>
@@ -417,15 +377,21 @@ export default function AdminPlatformSettingsPage() {
           <iconify-icon icon="lucide:plus-circle" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
           إنشاء رابط جديد
         </h3>
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            value={newLinkLabel}
-            onChange={e => setNewLinkLabel(e.target.value)}
-            placeholder="تسمية الرابط — مثال: رابط تويتر، رابط واتساب..."
-            className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30 placeholder:text-gray-400 placeholder:font-normal"
-            onKeyDown={e => e.key === 'Enter' && handleCreateLink()}
-          />
+        <div className="flex items-end gap-3">
+          <div className="flex-1 space-y-2">
+            <label htmlFor={newLinkLabelInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300">تسمية الرابط</label>
+            <input
+              id={newLinkLabelInputId}
+              name="landing_link_label"
+              type="text"
+              autoComplete="off"
+              value={newLinkLabel}
+              onChange={e => setNewLinkLabel(e.target.value)}
+              placeholder="تسمية الرابط — مثال: رابط تويتر، رابط واتساب..."
+              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal/30 placeholder:text-gray-400 placeholder:font-normal"
+              onKeyDown={e => e.key === 'Enter' && handleCreateLink()}
+            />
+          </div>
           <button
             onClick={handleCreateLink}
             disabled={creatingLink || !newLinkLabel.trim()}
@@ -469,6 +435,7 @@ export default function AdminPlatformSettingsPage() {
                     <code className="text-xs font-mono text-brand-teal dark:text-brand-slate bg-brand-teal/5 dark:bg-brand-slate/10 px-2 py-1 rounded-lg">/l/{link.token}</code>
                     <button
                       onClick={() => copyShareUrl(link.token)}
+                      aria-label={`نسخ الرابط الكامل لـ ${link.label}`}
                       className="text-gray-400 hover:text-brand-teal smooth-transition"
                       title="نسخ الرابط الكامل"
                     >
@@ -492,15 +459,28 @@ export default function AdminPlatformSettingsPage() {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleToggleLink(link.id, link.is_active)}
-                  className={`relative w-12 h-6 rounded-full smooth-transition flex-shrink-0 ${link.is_active ? 'bg-brand-teal' : 'bg-gray-300 dark:bg-gray-600'}`}
-                  title={link.is_active ? 'تعطيل الرابط' : 'تفعيل الرابط'}
-                >
-                  <span
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow smooth-transition ${link.is_active ? 'left-0.5' : 'left-[calc(100%-22px)]'}`}
-                  />
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleDeleteLink(link.id, link.label)}
+                    aria-label={`حذف الرابط ${link.label}`}
+                    className="w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-500 smooth-transition flex items-center justify-center"
+                    title="حذف الرابط نهائياً"
+                  >
+                    <iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon>
+                  </button>
+                  <button
+                    onClick={() => handleToggleLink(link.id, link.is_active)}
+                    role="switch"
+                    aria-checked={link.is_active}
+                    aria-label={link.is_active ? `تعطيل الرابط ${link.label}` : `تفعيل الرابط ${link.label}`}
+                    className={`relative w-12 h-6 rounded-full smooth-transition flex-shrink-0 ${link.is_active ? 'bg-brand-teal' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    title={link.is_active ? 'تعطيل الرابط' : 'تفعيل الرابط'}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow smooth-transition ${link.is_active ? 'left-0.5' : 'left-[calc(100%-22px)]'}`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           ))}

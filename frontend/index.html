@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="حرب الأسماء — أقوى لعبة تنافسية عربية. اكشف الأقنعة، هاجم الخصوم، واربح النقاط في أقوى منافسة موسمية!" />
-    <meta name="theme-color" content="#0B8A8D" />
+    <meta name="theme-color" content="#F8F9FA" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      (() => {
+        try {
+          const theme = localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
+          const isDark = theme === 'dark'
+          const root = document.documentElement
+          root.classList.toggle('dark', isDark)
+          root.dataset.theme = theme
+          root.style.colorScheme = theme
+          const themeColorMeta = document.querySelector('meta[name="theme-color"]')
+          if (themeColorMeta) {
+            themeColorMeta.setAttribute('content', isDark ? '#111827' : '#F8F9FA')
+          }
+        } catch {}
+      })()
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://code.iconify.design" crossorigin />
@@ -16,9 +33,7 @@
     />
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <title>حرب الأسماء</title>
-    <!-- Umami Analytics (self-hosted, no cookies, no consent needed) -->
-    <!-- Replace data-website-id and src with your Umami instance -->
-    <script defer data-website-id="YOUR_UMAMI_WEBSITE_ID" src="https://your-umami-instance.com/script.js"></script>
+    <!-- Analytics scripts are injected only when real IDs/hosts are configured. -->
     <!-- Google Analytics 4 — loaded dynamically after user consent (see lib/analytics.js) -->
     <!-- Set window.__ANALYTICS_GA4_ID = 'G-XXXXXXXXX' to enable -->
   </head>

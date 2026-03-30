@@ -13,20 +13,7 @@
  */
 
 import { RARITY_CONFIG, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_GLOW } from '../config/rarity'
-
-function timeRemaining(isoString) {
-  if (!isoString) return null
-  const s = String(isoString)
-  const d = new Date(s.match(/Z$|[+-]\d{2}:\d{2}$/) ? s : s + 'Z')
-  const diff = d.getTime() - Date.now()
-  if (diff <= 0) return 'منتهي'
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 60) return `${minutes} دقيقة`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} ساعة`
-  const days = Math.floor(hours / 24)
-  return `${days} يوم`
-}
+import { timeRemaining } from '../lib/dates'
 
 function ItemCTA({ item, onUse, using }) {
   // Activated — pulsing green badge

@@ -11,7 +11,6 @@ Creates minimal real DB records for the game to function:
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +35,7 @@ from app.core.enums import (
     SessionStatus,
     SessionType,
 )
+from app.core.utils import now_riyadh_naive
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Competition, CompetitionInvite, Cycle, Season
 from app.modules.quiz.models import Question, QuestionGroup, QuizSession, SessionQuestion
@@ -141,7 +141,7 @@ async def _seed_competition(session: AsyncSession) -> None:
         name="الموسم الأول",
         order_index=1,
         status=SeasonStatus.ACTIVE,
-        starts_at=datetime.utcnow(),
+        starts_at=now_riyadh_naive(),
     )
     session.add(season)
 
@@ -151,7 +151,7 @@ async def _seed_competition(session: AsyncSession) -> None:
         label="الدورة الأولى",
         order_index=1,
         status=CycleStatus.ACTIVE,
-        starts_at=datetime.utcnow(),
+        starts_at=now_riyadh_naive(),
     )
     session.add(cycle)
 
@@ -348,7 +348,7 @@ async def _seed_quiz(session: AsyncSession) -> None:
         session_type=SessionType.TIMED_WINDOW,
         title="الجلسة الأولى — أسئلة ثقافية",
         status=SessionStatus.OPEN,
-        starts_at=datetime.utcnow(),
+        starts_at=now_riyadh_naive(),
         answer_duration_seconds=30,
         source_group_id=QUIZ_GROUP_ID,
         created_by=SEED_SYSTEM_ACCOUNT_ID,
@@ -393,6 +393,7 @@ SETTING_IDS = {
     "store_purchase_cooldown_minutes": uuid.UUID("00000000-0000-0000-0000-000000000056"),
     "identity_reveal_on_bankruptcy": uuid.UUID("00000000-0000-0000-0000-000000000057"),
     "season_auto_advance_cycles": uuid.UUID("00000000-0000-0000-0000-000000000058"),
+    "protection_partial_same_attacker_enabled": uuid.UUID("00000000-0000-0000-0000-000000000059"),
     # Platform settings
     "platform_name": uuid.UUID("00000000-0000-0000-0000-000000000060"),
     "platform_description": uuid.UUID("00000000-0000-0000-0000-000000000061"),
@@ -577,6 +578,14 @@ async def _seed_settings(session: AsyncSession) -> None:
             "data_type": SettingDataType.BOOLEAN,
             "default_value": {"v": False},
             "description": "هل تبدأ الدورة التالية تلقائياً عند انتهاء الحالية؟",
+        },
+        {
+            "id": SETTING_IDS["protection_partial_same_attacker_enabled"],
+            "key": "protection_partial_same_attacker_enabled",
+            "category": "protection",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": True},
+            "description": "هل يكتسب الهدف حماية جزئية من نفس المهاجم بعد أول هجوم ناجح في الدورة؟",
         },
         # ── Platform settings ──
         {

@@ -15,12 +15,12 @@ BankruptcyRecord is created when bankruptcy is triggered.
 """
 
 import uuid
-from datetime import datetime
+from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.utils import jsonb_safe
+from app.core.utils import jsonb_safe, now_riyadh_naive
 from app.core.enums import (
     AttackOutcome,
     AuditActorType,
@@ -32,7 +32,14 @@ from app.core.enums import (
     NotificationType,
     ProtectionType,
 )
-from app.modules.attacks.models import AttackAttempt, AttackExposure, BankruptcyRecord
+from app.modules.attacks.models import AttackAttempt, AttackExposure, BankruptcyRecord, ProtectionRecord
+from app.modules.attacks.protection_service import (
+    ATTACK_PARTIAL_PROTECTION_SOURCE,
+    active_protection_filters,
+    create_protection_record,
+    expire_active_protection_records,
+    reconcile_membership_protection,
+)
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Membership
 from app.modules.notifications.service import create_notification
@@ -51,13 +58,21 @@ _FALLBACK_DECAY_FACTOR = 0.8
 _FALLBACK_BASE_PENALTY = 100
 _FALLBACK_MAX_ATTACKS_PER_CYCLE = 3
 _FALLBACK_BANKRUPTCY_THRESHOLD = 0
-
-
+_FALLBACK_SELF_PENALTY_ON_FAIL = True
+_FALLBACK_PARTIAL_PROTECTION_REDUCTION = 0.5
+_FALLBACK_FULL_PROTECTION_ATTACK_COUNT = 3
+_FALLBACK_PROTECTION_DURATION_HOURS = 24
+_FALLBACK_PARTIAL_SAME_ATTACKER_ENABLED = True
 # ── Internal helpers ──────────────────────────────────────────────────────
 
 def _calc_reward(base_reward: int, decay_factor: float, stage: int) -> int:
     """Reward decays geometrically with each successful attack stage."""
     return max(1, round(base_reward * (decay_factor ** stage)))
+
+
+def _clamp_ratio(value: float) -> float:
+    """Clamp percentage-style settings into the safe 0..1 range."""
+    return max(0.0, min(1.0, float(value)))
 
 
 async def _load_attack_settings(
@@ -75,6 +90,11 @@ async def _load_attack_settings(
             "attack_decay_factor",
             "attack_base_penalty",
             "attack_max_per_cycle",
+            "attack_self_penalty_on_fail",
+            "protection_partial_reduction",
+            "protection_full_attack_count",
+            "protection_duration_hours",
+            "protection_partial_same_attacker_enabled",
             "score_bankruptcy_threshold",
         ],
         competition_id=competition_id,
@@ -91,6 +111,11 @@ async def _load_attack_settings(
         "decay_factor": float(settings.get("attack_decay_factor") or _FALLBACK_DECAY_FACTOR),
         "base_penalty": int(settings.get("attack_base_penalty") or _FALLBACK_BASE_PENALTY),
         "max_attacks_per_cycle": int(settings.get("attack_max_per_cycle") or _FALLBACK_MAX_ATTACKS_PER_CYCLE),
+        "self_penalty_on_fail": bool(settings.get("attack_self_penalty_on_fail")) if settings.get("attack_self_penalty_on_fail") is not None else _FALLBACK_SELF_PENALTY_ON_FAIL,
+        "partial_reduction": _clamp_ratio(settings.get("protection_partial_reduction") if settings.get("protection_partial_reduction") is not None else _FALLBACK_PARTIAL_PROTECTION_REDUCTION),
+        "full_protection_attack_count": int(settings.get("protection_full_attack_count") or _FALLBACK_FULL_PROTECTION_ATTACK_COUNT),
+        "protection_duration_hours": int(settings.get("protection_duration_hours") or _FALLBACK_PROTECTION_DURATION_HOURS),
+        "partial_same_attacker_enabled": bool(settings.get("protection_partial_same_attacker_enabled")) if settings.get("protection_partial_same_attacker_enabled") is not None else _FALLBACK_PARTIAL_SAME_ATTACKER_ENABLED,
         "bankruptcy_threshold": int(settings.get("score_bankruptcy_threshold") if settings.get("score_bankruptcy_threshold") is not None else _FALLBACK_BANKRUPTCY_THRESHOLD),
     }
 
@@ -131,12 +156,18 @@ async def _write_ledger(
     balance_before: int,
     source_id: uuid.UUID,
     reason: str,
-) -> int:
-    """Write a ledger entry and return the new balance."""
+) -> tuple[int, int]:
+    """Write a ledger entry and return (applied_amount, new_balance).
+
+    Debit entries are clamped to the available balance so attack resolution
+    cannot violate the non-negative balance constraint on memberships.
+    """
+    applied_amount = max(0, amount)
     if direction == LedgerDirection.CREDIT:
-        balance_after = balance_before + amount
+        balance_after = balance_before + applied_amount
     else:
-        balance_after = balance_before - amount
+        applied_amount = min(applied_amount, max(0, balance_before))
+        balance_after = balance_before - applied_amount
 
     entry = LedgerEntry(
         membership_id=membership_id,
@@ -144,7 +175,7 @@ async def _write_ledger(
         season_id=season_id,
         cycle_id=cycle_id,
         entry_type=entry_type,
-        amount=amount,
+        amount=applied_amount,
         direction=direction,
         balance_before=balance_before,
         balance_after=balance_after,
@@ -153,7 +184,7 @@ async def _write_ledger(
         reason=reason,
     )
     session.add(entry)
-    return balance_after
+    return applied_amount, balance_after
 
 
 async def _create_bankruptcy_record(
@@ -172,6 +203,147 @@ async def _create_bankruptcy_record(
         trigger_source_id=trigger_source_id,
     )
     session.add(record)
+    return record
+
+
+async def _count_successful_attacks_between_players(
+    session: AsyncSession,
+    attacker_membership_id: uuid.UUID,
+    target_membership_id: uuid.UUID,
+    cycle_id: uuid.UUID | None,
+) -> int:
+    """Count successful attacks for this attacker→target pair in the current cycle."""
+    filters = [
+        AttackAttempt.attacker_id == attacker_membership_id,
+        AttackAttempt.target_id == target_membership_id,
+        AttackAttempt.outcome == AttackOutcome.SUCCEEDED,
+    ]
+    if cycle_id:
+        filters.append(AttackAttempt.cycle_id == cycle_id)
+    result = await session.execute(select(func.count()).where(*filters))
+    return int(result.scalar() or 0)
+
+
+async def _get_attacker_partial_protection(
+    session: AsyncSession,
+    attacker_membership_id: uuid.UUID,
+    target_membership_id: uuid.UUID,
+    cycle_id: uuid.UUID | None,
+) -> ProtectionRecord | None:
+    """Return the attacker-scoped partial protection record for this pair, if present."""
+    if not cycle_id:
+        return None
+
+    now = now_riyadh_naive()
+    result = await session.execute(
+        select(ProtectionRecord).where(
+            ProtectionRecord.membership_id == target_membership_id,
+            ProtectionRecord.cycle_id == cycle_id,
+            ProtectionRecord.protection_type == ProtectionType.PARTIAL,
+            ProtectionRecord.source_type == ATTACK_PARTIAL_PROTECTION_SOURCE,
+            ProtectionRecord.source_id == attacker_membership_id,
+            active_protection_filters(now),
+        ).limit(1)
+    )
+    return result.scalars().first()
+
+
+async def _grant_attacker_partial_protection(
+    session: AsyncSession,
+    attacker_membership_id: uuid.UUID,
+    target_membership_id: uuid.UUID,
+    season_id: uuid.UUID,
+    cycle_id: uuid.UUID,
+) -> ProtectionRecord:
+    """Grant cycle-scoped partial protection from one attacker to one target."""
+    existing = await _get_attacker_partial_protection(
+        session,
+        attacker_membership_id=attacker_membership_id,
+        target_membership_id=target_membership_id,
+        cycle_id=cycle_id,
+    )
+    if existing:
+        return existing
+
+    target = await session.get(Membership, target_membership_id)
+    if not target:
+        raise ValueError("Target membership does not exist")
+
+    record = await create_protection_record(
+        session,
+        target,
+        protection_type=ProtectionType.PARTIAL,
+        source_type=ATTACK_PARTIAL_PROTECTION_SOURCE,
+        source_id=attacker_membership_id,
+        season_id=season_id,
+        cycle_id=cycle_id,
+        reason="حماية جزئية من نفس المهاجم بعد هجوم ناجح",
+        starts_at=now_riyadh_naive(),
+        ends_at=None,
+        reconcile_membership=False,
+    )
+    await session.flush()
+    return record
+
+
+async def _strip_partial_protection(
+    session: AsyncSession,
+    attacker_membership_id: uuid.UUID,
+    target: Membership,
+    cycle_id: uuid.UUID | None,
+) -> bool:
+    """Remove partial protection affecting this attacker→target interaction."""
+    removed = False
+    now = now_riyadh_naive()
+
+    attacker_partial = await _get_attacker_partial_protection(
+        session,
+        attacker_membership_id=attacker_membership_id,
+        target_membership_id=target.id,
+        cycle_id=cycle_id,
+    )
+    if attacker_partial:
+        attacker_partial.ends_at = now
+        removed = True
+
+    expired_partial = await expire_active_protection_records(
+        session,
+        target.id,
+        now=now,
+        protection_type=ProtectionType.PARTIAL,
+        membership_level_only=True,
+    )
+    if expired_partial:
+        removed = True
+        await reconcile_membership_protection(session, target, now=now)
+
+    return removed
+
+
+async def _grant_full_protection(
+    session: AsyncSession,
+    target: Membership,
+    *,
+    source_id: uuid.UUID,
+    season_id: uuid.UUID,
+    cycle_id: uuid.UUID,
+    duration_hours: int,
+) -> ProtectionRecord:
+    """Grant time-bounded full protection to the target."""
+    now = now_riyadh_naive()
+    record = await create_protection_record(
+        session,
+        target,
+        protection_type=ProtectionType.FULL,
+        source_type="attack_exposure",
+        source_id=source_id,
+        season_id=season_id,
+        cycle_id=cycle_id,
+        reason="تفعيل الحماية الكاملة بعد بلوغ حد الهجمات",
+        starts_at=now,
+        ends_at=now + timedelta(hours=duration_hours) if duration_hours > 0 else None,
+    )
+    await session.flush()
     return record
 
 
@@ -198,6 +370,7 @@ async def _get_attack_modifiers(
         "on_success": {
             "reward_multiplier": 1.0,
             "reward_bonus": 0,
+            "remove_partial_protection": False,
             "items_to_consume": [],
         },
         "on_failure": {
@@ -249,6 +422,9 @@ async def _get_attack_modifiers(
                 modifiers["on_success"]["reward_multiplier"] *= params.get("modifier", 1.0)
         elif eff_type == str(EffectType.FIXED_BONUS):
             modifiers["on_success"]["reward_bonus"] += params.get("amount", 0)
+        elif eff_type == str(EffectType.NEGATIVE_EFFECT):
+            if params.get("sub_type") == "remove_protection":
+                modifiers["on_success"]["remove_partial_protection"] = True
 
         if oid:
             modifiers["on_success"]["items_to_consume"].append(oid)
@@ -312,7 +488,7 @@ async def get_attack_preview(
     Does NOT write anything to the database.
     """
     cfg = await _load_attack_settings(session, competition_id, season_id, cycle_id)
-    base_penalty = cfg["base_penalty"]
+    base_penalty = cfg["base_penalty"] if cfg["self_penalty_on_fail"] else 0
 
     # Global / scoped attack-enabled check
     if not cfg["attack_enabled"]:
@@ -385,15 +561,53 @@ async def get_attack_preview(
             "target_current_stage": 0,
         }
 
-    # PARTIAL protection: attack allowed, but target loses less (noted in modifiers)
-    has_partial_protection = target.protection == ProtectionType.PARTIAL
-
     if str(attacker_membership_id) == str(target_membership_id):
         return {
             "can_attack": False,
             "blocking_reason": "لا يمكنك مهاجمة نفسك",
             "target_alias": None,
             "target_protection": ProtectionType.NONE,
+            "estimated_reward": 0,
+            "estimated_penalty": base_penalty,
+            "target_current_stage": 0,
+        }
+
+    # Check for all modifiers (active + pending)
+    modifiers = await _get_attack_modifiers(session, attacker_membership_id, target_membership_id)
+    successful_attacks_by_attacker = await _count_successful_attacks_between_players(
+        session,
+        attacker_membership_id=attacker_membership_id,
+        target_membership_id=target_membership_id,
+        cycle_id=cycle_id,
+    )
+    has_global_partial_protection = target.protection == ProtectionType.PARTIAL
+    has_attacker_partial_protection = bool(
+        cfg["partial_same_attacker_enabled"] and await _get_attacker_partial_protection(
+            session,
+            attacker_membership_id=attacker_membership_id,
+            target_membership_id=target_membership_id,
+            cycle_id=cycle_id,
+        )
+    )
+    can_strip_partial_protection = modifiers["on_success"]["remove_partial_protection"]
+
+    if successful_attacks_by_attacker >= cfg["max_attacks_per_cycle"]:
+        return {
+            "can_attack": False,
+            "blocking_reason": "بلغت الحد الأقصى لهجماتك الناجحة على هذا الهدف خلال هذه الدورة",
+            "target_alias": target.current_alias,
+            "target_protection": target.protection,
+            "estimated_reward": 0,
+            "estimated_penalty": base_penalty,
+            "target_current_stage": 0,
+        }
+
+    if has_attacker_partial_protection and not can_strip_partial_protection:
+        return {
+            "can_attack": False,
+            "blocking_reason": "الهدف محمي جزئياً منك بعد هجومك السابق — تحتاج عنصراً لكسر هذه الحماية",
+            "target_alias": target.current_alias,
+            "target_protection": ProtectionType.PARTIAL,
             "estimated_reward": 0,
             "estimated_penalty": base_penalty,
             "target_current_stage": 0,
@@ -412,9 +626,6 @@ async def get_attack_preview(
     current_stage = exposure.current_reward_stage if exposure else 0
     base_reward = _calc_reward(cfg["base_reward"], cfg["decay_factor"], current_stage)
 
-    # Check for all modifiers (active + pending)
-    modifiers = await _get_attack_modifiers(session, attacker_membership_id, target_membership_id)
-
     # Estimated reward: timed active * pending on-success
     estimated_reward = base_reward
     if modifiers["reward_multiplier"] != 1.0:
@@ -425,11 +636,14 @@ async def get_attack_preview(
     on_success_reward += modifiers["on_success"]["reward_bonus"]
 
     # Estimated penalty: timed active * pending on-failure
-    estimated_penalty = max(0, round(base_penalty * modifiers["penalty_multiplier"]))
-    on_failure_penalty = estimated_penalty
-    if modifiers["on_failure"]["penalty_multiplier"] != 1.0:
-        on_failure_penalty = max(0, round(on_failure_penalty * modifiers["on_failure"]["penalty_multiplier"]))
-    on_failure_penalty = max(0, on_failure_penalty - modifiers["on_failure"]["penalty_reduction"])
+    estimated_penalty = 0
+    on_failure_penalty = 0
+    if cfg["self_penalty_on_fail"]:
+        estimated_penalty = max(0, round(base_penalty * modifiers["penalty_multiplier"]))
+        on_failure_penalty = estimated_penalty
+        if modifiers["on_failure"]["penalty_multiplier"] != 1.0:
+            on_failure_penalty = max(0, round(on_failure_penalty * modifiers["on_failure"]["penalty_multiplier"]))
+        on_failure_penalty = max(0, on_failure_penalty - modifiers["on_failure"]["penalty_reduction"])
 
     # Build active modifiers info for the player
     active_modifiers = []
@@ -439,7 +653,7 @@ async def get_attack_preview(
         pct = round((modifiers["reward_multiplier"] - 1) * 100)
         direction = "زيادة" if pct > 0 else "تقليل"
         active_modifiers.append(f"{direction} مكافأة الهجوم بنسبة {abs(pct)}٪")
-    if modifiers["penalty_multiplier"] != 1.0:
+    if cfg["self_penalty_on_fail"] and modifiers["penalty_multiplier"] != 1.0:
         pct = round((1 - modifiers["penalty_multiplier"]) * 100)
         active_modifiers.append(f"تقليل خسارة الفشل بنسبة {pct}٪")
 
@@ -452,9 +666,13 @@ async def get_attack_preview(
         if modifiers["on_success"]["reward_bonus"] > 0:
             parts.append(f"+{modifiers['on_success']['reward_bonus']} نقطة")
         active_modifiers.append(f"عند النجاح: {' و'.join(parts)} (مرة واحدة)")
+    if modifiers["on_success"]["remove_partial_protection"]:
+        active_modifiers.append("عند النجاح: يكسر الحماية الجزئية للهدف (مرة واحدة)")
 
     # Pending on-failure modifiers
-    if modifiers["on_failure"]["penalty_multiplier"] != 1.0 or modifiers["on_failure"]["penalty_reduction"] > 0:
+    if cfg["self_penalty_on_fail"] and (
+        modifiers["on_failure"]["penalty_multiplier"] != 1.0 or modifiers["on_failure"]["penalty_reduction"] > 0
+    ):
         parts = []
         if modifiers["on_failure"]["penalty_multiplier"] != 1.0:
             pct = round((1 - modifiers["on_failure"]["penalty_multiplier"]) * 100)
@@ -468,14 +686,18 @@ async def get_attack_preview(
         active_modifiers.append("الهدف لديه درع دفاعي نشط")
 
     # PARTIAL protection indicator
-    if has_partial_protection:
-        active_modifiers.append("الهدف محمي جزئياً — خسارته مخفّضة بنسبة 50٪")
+    if has_global_partial_protection:
+        active_modifiers.append(
+            f"الهدف لديه حماية جزئية عامة — خسارته مخفّضة بنسبة {round(cfg['partial_reduction'] * 100)}٪"
+        )
+    if has_attacker_partial_protection and can_strip_partial_protection:
+        active_modifiers.append("لديك عنصر سيكسر الحماية الجزئية الخاصة بك على هذا الهدف إذا نجح الهجوم")
 
     return {
         "can_attack": True,
         "blocking_reason": None,
         "target_alias": target.current_alias,
-        "target_protection": target.protection,
+        "target_protection": target.protection if target.protection != ProtectionType.NONE else ProtectionType.NONE,
         "estimated_reward": on_success_reward,
         "estimated_penalty": on_failure_penalty,
         "target_current_stage": current_stage,
@@ -560,11 +782,48 @@ async def execute_attack(
             "attempt_id": uuid.uuid4(),
         }
 
-    # PARTIAL protection: attack proceeds but target deduction halved
-    has_partial_protection = target.protection == ProtectionType.PARTIAL
-
     # Load active + pending item effect modifiers
     modifiers = await _get_attack_modifiers(session, attacker_membership_id, target_membership_id)
+    successful_attacks_by_attacker = await _count_successful_attacks_between_players(
+        session,
+        attacker_membership_id=attacker_membership_id,
+        target_membership_id=target_membership_id,
+        cycle_id=cycle_id,
+    )
+    has_global_partial_protection = target.protection == ProtectionType.PARTIAL
+    has_attacker_partial_protection = bool(
+        cfg["partial_same_attacker_enabled"] and await _get_attacker_partial_protection(
+            session,
+            attacker_membership_id=attacker_membership_id,
+            target_membership_id=target_membership_id,
+            cycle_id=cycle_id,
+        )
+    )
+    can_strip_partial_protection = modifiers["on_success"]["remove_partial_protection"]
+
+    if successful_attacks_by_attacker >= cfg["max_attacks_per_cycle"]:
+        return {
+            "outcome": AttackOutcome.BLOCKED,
+            "reward_amount": 0,
+            "penalty_amount": 0,
+            "attacker_balance_after": attacker.current_balance,
+            "target_balance_after": None,
+            "target_real_name": None,
+            "message": "الهجوم مرفوض — بلغت الحد الأقصى لهجماتك الناجحة على هذا الهدف في هذه الدورة",
+            "attempt_id": uuid.uuid4(),
+        }
+
+    if has_attacker_partial_protection and not can_strip_partial_protection:
+        return {
+            "outcome": AttackOutcome.BLOCKED,
+            "reward_amount": 0,
+            "penalty_amount": 0,
+            "attacker_balance_after": attacker.current_balance,
+            "target_balance_after": None,
+            "target_real_name": None,
+            "message": "الهجوم مرفوض — الهدف محمي جزئياً منك بعد هجومك السابق",
+            "attempt_id": uuid.uuid4(),
+        }
 
     # Determine outcome
     correct = str(guessed_account_id) == str(target.account_id)
@@ -574,7 +833,11 @@ async def execute_attack(
     target_balance_after: int | None = None
     reward_amount = 0
     penalty_amount = 0
+    target_loss_amount = 0
     target_real_name: str | None = None
+    stripped_partial_protection = False
+    granted_attacker_partial_protection = False
+    activated_full_protection = False
 
     # Create the AttackAttempt record first (for source_id in ledger)
     attempt = AttackAttempt(
@@ -612,7 +875,7 @@ async def execute_attack(
         reward_amount = max(1, reward)
 
         # Credit attacker
-        attacker_balance_after = await _write_ledger(
+        reward_amount, attacker_balance_after = await _write_ledger(
             session,
             membership_id=attacker_membership_id,
             competition_id=competition_id,
@@ -627,17 +890,25 @@ async def execute_attack(
         )
         attacker.current_balance = attacker_balance_after
 
+        if can_strip_partial_protection:
+            stripped_partial_protection = await _strip_partial_protection(
+                session,
+                attacker_membership_id=attacker_membership_id,
+                target=target,
+                cycle_id=cycle_id,
+            )
+            has_global_partial_protection = target.protection == ProtectionType.PARTIAL
+
         # Calculate target deduction (may be reduced by defender's pending effects)
         target_deduction = reward_amount
-        # PARTIAL protection: halve the target's loss
-        if has_partial_protection:
-            target_deduction = max(0, round(target_deduction * 0.5))
+        if has_global_partial_protection:
+            target_deduction = max(0, round(target_deduction * (1 - cfg["partial_reduction"])))
         if modifiers["on_defense"]["loss_multiplier"] != 1.0:
             target_deduction = max(0, round(target_deduction * modifiers["on_defense"]["loss_multiplier"]))
         target_deduction = max(0, target_deduction - modifiers["on_defense"]["loss_reduction"])
 
         # Debit target
-        target_balance_after = await _write_ledger(
+        target_loss_amount, target_balance_after = await _write_ledger(
             session,
             membership_id=target_membership_id,
             competition_id=competition_id,
@@ -655,9 +926,26 @@ async def execute_attack(
         # Advance exposure stage
         exposure.successful_attack_count += 1
         exposure.current_reward_stage += 1
-        if exposure.successful_attack_count >= cfg["max_attacks_per_cycle"]:
+        if exposure.successful_attack_count >= cfg["full_protection_attack_count"]:
             exposure.max_attacks_reached = True
-            target.protection = ProtectionType.FULL
+            await _grant_full_protection(
+                session,
+                target,
+                source_id=attempt.id,
+                season_id=season_id,
+                cycle_id=cycle_id,
+                duration_hours=cfg["protection_duration_hours"],
+            )
+            activated_full_protection = True
+        elif cfg["partial_same_attacker_enabled"]:
+            await _grant_attacker_partial_protection(
+                session,
+                attacker_membership_id=attacker_membership_id,
+                target_membership_id=target_membership_id,
+                season_id=season_id,
+                cycle_id=cycle_id,
+            )
+            granted_attacker_partial_protection = True
 
         # Reveal real name
         target_account = await session.get(Account, target.account_id)
@@ -698,13 +986,17 @@ async def execute_attack(
             )
 
         # Notify target of FULL protection activation
-        if exposure.max_attacks_reached and target.protection == ProtectionType.FULL:
+        if activated_full_protection and target.protection == ProtectionType.FULL:
             await create_notification(
                 session,
                 recipient_id=target.account_id,
                 notification_type=NotificationType.PROTECTION_ACTIVATED,
                 title="حماية كاملة!",
-                message="بلغت الحد الأقصى من الهجمات — أنت الآن محمي بالكامل لبقية الدورة",
+                message=(
+                    f"بلغت الحد الأقصى من الهجمات — أنت الآن محمي بالكامل لمدة {cfg['protection_duration_hours']} ساعة"
+                    if cfg["protection_duration_hours"] > 0
+                    else "بلغت الحد الأقصى من الهجمات — أنت الآن محمي بالكامل"
+                ),
                 membership_id=target_membership_id,
                 priority=NotificationPriority.HIGH,
                 reference_type="cycle",
@@ -713,34 +1005,35 @@ async def execute_attack(
             )
 
     else:  # FAILED
-        penalty = cfg["base_penalty"]
+        penalty = cfg["base_penalty"] if cfg["self_penalty_on_fail"] else 0
 
         # Apply always-active loss reduction (timed)
-        if modifiers["penalty_multiplier"] != 1.0:
+        if cfg["self_penalty_on_fail"] and modifiers["penalty_multiplier"] != 1.0:
             penalty = max(0, round(penalty * modifiers["penalty_multiplier"]))
 
         # Apply pending on-failure modifiers (one-time)
-        if modifiers["on_failure"]["penalty_multiplier"] != 1.0:
+        if cfg["self_penalty_on_fail"] and modifiers["on_failure"]["penalty_multiplier"] != 1.0:
             penalty = max(0, round(penalty * modifiers["on_failure"]["penalty_multiplier"]))
-        penalty = max(0, penalty - modifiers["on_failure"]["penalty_reduction"])
+        if cfg["self_penalty_on_fail"]:
+            penalty = max(0, penalty - modifiers["on_failure"]["penalty_reduction"])
 
         penalty_amount = penalty
 
-        # Debit attacker
-        attacker_balance_after = await _write_ledger(
-            session,
-            membership_id=attacker_membership_id,
-            competition_id=competition_id,
-            season_id=season_id,
-            cycle_id=cycle_id,
-            entry_type=LedgerEntryType.ATTACK_PENALTY,
-            direction=LedgerDirection.DEBIT,
-            amount=penalty,
-            balance_before=attacker.current_balance,
-            source_id=attempt.id,
-            reason=f"هجوم فاشل على {target.current_alias or 'لاعب'}",
-        )
-        attacker.current_balance = attacker_balance_after
+        if penalty_amount > 0:
+            penalty_amount, attacker_balance_after = await _write_ledger(
+                session,
+                membership_id=attacker_membership_id,
+                competition_id=competition_id,
+                season_id=season_id,
+                cycle_id=cycle_id,
+                entry_type=LedgerEntryType.ATTACK_PENALTY,
+                direction=LedgerDirection.DEBIT,
+                amount=penalty,
+                balance_before=attacker.current_balance,
+                source_id=attempt.id,
+                reason=f"هجوم فاشل على {target.current_alias or 'لاعب'}",
+            )
+            attacker.current_balance = attacker_balance_after
         attempt.penalty_amount = penalty_amount
 
         # Consume attacker's on-failure pending items
@@ -791,7 +1084,10 @@ async def execute_attack(
             recipient_id=target.account_id,
             notification_type=NotificationType.ATTACK_RECEIVED,
             title="تعرضت لهجوم!",
-            message=f"تم كشف هويتك وخسرت {reward_amount} نقطة",
+            message=(
+                f"تم كشف هويتك وخسرت {target_loss_amount} نقطة"
+                + (" واكتسبت حماية جزئية من هذا المهاجم" if granted_attacker_partial_protection and not activated_full_protection else "")
+            ),
             membership_id=target_membership_id,
             priority=NotificationPriority.HIGH,
             reference_type="attack_attempt",
@@ -805,7 +1101,11 @@ async def execute_attack(
             recipient_id=attacker.account_id,
             notification_type=NotificationType.ATTACK_FAILURE,
             title="هجوم فاشل",
-            message=f"فشل هجومك على {target.current_alias or 'لاعب'} وخسرت {penalty_amount} نقطة",
+            message=(
+                f"فشل هجومك على {target.current_alias or 'لاعب'} وخسرت {penalty_amount} نقطة"
+                if cfg["self_penalty_on_fail"]
+                else f"فشل هجومك على {target.current_alias or 'لاعب'} ولم تُخصم منك أي نقاط"
+            ),
             membership_id=attacker_membership_id,
             priority=NotificationPriority.NORMAL,
             reference_type="attack_attempt",
@@ -828,6 +1128,9 @@ async def execute_attack(
             "penalty": penalty_amount,
             "attacker_balance_after": attacker_balance_after,
             "target_balance_after": target_balance_after,
+            "partial_protection_removed": stripped_partial_protection,
+            "attacker_partial_protection_granted": granted_attacker_partial_protection,
+            "full_protection_activated": activated_full_protection,
         },
         related_type="competition",
         related_id=competition_id,
@@ -838,7 +1141,11 @@ async def execute_attack(
 
     message_map = {
         AttackOutcome.SUCCEEDED: f"هجوم ناجح! كشفت هوية الهدف وحصلت على {reward_amount} نقطة",
-        AttackOutcome.FAILED: f"هجوم فاشل! خسرت {penalty_amount} نقطة",
+        AttackOutcome.FAILED: (
+            f"هجوم فاشل! خسرت {penalty_amount} نقطة"
+            if cfg["self_penalty_on_fail"]
+            else "هجوم فاشل! لم تُخصم منك أي نقاط لأن عقوبة الفشل معطّلة"
+        ),
     }
 
     return {

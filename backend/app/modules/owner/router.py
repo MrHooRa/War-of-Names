@@ -14,15 +14,16 @@ from app.core.auth import get_current_account, hash_password
 from app.core.database import async_session, check_db_connection
 from app.core.enums import AccountStatus, AuditActorType, CompetitionStatus, LedgerDirection
 from app.core.middleware import invalidate_ip_ban_cache
+from app.core.utils import now_riyadh
 from app.config import settings
 from app.modules.attacks.models import AttackAttempt
 from app.modules.audit.models import AuditEvent
 from app.modules.audit.service import write_audit
+from app.modules.auth.export_service import build_account_export
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Competition, Membership
-from app.modules.notifications.models import Notification
 from app.modules.owner.models import IPBan
-from app.modules.quiz.models import AnswerSubmission, QuizSession
+from app.modules.quiz.models import QuizSession
 from app.modules.scoring.models import LedgerEntry
 
 router = APIRouter(prefix="/api/owner", tags=["owner"])
@@ -458,18 +459,33 @@ async def list_deletion_requests(owner: OwnerAccount):
     async with async_session() as session:
         result = await session.execute(
             select(AuditEvent)
-            .where(AuditEvent.event_type == "deletion_requested")
+            .where(
+                AuditEvent.subject_type == "account",
+                AuditEvent.event_type.in_(
+                    ("deletion_requested", "deletion_rejected", "deletion_approved")
+                ),
+            )
             .order_by(AuditEvent.created_at.desc())
         )
         events = result.scalars().all()
 
+        pending_events = []
+        seen_accounts: set[uuid.UUID] = set()
+        for event in events:
+            account_id = event.subject_id
+            if not account_id or account_id in seen_accounts:
+                continue
+            seen_accounts.add(account_id)
+            if event.event_type == "deletion_requested":
+                pending_events.append(event)
+
         # Enrich with account info
         requests_data = []
-        for e in events:
-            account = await session.get(Account, e.actor_id) if e.actor_id else None
+        for e in pending_events:
+            account = await session.get(Account, e.subject_id) if e.subject_id else None
             requests_data.append({
                 "id": str(e.id),
-                "account_id": str(e.actor_id) if e.actor_id else None,
+                "account_id": str(e.subject_id) if e.subject_id else None,
                 "username": account.username if account else "—",
                 "real_name": account.real_name if account else "—",
                 "account_status": (
@@ -493,6 +509,22 @@ async def approve_deletion_request(account_id: uuid.UUID, owner: OwnerAccount):
         if account.is_owner:
             raise HTTPException(status_code=400, detail="لا يمكن حذف حساب مالك")
 
+        latest_deletion_event_result = await session.execute(
+            select(AuditEvent)
+            .where(
+                AuditEvent.subject_type == "account",
+                AuditEvent.subject_id == account.id,
+                AuditEvent.event_type.in_(
+                    ("deletion_requested", "deletion_rejected", "deletion_approved")
+                ),
+            )
+            .order_by(AuditEvent.created_at.desc())
+            .limit(1)
+        )
+        latest_deletion_event = latest_deletion_event_result.scalars().first()
+        if not latest_deletion_event or latest_deletion_event.event_type != "deletion_requested":
+            raise HTTPException(status_code=400, detail="لا يوجد طلب حذف معلق لهذا الحساب")
+
         before = {
             "status": account.status.value if hasattr(account.status, "value") else account.status,
         }
@@ -510,6 +542,8 @@ async def approve_deletion_request(account_id: uuid.UUID, owner: OwnerAccount):
             summary=f"الموافقة على حذف الحساب: {account.username}",
             before_state=before,
             after_state=after,
+            related_type="audit_event",
+            related_id=latest_deletion_event.id,
         )
         await session.commit()
 
@@ -524,6 +558,22 @@ async def reject_deletion_request(account_id: uuid.UUID, owner: OwnerAccount):
         if not account:
             raise HTTPException(status_code=404, detail="الحساب غير موجود")
 
+        latest_deletion_event_result = await session.execute(
+            select(AuditEvent)
+            .where(
+                AuditEvent.subject_type == "account",
+                AuditEvent.subject_id == account.id,
+                AuditEvent.event_type.in_(
+                    ("deletion_requested", "deletion_rejected", "deletion_approved")
+                ),
+            )
+            .order_by(AuditEvent.created_at.desc())
+            .limit(1)
+        )
+        latest_deletion_event = latest_deletion_event_result.scalars().first()
+        if not latest_deletion_event or latest_deletion_event.event_type != "deletion_requested":
+            raise HTTPException(status_code=400, detail="لا يوجد طلب حذف معلق لهذا الحساب")
+
         await write_audit(
             session,
             actor_id=owner.id,
@@ -532,6 +582,8 @@ async def reject_deletion_request(account_id: uuid.UUID, owner: OwnerAccount):
             subject_id=account.id,
             event_type="deletion_rejected",
             summary=f"رفض طلب حذف الحساب: {account.username}",
+            related_type="audit_event",
+            related_id=latest_deletion_event.id,
         )
         await session.commit()
 
@@ -679,7 +731,7 @@ async def trigger_backup(owner: OwnerAccount):
     from app.core.database import engine
     from sqlalchemy import text, inspect
 
-    backup_data = {"exported_at": datetime.utcnow().isoformat(), "tables": {}}
+    backup_data = {"exported_at": now_riyadh().isoformat(), "tables": {}}
 
     async with engine.connect() as conn:
         # Get all table names
@@ -699,7 +751,7 @@ async def trigger_backup(owner: OwnerAccount):
     import json
     raw = json.dumps(backup_data, ensure_ascii=False, default=str).encode("utf-8")
     compressed = gzip.compress(raw)
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = now_riyadh().strftime("%Y%m%d_%H%M%S")
     filename = f"war_of_names_backup_{timestamp}.json.gz"
 
     async def _stream():
@@ -720,119 +772,26 @@ async def trigger_backup(owner: OwnerAccount):
 async def export_user_data(account_id: uuid.UUID, owner: OwnerAccount):
     """Export all data for a user as JSON (PDPL compliance)."""
     async with async_session() as session:
-        account = await session.get(Account, account_id)
-        if not account:
+        export_payload = await build_account_export(session, account_id)
+        if not export_payload:
             raise HTTPException(status_code=404, detail="الحساب غير موجود")
 
-        # Memberships
-        memberships_result = await session.execute(
-            select(Membership).where(Membership.account_id == account_id)
+        await write_audit(
+            session,
+            actor_id=owner.id,
+            actor_type=AuditActorType.ADMIN,
+            subject_type="account",
+            subject_id=account_id,
+            event_type="user_data_exported",
+            summary=f"تصدير بيانات المستخدم: {export_payload['account']['username']}",
+            related_type="account_export",
+            related_id=account_id,
         )
-        memberships = [
-            {
-                "id": str(m.id),
-                "competition_id": str(m.competition_id),
-                "alias": m.alias,
-                "status": m.status.value if hasattr(m.status, "value") else m.status,
-                "points_balance": m.points_balance,
-                "created_at": m.created_at.isoformat() if m.created_at else None,
-            }
-            for m in memberships_result.scalars().all()
-        ]
-
-        # Attacks
-        attacks_result = await session.execute(
-            select(AttackAttempt).where(AttackAttempt.attacker_membership_id.in_(
-                select(Membership.id).where(Membership.account_id == account_id)
-            ))
-        )
-        attacks = [
-            {
-                "id": str(a.id),
-                "attacker_membership_id": str(a.attacker_membership_id),
-                "target_membership_id": str(a.target_membership_id),
-                "guessed_account_id": str(a.guessed_account_id) if a.guessed_account_id else None,
-                "outcome": a.outcome.value if hasattr(a.outcome, "value") else a.outcome,
-                "created_at": a.created_at.isoformat() if a.created_at else None,
-            }
-            for a in attacks_result.scalars().all()
-        ]
-
-        # Quiz answers
-        answers_result = await session.execute(
-            select(AnswerSubmission).where(AnswerSubmission.membership_id.in_(
-                select(Membership.id).where(Membership.account_id == account_id)
-            ))
-        )
-        quiz_answers = [
-            {
-                "id": str(ans.id),
-                "session_question_id": str(ans.session_question_id),
-                "membership_id": str(ans.membership_id),
-                "selected_option": ans.selected_option,
-                "is_correct": ans.is_correct,
-                "points_awarded": ans.points_awarded,
-                "created_at": ans.created_at.isoformat() if ans.created_at else None,
-            }
-            for ans in answers_result.scalars().all()
-        ]
-
-        # Notifications
-        notifs_result = await session.execute(
-            select(Notification).where(Notification.recipient_id == account_id)
-        )
-        notifications = [
-            {
-                "id": str(n.id),
-                "notification_type": n.notification_type.value if hasattr(n.notification_type, "value") else n.notification_type,
-                "title": n.title,
-                "message": n.message,
-                "is_read": n.is_read,
-                "created_at": n.created_at.isoformat() if n.created_at else None,
-            }
-            for n in notifs_result.scalars().all()
-        ]
-
-        # Ledger entries
-        ledger_result = await session.execute(
-            select(LedgerEntry).where(LedgerEntry.membership_id.in_(
-                select(Membership.id).where(Membership.account_id == account_id)
-            ))
-        )
-        ledger_entries = [
-            {
-                "id": str(le.id),
-                "membership_id": str(le.membership_id),
-                "entry_type": le.entry_type.value if hasattr(le.entry_type, "value") else le.entry_type,
-                "amount": le.amount,
-                "direction": le.direction.value if hasattr(le.direction, "value") else le.direction,
-                "balance_before": le.balance_before,
-                "balance_after": le.balance_after,
-                "reason": le.reason,
-                "created_at": le.created_at.isoformat() if le.created_at else None,
-            }
-            for le in ledger_result.scalars().all()
-        ]
+        await session.commit()
 
     return {
         "success": True,
-        "data": {
-            "account": {
-                "id": str(account.id),
-                "username": account.username,
-                "real_name": account.real_name,
-                "status": account.status.value if hasattr(account.status, "value") else account.status,
-                "is_admin": account.is_admin,
-                "is_owner": account.is_owner,
-                "locale": account.locale,
-                "created_at": account.created_at.isoformat() if account.created_at else None,
-            },
-            "memberships": memberships,
-            "attacks": attacks,
-            "quiz_answers": quiz_answers,
-            "notifications": notifications,
-            "ledger_entries": ledger_entries,
-        },
+        "data": export_payload,
     }
 
 

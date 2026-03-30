@@ -8,7 +8,7 @@ Every SQLAlchemy model in the project must be importable from here so that
 from enum import StrEnum
 
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import String, Text
+from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -30,18 +30,6 @@ def pg_enum(enum_cls: type[StrEnum], *, name: str) -> SAEnum:
         native_enum=True,
         create_constraint=False,
     )
-
-
-# ── Temporary placeholder (supports current frontend dashboard) ───────────
-class GameInfo(Base):
-    __tablename__ = "game_info"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(100))
-    subtitle: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    current_season: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="active")
-    announcement: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 # ── Import all module models so Base.metadata sees them ───────────────────

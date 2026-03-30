@@ -7,6 +7,7 @@ import CycleCountdown from '../components/CycleCountdown'
 import InventoryItemCard from '../components/InventoryItemCard'
 import AliasChangeModal from '../components/AliasChangeModal'
 import { formatDate } from '../lib/dates'
+import { formatNumber } from '../lib/numbers'
 
 export default function DashboardPage() {
   const { data, loading, error } = useDashboard()
@@ -72,6 +73,9 @@ export default function DashboardPage() {
   }
 
   const avatarLetter = data.alias ? data.alias[0] : '?'
+  const leaderboardHref = data.competition_id
+    ? `/competitions/${data.competition_id}/leaderboard`
+    : '/leaderboard'
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-8 relative z-10">
@@ -165,7 +169,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/40 px-5 py-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md smooth-transition">
                 <iconify-icon icon="lucide:zap" class="text-brand-teal dark:text-brand-slate text-xl"></iconify-icon>
-                <span className="font-bold text-gray-800 dark:text-white">{data.balance.toLocaleString('ar-SA')} نقطة</span>
+                <span className="font-bold text-gray-800 dark:text-white">{formatNumber(data.balance)} نقطة</span>
               </div>
             </div>
           </div>
@@ -178,12 +182,12 @@ export default function DashboardPage() {
                 مفلس — لا يمكن الهجوم
               </div>
             ) : data.protection === 'full' ? (
-              <Link to="/leaderboard" id="btn-start-battle" className="btn-press w-full md:w-auto bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+              <Link to={leaderboardHref} id="btn-start-battle" className="btn-press w-full md:w-auto bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
                 <iconify-icon icon="lucide:shield-check" class="text-3xl"></iconify-icon>
                 محمي — الساحة
               </Link>
             ) : (
-              <Link to="/leaderboard" id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
+              <Link to={leaderboardHref} id="btn-start-battle" className="btn-press w-full md:w-auto bg-gradient-to-r from-brand-orange to-[#e65100] hover:from-[#e65100] hover:to-[#ff5722] dark:from-[#D84315] dark:to-[#c63f13] text-white px-8 py-4 md:py-5 rounded-2xl font-heading font-black text-xl shadow-lg shadow-brand-orange/20 dark:shadow-[0_4px_12px_rgba(216,67,21,0.2)] flex items-center justify-center gap-3 smooth-transition hover:-translate-y-1">
                 <iconify-icon icon="lucide:swords" class="text-3xl"></iconify-icon>
                 ابدأ الهجوم
               </Link>
@@ -286,7 +290,16 @@ export default function DashboardPage() {
                             <span className="font-heading font-black text-brand-success text-sm">دفاع ناجح</span>
                           )
                         )}
-                        <Link to={`/players/${atk.opponent_membership_id}`} className="text-xs text-brand-teal dark:text-brand-slate hover:underline">عرض</Link>
+                        <Link
+                          to={
+                            data?.competition_id
+                              ? `/competitions/${data.competition_id}/players/${atk.opponent_membership_id}`
+                              : `/players/${atk.opponent_membership_id}`
+                          }
+                          className="text-xs text-brand-teal dark:text-brand-slate hover:underline"
+                        >
+                          عرض
+                        </Link>
                       </div>
                     </div>
                   )

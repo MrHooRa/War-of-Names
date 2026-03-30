@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { formatNumber } from '../lib/numbers'
 
 export default function DefeatPage() {
   const { state } = useLocation()
@@ -41,7 +42,7 @@ export default function DefeatPage() {
             <div className="flex justify-between w-full text-sm font-bold">
               <span className="text-gray-500 dark:text-gray-400">رصيدك الحالي:</span>
               <span className="text-brand-danger font-black">
-                {attackerBalanceAfter !== null ? attackerBalanceAfter.toLocaleString('ar-EG') : '—'}
+                {attackerBalanceAfter !== null ? formatNumber(attackerBalanceAfter) : '—'}
               </span>
             </div>
           </div>

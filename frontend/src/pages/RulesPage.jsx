@@ -28,7 +28,8 @@ const SECTIONS = [
       { text: 'هجوم ناجح ← تحصل على مكافأة نقاط ويخسر الهدف.', icon: 'lucide:check-circle', color: 'text-brand-success' },
       { text: 'هجوم فاشل ← تخسر أنت نقاطاً كعقوبة.', icon: 'lucide:x-circle', color: 'text-brand-danger' },
       { text: 'المكافأة تتناقص مع تكرار الهجوم على نفس الهدف (انحلال المكافأة). نوّع أهدافك!', icon: 'lucide:trending-down', color: 'text-amber-400' },
-      { text: 'بعد 3 هجمات ناجحة على نفس اللاعب، يحصل على حماية كاملة من هجماتك.', icon: 'lucide:shield-check' },
+      { text: 'بعد أول هجوم ناجح على نفس اللاعب، يكتسب الهدف حماية جزئية منك خلال الدورة وقد تحتاج عنصراً لكسرها.', icon: 'lucide:shield-half' },
+      { text: 'عند بلوغ حد التشبع للهجمات الناجحة على اللاعب، تُفعّل له حماية كاملة بحسب إعدادات السيرفر.', icon: 'lucide:shield-check' },
     ],
   },
   {
@@ -40,7 +41,7 @@ const SECTIONS = [
     subtitle: 'دفاعاتك وحدود البقاء',
     content: [
       { label: 'بدون حماية', text: 'مكشوف للجميع — أي لاعب يستطيع مهاجمتك.', icon: 'lucide:shield-off', color: 'text-red-400' },
-      { label: 'حماية جزئية', text: 'خسائرك عند التعرض لهجوم ناجح تنخفض 50٪.', icon: 'lucide:shield-half', color: 'text-amber-400' },
+      { label: 'حماية جزئية', text: 'قد تمنع نفس المهاجم من تكرار الهجوم عليك، وقد تقلل خسارتك عند التعرض لهجوم ناجح بحسب إعدادات اللعبة.', icon: 'lucide:shield-half', color: 'text-amber-400' },
       { label: 'حماية كاملة', text: 'لا يمكن مهاجمتك نهائياً حتى نهاية الدورة.', icon: 'lucide:shield-check', color: 'text-brand-success' },
       { label: 'الإفلاس', text: 'إذا وصل رصيدك صفر، تُعلن مفلساً وتُكشف هويتك للجميع. لا يمكنك الهجوم أو استخدام العناصر حتى يعاد ضبط الدورة.', icon: 'lucide:skull', color: 'text-red-500' },
     ],

@@ -833,23 +833,6 @@ CREATE TABLE export_artifacts (
 
 CREATE INDEX idx_exports_status ON export_artifacts (status);
 
-
--- ============================================================================
--- 13. TEMPORARY: Game Info (for current frontend dashboard)
--- ============================================================================
--- This table supports the existing frontend placeholder and will be replaced
--- by competition/season context endpoints once those modules are built.
-
-CREATE TABLE game_info (
-    id             SERIAL PRIMARY KEY,
-    title          VARCHAR(100) NOT NULL,
-    subtitle       VARCHAR(200),
-    current_season VARCHAR(100),
-    status         VARCHAR(20)  NOT NULL DEFAULT 'active',
-    announcement   TEXT
-);
-
-
 -- ============================================================================
 -- 14. INITIAL SEED DATA
 -- ============================================================================
@@ -889,10 +872,4 @@ INSERT INTO setting_definitions (key, category, data_type, default_value, descri
 
     -- Store settings
     ('store.enabled',                   'store',      'boolean', 'true',  'تفعيل المتجر',                                           TRUE);
-
--- 14.3 Seed the game_info for existing frontend
-INSERT INTO game_info (title, subtitle, current_season, status, announcement) VALUES
-    ('حرب الأسماء', 'من سيكشف الأقنعة أولاً؟', 'الموسم الأول', 'active', 'مرحباً بكم في حرب الأسماء! الموسم الأول يبدأ قريباً');
-
-
 COMMIT;

@@ -14,7 +14,6 @@ Season transitions trigger:
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,10 +24,14 @@ from app.core.enums import (
     MembershipStatus,
     NotificationPriority,
     NotificationType,
-    ProtectionType,
     SeasonStatus,
 )
+from app.core.utils import now_riyadh_naive
 from app.modules.attacks.models import BankruptcyRecord
+from app.modules.attacks.protection_service import (
+    expire_active_protection_records,
+    reconcile_membership_protection,
+)
 from app.modules.competitions.models import Cycle, Membership, Season
 from app.modules.notifications.service import create_notification
 
@@ -72,13 +75,20 @@ async def _clear_protections(
         select(Membership).where(
             Membership.competition_id == competition_id,
             Membership.status == MembershipStatus.ACTIVE,
-            Membership.protection != ProtectionType.NONE,
         )
     )
-    protected = result.scalars().all()
-    for m in protected:
-        m.protection = ProtectionType.NONE
-    return len(protected)
+    members = result.scalars().all()
+    now = now_riyadh_naive()
+    cleared = 0
+
+    for membership in members:
+        expired_records = await expire_active_protection_records(session, membership.id, now=now)
+        previous_protection = membership.protection
+        new_protection = await reconcile_membership_protection(session, membership, now=now)
+        if expired_records or previous_protection != new_protection:
+            cleared += 1
+
+    return cleared
 
 
 async def _clear_bankruptcies(
@@ -106,7 +116,7 @@ async def _clear_bankruptcies(
                 BankruptcyRecord.cycle_id == cycle_id,
                 BankruptcyRecord.status == BankruptcyState.ACTIVE,
             )
-            .values(status=BankruptcyState.CLEARED, resolved_at=datetime.utcnow())
+            .values(status=BankruptcyState.CLEARED, resolved_at=now_riyadh_naive())
         )
 
     return len(bankrupt_members)
@@ -161,12 +171,12 @@ async def start_cycle(
             Cycle.status == CycleStatus.ACTIVE,
             Cycle.id != cycle.id,
         )
-        .values(status=CycleStatus.COMPLETED, ends_at=datetime.utcnow())
+        .values(status=CycleStatus.COMPLETED, ends_at=now_riyadh_naive())
     )
 
     # 2. Activate this cycle
     cycle.status = CycleStatus.ACTIVE
-    cycle.starts_at = datetime.utcnow()
+    cycle.starts_at = now_riyadh_naive()
 
     # 3. Clear protections
     result.protections_cleared = await _clear_protections(
@@ -210,7 +220,7 @@ async def end_cycle(
 
     # 1. Complete the cycle
     cycle.status = CycleStatus.COMPLETED
-    cycle.ends_at = datetime.utcnow()
+    cycle.ends_at = now_riyadh_naive()
 
     # 2. Clear protections
     result.protections_cleared = await _clear_protections(
@@ -236,6 +246,46 @@ async def end_cycle(
     )
 
     return result
+
+
+async def maybe_auto_start_next_cycle(
+    session: AsyncSession,
+    season: Season,
+    ended_cycle: Cycle,
+) -> dict | None:
+    """Start the next cycle automatically when the season setting enables it."""
+    if season.status != SeasonStatus.ACTIVE:
+        return None
+
+    from app.modules.settings.service import get_setting
+
+    auto_advance = await get_setting(
+        session,
+        "season_auto_advance_cycles",
+        competition_id=season.competition_id,
+        season_id=season.id,
+        cycle_id=ended_cycle.id,
+    )
+    if not auto_advance:
+        return None
+
+    next_result = await session.execute(
+        select(Cycle).where(
+            Cycle.season_id == season.id,
+            Cycle.order_index > ended_cycle.order_index,
+            Cycle.status.in_([CycleStatus.DRAFT, CycleStatus.PAUSED]),
+        ).order_by(Cycle.order_index)
+    )
+    next_cycle = next_result.scalars().first()
+    if not next_cycle:
+        return None
+
+    started = await start_cycle(session, next_cycle, season)
+    return {
+        "cycle_id": str(next_cycle.id),
+        "label": next_cycle.label,
+        **started.to_dict(),
+    }
 
 
 async def advance_to_next_cycle(
@@ -300,7 +350,7 @@ async def start_season(
       2. Activate this season with starts_at = now
       3. Notify all competition members
     """
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
 
     # 1. Complete other active seasons in the same competition
     prev_result = await session.execute(
@@ -349,7 +399,7 @@ async def end_season(
       2. Mark season as COMPLETED with ends_at = now
       3. Notify all competition members
     """
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
 
     # 1. End all active cycles in this season (with full lifecycle events)
     active_cycles_result = await session.execute(
@@ -403,7 +453,7 @@ async def close_expired_cycles(
     Call this at key operational points (cycle start, advance) as a
     lazy auto-close mechanism.
     """
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     expired_result = await session.execute(
         select(Cycle, Season)
         .join(Season, Cycle.season_id == Season.id)

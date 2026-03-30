@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.enums import SettingDataType, SettingScope
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class SettingDefinition(Base):
@@ -24,8 +25,8 @@ class SettingDefinition(Base):
     allowed_values: Mapped[dict | None] = mapped_column(JSONB)
     description: Mapped[str | None] = mapped_column(Text)
     is_per_competition: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
 
 class SettingValue(Base):
@@ -42,5 +43,5 @@ class SettingValue(Base):
     scope_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     value: Mapped[dict] = mapped_column(JSONB, nullable=False)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)

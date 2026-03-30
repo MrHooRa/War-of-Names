@@ -9,21 +9,16 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuthContext } from '../context/AuthContext'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 import CompetitionSwitcher from './CompetitionSwitcher'
 import { apiFetch } from '../lib/api'
+import { toggleTheme } from '../lib/theme'
 import AnnouncementOverlay from './AnnouncementOverlay'
 
 const LOGO_URL =
   'https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/bg-removed/d4b11575-1b23-40b6-85e7-6036632e88ce.png'
-
-function toggleDarkMode() {
-  const html = document.documentElement
-  html.classList.toggle('dark')
-  localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light')
-}
 
 function NavLink({ to, id, label, active }) {
   return (
@@ -43,11 +38,15 @@ function NavLink({ to, id, label, active }) {
 
 export default function AppLayout({ activeItem = 'home', children }) {
   const navigate = useNavigate()
+  const { competitionId: routeCompetitionId } = useParams()
   const { currentUser, logout } = useAuthContext()
   const { seasonName, cycleLabel } = useCompetitionContext()
   const displayName = currentUser?.username || '?'
   const avatarLetter = displayName[0] || '?'
   const [unreadCount, setUnreadCount] = useState(0)
+  const leaderboardHref = routeCompetitionId
+    ? `/competitions/${routeCompetitionId}/leaderboard`
+    : '/leaderboard'
 
   useEffect(() => {
     function fetchCount() {
@@ -68,11 +67,12 @@ export default function AppLayout({ activeItem = 'home', children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-brand-light-bg dark:bg-brand-dark-bg transition-colors duration-300">
+      <a href="#main-content" className="skip-link">تخط إلى المحتوى</a>
       <AnnouncementOverlay />
 
       {/* ===== Desktop Header ===== */}
       <header
-        className="sticky top-0 z-50 bg-white dark:bg-brand-card-dark border-b border-gray-200 dark:border-gray-800 p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm"
+        className="sticky top-0 z-50 bg-white dark:bg-brand-card-dark border-b border-gray-200 dark:border-gray-800 p-4 md:px-6 md:py-4 transition-colors duration-300 shadow-sm safe-area-pt"
         style={{ viewTransitionName: 'main-nav' }}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-row-reverse">
@@ -83,6 +83,8 @@ export default function AppLayout({ activeItem = 'home', children }) {
                 src={LOGO_URL}
                 alt="شعار حرب الأسماء"
                 className="w-[130px] md:w-[150px] object-contain drop-shadow-sm"
+                width="150"
+                height="75"
               />
             </Link>
             <div className="hidden lg:flex items-center gap-3 border-r border-gray-200 dark:border-gray-700 pr-5">
@@ -97,10 +99,10 @@ export default function AppLayout({ activeItem = 'home', children }) {
           </div>
 
           {/* Global Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav aria-label="التنقل الرئيسي" className="hidden md:flex items-center gap-1">
             <NavLink to="/lobby" id="nav-lobby" label="الساحة" active={activeItem === 'lobby'} />
             <NavLink to="/dashboard" id="nav-home" label="صفحتي" active={activeItem === 'home'} />
-            <NavLink to="/leaderboard" id="nav-leaderboard" label="المتصدرين" active={activeItem === 'leaderboard'} />
+            <NavLink to={leaderboardHref} id="nav-leaderboard" label="المتصدرين" active={activeItem === 'leaderboard'} />
             <NavLink to="/store" id="nav-shop" label="المتجر" active={activeItem === 'shop'} />
             <NavLink to="/rules" id="nav-rules" label="القواعد" active={activeItem === 'rules'} />
           </nav>
@@ -109,7 +111,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
           <div className="flex items-center gap-4 flex-row-reverse">
             {/* Theme Toggle */}
             <button
-              onClick={toggleDarkMode}
+              onClick={toggleTheme}
               aria-label="تبديل الوضع الداكن"
               className="w-11 h-11 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-xl text-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition hover:-translate-y-0.5 shadow-sm"
             >
@@ -144,7 +146,12 @@ export default function AppLayout({ activeItem = 'home', children }) {
             </Link>
 
             {/* User Mini Profile */}
-            <Link to="/account" id="nav-profile-btn" className="flex items-center gap-3 group smooth-transition hover:-translate-y-0.5">
+            <Link
+              to="/account"
+              id="nav-profile-btn"
+              aria-label="الذهاب إلى إعدادات الحساب"
+              className="flex items-center gap-3 group smooth-transition hover:-translate-y-0.5"
+            >
               <div className="hidden md:flex flex-col text-left">
                 <span className="font-heading text-xs text-gray-500 dark:text-gray-400">{displayName}</span>
               </div>
@@ -168,7 +175,9 @@ export default function AppLayout({ activeItem = 'home', children }) {
 
       {/* ===== Main Content ===== */}
       <main
-        className="flex-1 bg-pattern-main pb-20 md:pb-0"
+        id="main-content"
+        tabIndex="-1"
+        className="flex-1 bg-pattern-main pb-24 md:pb-0"
         style={{ viewTransitionName: 'main-content' }}
       >
         {children}
@@ -182,7 +191,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
       >
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 flex-row-reverse">
           <Link to="/lobby" id="footer-logo-link" className="smooth-transition hover:opacity-80 block">
-            <img src={LOGO_URL} alt="شعار حرب الأسماء" className="w-[110px] object-contain opacity-80" />
+            <img src={LOGO_URL} alt="شعار حرب الأسماء" className="w-[110px] object-contain opacity-80" width="110" height="55" />
           </Link>
           <div className="flex flex-col items-center md:items-start gap-4">
             <div className="flex gap-6 font-medium text-sm text-gray-400">
@@ -206,7 +215,8 @@ export default function AppLayout({ activeItem = 'home', children }) {
 
       {/* ===== Mobile Bottom Nav ===== */}
       <nav
-        className="md:hidden fixed bottom-0 w-full bg-white dark:bg-brand-card-dark border-t border-gray-100 dark:border-gray-800 flex justify-around items-center py-2 px-2 z-50 transition-colors duration-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.2)]"
+        aria-label="التنقل السفلي"
+        className="md:hidden fixed bottom-0 w-full bg-white dark:bg-brand-card-dark border-t border-gray-100 dark:border-gray-800 flex justify-around items-center py-2 px-2 z-50 transition-colors duration-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.2)] safe-area-pb"
         style={{ viewTransitionName: 'mobile-nav' }}
       >
         <Link
@@ -223,7 +233,7 @@ export default function AppLayout({ activeItem = 'home', children }) {
         </Link>
 
         <Link
-          to="/leaderboard"
+          to={leaderboardHref}
           id="mobile-nav-leaderboard-btn"
           className={`flex flex-col items-center gap-1 smooth-transition ${
             activeItem === 'leaderboard'
@@ -235,14 +245,14 @@ export default function AppLayout({ activeItem = 'home', children }) {
           <span className="text-[9px] font-bold">المتصدرين</span>
         </Link>
 
-        <button
-          onClick={() => navigate('/lobby')}
+        <Link
+          to="/lobby"
           id="mobile-nav-attack"
           aria-label="ساحة المعركة"
           className="flex flex-col items-center justify-center w-12 h-12 bg-brand-teal text-white dark:bg-brand-orange/80 rounded-full -mt-6 border-[3px] border-brand-light-bg dark:border-brand-dark-bg shadow-sm smooth-transition active:scale-95"
         >
           <iconify-icon icon="lucide:swords" class="text-2xl"></iconify-icon>
-        </button>
+        </Link>
 
         <Link
           to="/store"

@@ -16,6 +16,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
 import { formatDate, formatDateTime } from '../../lib/dates'
+import { formatNumber } from '../../lib/numbers'
 
 const ENTRY_TYPE_LABELS = {
   initial_balance: 'رصيد أولي', question_reward: 'مكافأة سؤال', attack_reward: 'مكافأة هجوم',
@@ -349,7 +350,7 @@ export default function AdminPlayerDetailPage() {
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 mb-1">الرصيد</div>
           <div className={`font-display text-2xl font-black ${player.is_bankrupt ? 'text-brand-danger' : 'text-gray-900 dark:text-white'}`}>
-            {player.balance?.toLocaleString('ar-SA')}
+            {formatNumber(player.balance)}
           </div>
           {player.is_bankrupt && <span className="text-[10px] font-black text-brand-danger bg-brand-danger/10 px-1.5 py-0.5 rounded">مفلس</span>}
         </div>
@@ -372,6 +373,8 @@ export default function AdminPlayerDetailPage() {
           <div className="flex items-center justify-center gap-1">
             {PROTECTION_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => handleProtectionChange(opt.value)}
+                aria-label={`تعيين الحماية إلى ${opt.label}`}
+                aria-pressed={player.protection === opt.value}
                 className={`p-1.5 rounded-lg smooth-transition ${player.protection === opt.value ? 'bg-gray-200 dark:bg-gray-700 ring-2 ring-brand-teal/30' : `opacity-40 hover:opacity-80 ${opt.bg}`}`}
                 title={opt.label}>
                 <iconify-icon icon={opt.icon} class={`text-lg ${opt.color}`}></iconify-icon>

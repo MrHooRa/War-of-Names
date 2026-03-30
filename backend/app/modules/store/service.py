@@ -13,12 +13,12 @@ Effect trigger modes:
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.utils import jsonb_safe
+from app.core.utils import jsonb_safe, now_riyadh_naive
 from app.core.enums import (
     AuditActorType,
     EffectType,
@@ -28,7 +28,11 @@ from app.core.enums import (
     OwnedItemStatus,
     ProtectionType,
 )
-from app.modules.attacks.models import ProtectionRecord
+from app.modules.attacks.protection_service import (
+    create_protection_record,
+    expire_active_protection_records,
+    reconcile_membership_protection,
+)
 from app.modules.competitions.models import AliasRecord, Membership
 from app.modules.notifications.service import create_notification
 from app.modules.scoring.models import LedgerEntry
@@ -39,6 +43,22 @@ PENDING_TRIGGERS = {"next_success", "next_failure", "next_defense"}
 
 
 # ── Effect handlers (instant — executed on item use) ─────────────────────
+
+def _resolve_effect_target(
+    membership: Membership,
+    target_membership: Membership | None,
+    target_scope: str | None,
+) -> Membership | None:
+    """Resolve the effect target without silently self-targeting target-scoped effects."""
+    if target_scope == "target":
+        return target_membership
+    return membership
+
+
+def _clamp_debit(balance: int, amount: int) -> tuple[int, int]:
+    """Clamp debit amounts so item effects cannot drive balances below zero."""
+    applied_amount = min(max(0, amount), max(0, balance))
+    return applied_amount, balance - applied_amount
 
 async def _handle_fixed_bonus(
     session: AsyncSession,
@@ -54,7 +74,9 @@ async def _handle_fixed_bonus(
     if amount <= 0:
         return {"type": "fixed_bonus", "skipped": True, "reason": "amount <= 0"}
 
-    target = target_membership if effect.target_scope == "target" and target_membership else membership
+    target = _resolve_effect_target(membership, target_membership, effect.target_scope)
+    if not target:
+        return {"type": "fixed_bonus", "skipped": True, "reason": "target context required"}
     balance_before = target.current_balance
     balance_after = balance_before + amount
 
@@ -92,27 +114,31 @@ async def _handle_state_change(
     state_key = effect.parameters.get("state", "")
     state_value = effect.parameters.get("value", "")
 
-    target = target_membership if effect.target_scope == "target" and target_membership else membership
+    target = _resolve_effect_target(membership, target_membership, effect.target_scope)
+    if not target:
+        return {"type": "state_change", "skipped": True, "reason": "target context required"}
 
     if state_key == "protection":
         old_protection = target.protection
-        new_protection = ProtectionType(state_value) if state_value in ProtectionType.__members__.values() else ProtectionType.FULL
+        valid_values = {prot.value for prot in ProtectionType}
+        new_protection = ProtectionType(state_value) if state_value in valid_values else ProtectionType.FULL
 
-        target.protection = new_protection
-
-        # Create ProtectionRecord for traceability
         duration = effect.duration_minutes
-        now = datetime.utcnow()
-        record = ProtectionRecord(
-            membership_id=target.id,
-            protection_type=new_protection,
-            source_type="item_effect",
-            source_id=owned_item.id,
-            reason=f"تفعيل عنصر حماية",
-            starts_at=now,
-            ends_at=now + timedelta(minutes=duration) if duration else None,
-        )
-        session.add(record)
+        now = now_riyadh_naive()
+        if new_protection != ProtectionType.NONE:
+            await create_protection_record(
+                session,
+                target,
+                protection_type=new_protection,
+                source_type="item_effect",
+                source_id=owned_item.id,
+                reason="تفعيل عنصر حماية",
+                starts_at=now,
+                ends_at=now + timedelta(minutes=duration) if duration else None,
+            )
+        else:
+            await expire_active_protection_records(session, target.id, now=now)
+            await reconcile_membership_protection(session, target, now=now)
 
         return jsonb_safe({
             "type": "state_change",
@@ -142,7 +168,9 @@ async def _handle_negative_effect(
 ) -> dict:
     """Apply a negative effect to the target (point deduction, protection removal)."""
     sub_type = effect.parameters.get("sub_type", "")
-    target = target_membership if target_membership else membership
+    target = _resolve_effect_target(membership, target_membership, effect.target_scope)
+    if not target:
+        return {"type": "negative_effect", "skipped": True, "reason": "target context required"}
 
     ctx = context or {}
 
@@ -152,7 +180,7 @@ async def _handle_negative_effect(
             return {"type": "negative_effect", "skipped": True}
 
         balance_before = target.current_balance
-        balance_after = balance_before - amount
+        applied_amount, balance_after = _clamp_debit(balance_before, amount)
 
         ledger = LedgerEntry(
             membership_id=target.id,
@@ -160,7 +188,7 @@ async def _handle_negative_effect(
             season_id=ctx.get("season_id"),
             cycle_id=ctx.get("cycle_id"),
             entry_type=LedgerEntryType.ATTACK_PENALTY,
-            amount=amount,
+            amount=applied_amount,
             direction=LedgerDirection.DEBIT,
             balance_before=balance_before,
             balance_after=balance_after,
@@ -170,18 +198,20 @@ async def _handle_negative_effect(
         )
         session.add(ledger)
         target.current_balance = balance_after
-        return {"type": "negative_effect", "sub_type": "deduct_points", "amount": amount}
+        return {"type": "negative_effect", "sub_type": "deduct_points", "amount": applied_amount}
 
     if sub_type == "remove_protection":
         old = target.protection
-        target.protection = ProtectionType.NONE
+        now = now_riyadh_naive()
+        await expire_active_protection_records(session, target.id, now=now)
+        await reconcile_membership_protection(session, target, now=now)
         return {"type": "negative_effect", "sub_type": "remove_protection", "old_value": old}
 
     if sub_type == "deduct_percentage":
         pct = effect.parameters.get("percentage", 0)
         amount = max(1, round(target.current_balance * pct / 100))
         balance_before = target.current_balance
-        balance_after = balance_before - amount
+        applied_amount, balance_after = _clamp_debit(balance_before, amount)
 
         ledger = LedgerEntry(
             membership_id=target.id,
@@ -189,7 +219,7 @@ async def _handle_negative_effect(
             season_id=ctx.get("season_id"),
             cycle_id=ctx.get("cycle_id"),
             entry_type=LedgerEntryType.ATTACK_PENALTY,
-            amount=amount,
+            amount=applied_amount,
             direction=LedgerDirection.DEBIT,
             balance_before=balance_before,
             balance_after=balance_after,
@@ -199,7 +229,7 @@ async def _handle_negative_effect(
         )
         session.add(ledger)
         target.current_balance = balance_after
-        return {"type": "negative_effect", "sub_type": "deduct_percentage", "percentage": pct, "amount": amount}
+        return {"type": "negative_effect", "sub_type": "deduct_percentage", "percentage": pct, "amount": applied_amount}
 
     return {"type": "negative_effect", "skipped": True, "reason": f"unknown sub_type: {sub_type}"}
 
@@ -279,10 +309,10 @@ async def _handle_action_prevention(
 
     if action == "attack":
         # Grant full protection
-        target.protection = ProtectionType.FULL
-        now = datetime.utcnow()
-        record = ProtectionRecord(
-            membership_id=target.id,
+        now = now_riyadh_naive()
+        await create_protection_record(
+            session,
+            target,
             protection_type=ProtectionType.FULL,
             source_type="item_effect",
             source_id=owned_item.id,
@@ -290,7 +320,6 @@ async def _handle_action_prevention(
             starts_at=now,
             ends_at=now + timedelta(minutes=effect.duration_minutes) if effect.duration_minutes else None,
         )
-        session.add(record)
 
     return {
         "type": "action_prevention",
@@ -377,7 +406,7 @@ async def get_active_item_effects(
     Checks ItemActivation records where the owned item is ACTIVATED and not expired.
     Returns the effect_summary dicts.
     """
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     query = (
         select(ItemActivation, OwnedItem)
         .join(OwnedItem, ItemActivation.owned_item_id == OwnedItem.id)
@@ -417,7 +446,7 @@ async def get_pending_item_effects(
     Returns list of dicts enriched with owned_item_id + activation_id
     so the attack engine can consume them after the trigger fires.
     """
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     query = (
         select(ItemActivation, OwnedItem)
         .join(OwnedItem, ItemActivation.owned_item_id == OwnedItem.id)
@@ -454,7 +483,7 @@ async def consume_pending_effects(
     owned_item_ids: list[uuid.UUID],
 ) -> None:
     """Mark pending items as consumed after their trigger fires."""
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     consumed = set()
     for oid in owned_item_ids:
         if oid in consumed:

@@ -108,7 +108,7 @@ EFFECT_TYPE_CONFIG = {
     EffectType.NEGATIVE_EFFECT: {
         "label": "تأثير سلبي",
         "icon": "lucide:skull",
-        "description": "يطبّق تأثيراً سلبياً على الهدف",
+        "description": "يطبّق تأثيراً سلبياً على الهدف أو يكسر حمايته الجزئية في الهجوم التالي",
         "fields": [
             {"key": "sub_type", "label": "نوع التأثير السلبي", "type": "select", "required": True,
              "options": [
@@ -122,7 +122,7 @@ EFFECT_TYPE_CONFIG = {
              "show_when": {"sub_type": "deduct_percentage"}},
         ],
         "allowed_scopes": ["target"],
-        "allowed_triggers": ["activation"],
+        "allowed_triggers": ["activation", "next_success"],
     },
     EffectType.ALLOW_ALIAS_CHANGE: {
         "label": "تغيير اللقب",
@@ -277,6 +277,8 @@ def generate_effect_summary(effect_type: str, parameters: dict, duration_minutes
             pct = parameters.get("percentage", 0)
             return f"يخصم {pct}٪ من رصيد الهدف"
         if sub_type == "remove_protection":
+            if trigger_on == "next_success":
+                return "عند نجاح الهجوم التالي: يزيل الحماية الجزئية عن الهدف"
             return "يزيل حماية الهدف"
         return f"تأثير سلبي: {sub_type}"
 

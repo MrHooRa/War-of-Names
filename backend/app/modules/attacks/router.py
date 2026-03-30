@@ -1,7 +1,7 @@
 """FastAPI router for the attack engine."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.core.auth import get_current_account
 from app.core.database import async_session
 from app.core.enums import MembershipStatus
+from app.core.utils import now_riyadh_naive
 from app.modules.attacks.schemas import (
     AttackExecuteRequest,
     AttackPreviewRequest,
@@ -18,6 +19,7 @@ from app.modules.attacks.models import AttackAttempt
 from app.modules.attacks.service import execute_attack, get_attack_preview
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Cycle, Membership, Season
+from app.modules.settings.service import get_setting
 
 router = APIRouter(prefix="/api/competitions/{competition_id}/attacks", tags=["attacks"])
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
@@ -96,8 +98,45 @@ async def execute_attack_endpoint(
         if str(membership.id) == str(body.target_membership_id):
             raise HTTPException(status_code=400, detail="لا يمكنك مهاجمة نفسك")
 
+        season, cycle = await _get_active_season_cycle(session, competition_id)
+        if not season or not cycle:
+            raise HTTPException(
+                status_code=400,
+                detail="لا توجد دورة نشطة في هذه المنافسة — لا يمكن تنفيذ الهجوم",
+            )
+
+        cooldown_seconds = int(
+            await get_setting(
+                session,
+                "attack_cooldown_seconds",
+                competition_id=competition_id,
+                season_id=season.id,
+                cycle_id=cycle.id,
+            ) or 0
+        )
+        now = now_riyadh_naive()
+        if cooldown_seconds > 0:
+            cooldown_cutoff = now - timedelta(seconds=cooldown_seconds)
+            latest_result = await session.execute(
+                select(AttackAttempt).where(
+                    AttackAttempt.attacker_id == membership.id,
+                    AttackAttempt.cycle_id == cycle.id,
+                    AttackAttempt.created_at >= cooldown_cutoff,
+                ).order_by(AttackAttempt.created_at.desc()).limit(1)
+            )
+            latest_attempt = latest_result.scalars().first()
+            if latest_attempt:
+                remaining = max(
+                    1,
+                    cooldown_seconds - int((now - latest_attempt.created_at).total_seconds()),
+                )
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"انتظر {remaining} ثانية قبل تنفيذ هجوم جديد",
+                )
+
         # Prevent rapid duplicate submissions (same attacker+target+guess within 5 seconds)
-        recent_cutoff = datetime.utcnow() - timedelta(seconds=5)
+        recent_cutoff = now - timedelta(seconds=5)
         dup_result = await session.execute(
             select(AttackAttempt).where(
                 AttackAttempt.attacker_id == membership.id,
@@ -108,13 +147,6 @@ async def execute_attack_endpoint(
         )
         if dup_result.scalars().first():
             raise HTTPException(status_code=429, detail="انتظر قليلاً قبل تكرار نفس الهجوم")
-
-        season, cycle = await _get_active_season_cycle(session, competition_id)
-        if not season or not cycle:
-            raise HTTPException(
-                status_code=400,
-                detail="لا توجد دورة نشطة في هذه المنافسة — لا يمكن تنفيذ الهجوم",
-            )
 
         result = await execute_attack(
             session,

@@ -17,6 +17,7 @@ from app.core.enums import (
     SeasonStatus,
 )
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 # ── Competition Structure ─────────────────────────────────────────────────
@@ -34,8 +35,8 @@ class Competition(Base):
     registration_open: Mapped[bool] = mapped_column(default=False)
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="private")
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     seasons = relationship("Season", back_populates="competition", lazy="selectin")
     memberships = relationship("Membership", back_populates="competition", lazy="selectin")
@@ -59,7 +60,7 @@ class CompetitionInvite(Base):
     use_count: Mapped[int] = mapped_column(default=0)
     expires_at: Mapped[datetime | None] = mapped_column()
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
     competition = relationship("Competition", back_populates="invites")
 
@@ -79,8 +80,8 @@ class Season(Base):
     )
     starts_at: Mapped[datetime | None] = mapped_column()
     ends_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     competition = relationship("Competition", back_populates="seasons")
     cycles = relationship("Cycle", back_populates="season", lazy="selectin")
@@ -101,8 +102,8 @@ class Cycle(Base):
     )
     starts_at: Mapped[datetime | None] = mapped_column()
     ends_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     season = relationship("Season", back_populates="cycles")
 
@@ -129,8 +130,8 @@ class Membership(Base):
     protection: Mapped[ProtectionType] = mapped_column(
         pg_enum(ProtectionType, name="protection_type"), nullable=False, default=ProtectionType.NONE
     )
-    joined_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    joined_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     account = relationship("Account", back_populates="memberships")
     competition = relationship("Competition", back_populates="memberships")
@@ -147,8 +148,8 @@ class AliasRecord(Base):
     reason: Mapped[str | None] = mapped_column(String(200))
     season_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("seasons.id", ondelete="SET NULL"))
     cycle_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cycles.id", ondelete="SET NULL"))
-    starts_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    starts_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     ends_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
     membership = relationship("Membership", back_populates="alias_records")

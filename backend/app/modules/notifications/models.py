@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.enums import NotificationPriority, NotificationType
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class Notification(Base):
@@ -29,5 +30,5 @@ class Notification(Base):
     reference_type: Mapped[str | None] = mapped_column(String(50))
     reference_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     deep_link: Mapped[str | None] = mapped_column(String(500))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     read_at: Mapped[datetime | None] = mapped_column()

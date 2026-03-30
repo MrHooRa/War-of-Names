@@ -102,6 +102,51 @@ function CreateButton({ icon, label, onClick }) {
   )
 }
 
+function QuestionMobileCard({ question, onEdit, onDelete }) {
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-bold leading-6 text-gray-900 break-words dark:text-white">{question.prompt}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${question.question_type === 'true_false' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'}`}>
+              {question.question_type === 'true_false' ? 'صح/خطأ' : 'متعدد'}
+            </span>
+            <StatusBadge status={question.difficulty} />
+            <StatusBadge status={question.status} />
+          </div>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2 text-center dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">النقاط</div>
+          <div className="font-heading font-black text-gray-900 dark:text-white">{question.score_value}</div>
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">الإجابة الصحيحة</div>
+        <div className="mt-1 text-xs font-bold text-gray-500 dark:text-gray-400">
+          {question.correct_answer?.answer || '—'}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <button
+          onClick={onEdit}
+          className="rounded-lg px-3 py-1.5 text-xs font-bold text-brand-teal hover:bg-brand-teal/10 smooth-transition"
+        >
+          تعديل
+        </button>
+        <button
+          onClick={onDelete}
+          className="rounded-lg px-3 py-1.5 text-xs font-bold text-brand-danger hover:bg-brand-danger/10 smooth-transition"
+        >
+          حذف
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ConfirmDeleteModal({ title, message, onCancel, onConfirm, deleting }) {
   return (
     <ModalOverlay onClose={onCancel}>
@@ -579,7 +624,7 @@ function CreateSessionModal({ groups, competitionId, onClose, onSuccess }) {
   async function handleSubmit() {
     if (!title.trim()) { setError('عنوان الجلسة مطلوب'); return }
     if (!sourceGroupId) { setError('اختر مجموعة الأسئلة'); return }
-    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+    if (startsAt && endsAt && endsAt <= startsAt) {
       setError('وقت الانتهاء يجب أن يكون بعد وقت البدء'); return
     }
     setSubmitting(true); setError(null)
@@ -590,8 +635,8 @@ function CreateSessionModal({ groups, competitionId, onClose, onSuccess }) {
         source_group_id: sourceGroupId,
         answer_duration_seconds: Number(answerDuration),
       }
-      if (startsAt) payload.starts_at = new Date(startsAt).toISOString()
-      if (endsAt) payload.ends_at = new Date(endsAt).toISOString()
+      if (startsAt) payload.starts_at = startsAt
+      if (endsAt) payload.ends_at = endsAt
       await apiFetch('/api/admin/quiz-sessions', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -944,59 +989,76 @@ export default function AdminQuizPage() {
       {/* Questions Tab */}
       {tab === 'questions' && (
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">السؤال</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">النوع</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الصعوبة</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">النقاط</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الإجابة</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الحالة</th>
-                  <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {questions?.map(q => (
-                  <tr key={q.id} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="px-4 py-3">
-                      <div className="font-bold text-gray-900 dark:text-white max-w-md truncate">{q.prompt}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${q.question_type === 'true_false' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'}`}>
-                        {q.question_type === 'true_false' ? 'صح/خطأ' : 'متعدد'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><StatusBadge status={q.difficulty} /></td>
-                    <td className="px-4 py-3 font-heading font-black text-gray-900 dark:text-white">{q.score_value}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{q.correct_answer?.answer}</td>
-                    <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setEditingQuestion(q)}
-                          className="p-1.5 rounded-lg text-brand-teal hover:bg-brand-teal/10 smooth-transition"
-                          title="تعديل"
-                        >
-                          <iconify-icon icon="lucide:edit" class="text-base"></iconify-icon>
-                        </button>
-                        <button
-                          onClick={() => setDeletingQuestion(q)}
-                          className="p-1.5 rounded-lg text-brand-danger hover:bg-brand-danger/10 smooth-transition"
-                          title="حذف"
-                        >
-                          <iconify-icon icon="lucide:trash-2" class="text-base"></iconify-icon>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {(!questions || questions.length === 0) && (
+          {(!questions || questions.length === 0) ? (
             <div className="text-center py-12 text-gray-400 font-bold">لا توجد أسئلة</div>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-100 dark:divide-gray-800 md:hidden">
+                {questions.map(q => (
+                  <QuestionMobileCard
+                    key={q.id}
+                    question={q}
+                    onEdit={() => setEditingQuestion(q)}
+                    onDelete={() => setDeletingQuestion(q)}
+                  />
+                ))}
+              </div>
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[600px]">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+                        <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">السؤال</th>
+                        <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">النوع</th>
+                        <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الصعوبة</th>
+                        <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">النقاط</th>
+                        <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الإجابة</th>
+                        <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">الحالة</th>
+                        <th className="text-right px-4 py-3 font-black text-gray-500 text-[11px] uppercase tracking-widest">إجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questions.map(q => (
+                        <tr key={q.id} className="border-b border-gray-100 dark:border-gray-800">
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-gray-900 dark:text-white max-w-md truncate">{q.prompt}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${q.question_type === 'true_false' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'}`}>
+                              {q.question_type === 'true_false' ? 'صح/خطأ' : 'متعدد'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3"><StatusBadge status={q.difficulty} /></td>
+                          <td className="px-4 py-3 font-heading font-black text-gray-900 dark:text-white">{q.score_value}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{q.correct_answer?.answer}</td>
+                          <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setEditingQuestion(q)}
+                                aria-label={`تعديل السؤال: ${q.prompt}`}
+                                className="p-1.5 rounded-lg text-brand-teal hover:bg-brand-teal/10 smooth-transition"
+                                title="تعديل"
+                              >
+                                <iconify-icon icon="lucide:edit" class="text-base"></iconify-icon>
+                              </button>
+                              <button
+                                onClick={() => setDeletingQuestion(q)}
+                                aria-label={`حذف السؤال: ${q.prompt}`}
+                                className="p-1.5 rounded-lg text-brand-danger hover:bg-brand-danger/10 smooth-transition"
+                                title="حذف"
+                              >
+                                <iconify-icon icon="lucide:trash-2" class="text-base"></iconify-icon>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1063,16 +1125,17 @@ export default function AdminQuizPage() {
                       <StatusBadge status={g.status} />
                       <button
                         onClick={() => handleExportGroup(g.id, g.title)}
+                        aria-label={`تصدير مجموعة ${g.title} إلى Excel`}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition"
                         title="تصدير Excel"
                       >
                         <iconify-icon icon="lucide:download" class="text-sm"></iconify-icon>
                       </button>
-                      <button onClick={() => openEditGroup(g)} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل">
+                      <button onClick={() => openEditGroup(g)} aria-label={`تعديل مجموعة ${g.title}`} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-teal hover:bg-brand-teal/10 smooth-transition" title="تعديل">
                         <iconify-icon icon="lucide:pencil" class="text-sm"></iconify-icon>
                       </button>
                       {g.status !== 'archived' && (
-                        <button onClick={() => handleArchiveGroup(g.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="أرشفة">
+                        <button onClick={() => handleArchiveGroup(g.id)} aria-label={`أرشفة مجموعة ${g.title}`} className="p-1.5 rounded-lg text-gray-400 hover:text-brand-danger hover:bg-brand-danger/10 smooth-transition" title="أرشفة">
                           <iconify-icon icon="lucide:archive" class="text-sm"></iconify-icon>
                         </button>
                       )}

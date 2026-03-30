@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from app.core.auth import get_admin_account, get_current_account
 from app.core.database import async_session
 from app.core.enums import AuditActorType
+from app.core.utils import coerce_riyadh_naive, now_riyadh_naive
 from app.modules.announcements.models import Announcement, AnnouncementScope, AnnouncementStyle
 from app.modules.audit.service import write_audit
 from app.modules.auth.models import Account
@@ -112,8 +113,8 @@ async def admin_create_announcement(admin: AdminAccount, req: CreateAnnouncement
             cta_label=req.cta_label,
             cta_url=req.cta_url,
             is_dismissible=req.is_dismissible,
-            starts_at=req.starts_at,
-            ends_at=req.ends_at,
+            starts_at=coerce_riyadh_naive(req.starts_at),
+            ends_at=coerce_riyadh_naive(req.ends_at),
             created_by=admin.id,
         )
         session.add(ann)
@@ -159,8 +160,10 @@ async def admin_update_announcement(
 
         before = {k: getattr(ann, k) for k in changes}
         for key, value in changes.items():
+            if key in {"starts_at", "ends_at"}:
+                value = coerce_riyadh_naive(value)
             setattr(ann, key, value)
-        ann.updated_at = datetime.utcnow()
+        ann.updated_at = now_riyadh_naive()
 
         await write_audit(
             session,
@@ -231,7 +234,7 @@ async def get_active_announcements(
     competition/season/cycle-specific ones when IDs are provided.
     Respects starts_at/ends_at timing windows.
     """
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     async with async_session() as session:
         query = (
             select(Announcement)

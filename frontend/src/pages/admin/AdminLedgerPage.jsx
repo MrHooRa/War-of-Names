@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
 import { formatDateTime } from '../../lib/dates'
+import { formatNumber } from '../../lib/numbers'
 
 const ENTRY_TYPE_LABELS = {
   initial_balance: 'رصيد أولي', question_reward: 'مكافأة سؤال', attack_reward: 'مكافأة هجوم',
@@ -25,6 +26,51 @@ const ENTRY_TYPE_COLORS = {
   distribution: 'bg-brand-teal/10 text-brand-teal',
   compensation: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600',
   system_reward: 'bg-brand-teal/10 text-brand-teal',
+}
+
+function LedgerMobileCard({ entry }) {
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">اللاعب</div>
+          <Link to={`/admin/members/${entry.membership_id}`} className="font-bold text-brand-teal dark:text-brand-slate hover:underline">
+            {entry.player_alias || entry.alias || '—'}
+          </Link>
+          <div className="mt-1">
+            <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${ENTRY_TYPE_COLORS[entry.entry_type] || 'bg-gray-100 text-gray-500'}`}>
+              {ENTRY_TYPE_LABELS[entry.entry_type] || entry.entry_type}
+            </span>
+          </div>
+        </div>
+        <div className={`font-heading font-black ${entry.direction === 'credit' ? 'text-brand-success' : 'text-brand-danger'}`}>
+          {entry.direction === 'credit' ? '+' : '-'}{entry.amount}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">الرصيد</div>
+          <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
+            {entry.balance_before} → {entry.balance_after}
+          </div>
+        </div>
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">التوقيت</div>
+          <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
+            {entry.created_at ? formatDateTime(entry.created_at) : '—'}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">السبب</div>
+        <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
+          {entry.reason || '—'}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function AdminLedgerPage() {
@@ -75,19 +121,19 @@ export default function AdminLedgerPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي الإيداعات</div>
-          <div className="font-heading font-black text-2xl text-brand-success">+{totalCredits.toLocaleString()}</div>
+          <div className="font-heading font-black text-2xl text-brand-success">+{formatNumber(totalCredits)}</div>
         </div>
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي الخصومات</div>
-          <div className="font-heading font-black text-2xl text-brand-danger">-{totalDebits.toLocaleString()}</div>
+          <div className="font-heading font-black text-2xl text-brand-danger">-{formatNumber(totalDebits)}</div>
         </div>
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">صافي الحركة</div>
           <div className={`font-heading font-black text-2xl ${totalCredits - totalDebits >= 0 ? 'text-brand-success' : 'text-brand-danger'}`}>
-            {(totalCredits - totalDebits).toLocaleString()}
+            {formatNumber(totalCredits - totalDebits)}
           </div>
         </div>
       </div>
@@ -117,53 +163,59 @@ export default function AdminLedgerPage() {
 
       {/* Ledger Table */}
       <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">النوع</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">اللاعب</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">المبلغ</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">الرصيد</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">السبب</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">التوقيت</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {entries.map(e => (
-                <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 smooth-transition">
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${ENTRY_TYPE_COLORS[e.entry_type] || 'bg-gray-100 text-gray-500'}`}>
-                      {ENTRY_TYPE_LABELS[e.entry_type] || e.entry_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link to={`/admin/members/${e.membership_id}`} className="font-bold text-brand-teal dark:text-brand-slate hover:underline">
-                      {e.player_alias || e.alias || '—'}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`font-heading font-black ${e.direction === 'credit' ? 'text-brand-success' : 'text-brand-danger'}`}>
-                      {e.direction === 'credit' ? '+' : '-'}{e.amount}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center text-xs font-bold text-gray-400">
-                    {e.balance_before} → {e.balance_after}
-                  </td>
-                  <td className="px-4 py-3 text-xs font-bold text-gray-500 max-w-xs truncate">{e.reason || '—'}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-gray-400">
-                    {e.created_at ? formatDateTime(e.created_at) : '—'}
-                  </td>
-                </tr>
-              ))}
-              {entries.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="px-4 py-10 text-center font-bold text-gray-400">لا توجد حركات</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {entries.length === 0 ? (
+          <div className="px-4 py-10 text-center font-bold text-gray-400">لا توجد حركات</div>
+        ) : (
+          <>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 md:hidden">
+              {entries.map(entry => <LedgerMobileCard key={entry.id} entry={entry} />)}
+            </div>
+            <div className="hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-800">
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">النوع</th>
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">اللاعب</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">المبلغ</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">الرصيد</th>
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">السبب</th>
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">التوقيت</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {entries.map(e => (
+                      <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 smooth-transition">
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${ENTRY_TYPE_COLORS[e.entry_type] || 'bg-gray-100 text-gray-500'}`}>
+                            {ENTRY_TYPE_LABELS[e.entry_type] || e.entry_type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link to={`/admin/members/${e.membership_id}`} className="font-bold text-brand-teal dark:text-brand-slate hover:underline">
+                            {e.player_alias || e.alias || '—'}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`font-heading font-black ${e.direction === 'credit' ? 'text-brand-success' : 'text-brand-danger'}`}>
+                            {e.direction === 'credit' ? '+' : '-'}{e.amount}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs font-bold text-gray-400">
+                          {e.balance_before} → {e.balance_after}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-bold text-gray-500 max-w-xs truncate">{e.reason || '—'}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-gray-400">
+                          {e.created_at ? formatDateTime(e.created_at) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

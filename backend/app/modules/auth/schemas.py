@@ -9,6 +9,7 @@ class RegisterRequest(BaseModel):
     username: str
     real_name: str
     password: str
+    consent_accepted: bool
 
     @field_validator("username")
     @classmethod
@@ -38,6 +39,13 @@ class RegisterRequest(BaseModel):
     def password_strength(cls, v: str) -> str:
         if len(v) < 6:
             raise ValueError("كلمة المرور يجب أن تكون 6 أحرف على الأقل")
+        return v
+
+    @field_validator("consent_accepted")
+    @classmethod
+    def consent_required(cls, v: bool) -> bool:
+        if v is not True:
+            raise ValueError("يجب الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة")
         return v
 
 

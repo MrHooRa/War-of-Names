@@ -1,7 +1,6 @@
 """Notification endpoints — list and mark as read."""
 
 import uuid
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +9,7 @@ from sqlalchemy import func, select, update
 from app.core.auth import get_current_account
 from app.core.database import async_session
 from app.core.enums import MembershipStatus
+from app.core.utils import now_riyadh_naive
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Membership
 from app.modules.notifications.models import Notification
@@ -95,7 +95,7 @@ async def mark_read(notification_id: uuid.UUID, account: CurrentAccount):
             raise HTTPException(status_code=404, detail="الإشعار غير موجود")
 
         notif.is_read = True
-        notif.read_at = datetime.utcnow()
+        notif.read_at = now_riyadh_naive()
         await session.commit()
 
     return {"success": True, "message": "تم تحديد الإشعار كمقروء"}
@@ -111,7 +111,7 @@ async def mark_all_read(account: CurrentAccount):
                 Notification.recipient_id == account.id,
                 Notification.is_read == False,
             )
-            .values(is_read=True, read_at=datetime.utcnow())
+            .values(is_read=True, read_at=now_riyadh_naive())
         )
         await session.commit()
 

@@ -5,12 +5,7 @@
 
 import { Link, useNavigate, Outlet } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
-
-function toggleDarkMode() {
-  const html = document.documentElement
-  html.classList.toggle('dark')
-  localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light')
-}
+import { toggleTheme } from '../../lib/theme'
 
 export default function OwnerLayout() {
   const { currentUser, logout } = useAuthContext()
@@ -38,7 +33,7 @@ export default function OwnerLayout() {
           <div className="flex items-center gap-3 flex-row-reverse">
             {/* Dark mode toggle */}
             <button
-              onClick={toggleDarkMode}
+              onClick={toggleTheme}
               aria-label="تبديل الوضع الداكن"
               className="w-9 h-9 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition"
             >

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import useQuiz from '../hooks/useQuiz'
 import useSubmitAnswer from '../hooks/useSubmitAnswer'
+import { formatNumber } from '../lib/numbers'
 
 const OPTION_LETTERS = ['أ', 'ب', 'ج', 'د']
 
@@ -179,7 +180,7 @@ export default function QuizPage() {
           <iconify-icon icon="lucide:trophy" class="relative text-7xl text-brand-teal dark:text-brand-slate"></iconify-icon>
         </div>
         <h1 className="font-display text-4xl font-black text-gray-900 dark:text-white">انتهت الجلسة!</h1>
-        <p className="text-gray-500 dark:text-gray-400 font-bold text-lg">حصلت على {totalEarned.toLocaleString('ar-SA')} نقطة</p>
+        <p className="text-gray-500 dark:text-gray-400 font-bold text-lg">حصلت على {formatNumber(totalEarned)} نقطة</p>
         <Link to="/dashboard" className="btn-press bg-brand-teal hover:bg-brand-teal-hover text-white px-8 py-4 rounded-2xl font-heading font-black text-lg shadow-lg smooth-transition">
           العودة للرئيسية
         </Link>
@@ -207,7 +208,7 @@ export default function QuizPage() {
           <div className="flex flex-col items-end gap-1">
             <span className="text-[10px] font-black text-gray-500 dark:text-gray-500 uppercase tracking-widest">النقاط المكتسبة</span>
             <div className="flex items-center gap-2 text-brand-teal dark:text-brand-slate">
-              <span className="font-display text-2xl font-black">+{totalEarned.toLocaleString('ar-SA')}</span>
+              <span className="font-display text-2xl font-black">+{formatNumber(totalEarned)}</span>
               <iconify-icon icon="lucide:zap" class="text-2xl"></iconify-icon>
             </div>
           </div>

@@ -1,25 +1,24 @@
 /**
  * PlayerProfilePage — detailed view of a single competitor.
  *
- * Route: /players/:membershipId
+ * Canonical route: /competitions/:competitionId/players/:membershipId
+ * Legacy fallback: /players/:membershipId → redirects to the active competition route
  *
  * Shows:
- *  - Alias, balance, protection state, bankruptcy indicator
- *  - Attack exposure stats (how many times they've been hit, current decay stage)
- *  - Recent attacks received (last 10)
- *  - Attack button → opens AttackModal
- *
- * MVP: competitionId and attackerMembershipId are read from URL params / context.
- * For now both come from a single hardcoded competition context via useCompetitionContext.
+  *  - Alias, balance, protection state, bankruptcy indicator
+  *  - Attack exposure stats (how many times they've been hit, current decay stage)
+  *  - Recent attacks received (last 10)
+  *  - Attack button → opens AttackModal
  */
 
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import usePlayerProfile from '../hooks/usePlayerProfile'
 import useCompetitionContext from '../hooks/useCompetitionContext'
 import AttackModal from '../components/AttackModal'
 import { formatDate } from '../lib/dates'
+import { formatNumber } from '../lib/numbers'
 
 const PROTECTION_LABELS = {
   none: { label: 'نشط', color: 'emerald' },
@@ -42,12 +41,24 @@ function ProtectionBadge({ type }) {
 }
 
 export default function PlayerProfilePage() {
-  const { membershipId } = useParams()
-  const { competitionId, membershipId: myMembershipId } = useCompetitionContext()
-  const { profile, loading, error } = usePlayerProfile(competitionId, membershipId)
+  const { competitionId: routeCompetitionId, membershipId } = useParams()
+  const {
+    competitionId: resolvedCompetitionId,
+    membershipId: myMembershipId,
+    loading: contextLoading,
+    error: contextError,
+  } = useCompetitionContext(routeCompetitionId)
+  const { profile, loading: profileLoading, error } = usePlayerProfile(resolvedCompetitionId, membershipId)
   const [showAttackModal, setShowAttackModal] = useState(false)
+  const leaderboardHref = resolvedCompetitionId
+    ? `/competitions/${resolvedCompetitionId}/leaderboard`
+    : '/leaderboard'
 
-  if (loading) {
+  if (!routeCompetitionId && !contextLoading && resolvedCompetitionId && membershipId) {
+    return <Navigate to={`/competitions/${resolvedCompetitionId}/players/${membershipId}`} replace />
+  }
+
+  if (contextLoading || profileLoading) {
     return (
       <div className="flex-1 w-full max-w-3xl mx-auto px-4 py-12 space-y-6">
         {Array(3).fill(0).map((_, i) => (
@@ -57,12 +68,12 @@ export default function PlayerProfilePage() {
     )
   }
 
-  if (error || !profile) {
+  if (contextError || error || !profile) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
         <iconify-icon icon="lucide:user-x" class="text-5xl text-gray-300 dark:text-gray-700"></iconify-icon>
-        <p className="text-gray-500 font-bold">{error || 'اللاعب غير موجود'}</p>
-        <Link to="/leaderboard" className="text-brand-teal font-bold hover:underline">
+        <p className="text-gray-500 font-bold">{contextError || error || 'اللاعب غير موجود'}</p>
+        <Link to={leaderboardHref} className="text-brand-teal font-bold hover:underline">
           العودة للقائمة
         </Link>
       </div>
@@ -77,7 +88,7 @@ export default function PlayerProfilePage() {
       <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
 
       {/* Back link */}
-      <Link to="/leaderboard" className="inline-flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-brand-teal smooth-transition">
+      <Link to={leaderboardHref} className="inline-flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-brand-teal smooth-transition">
         <iconify-icon icon="lucide:arrow-right" class="text-base"></iconify-icon>
         العودة للمتصدرين
       </Link>
@@ -144,7 +155,7 @@ export default function PlayerProfilePage() {
           <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm font-bold text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <iconify-icon icon="lucide:zap" class="text-brand-teal dark:text-brand-slate"></iconify-icon>
-              {profile.balance.toLocaleString('ar-EG')} نقطة
+              {formatNumber(profile.balance)} نقطة
             </span>
             <span className="flex items-center gap-1">
               <iconify-icon icon="lucide:target"></iconify-icon>
@@ -255,7 +266,7 @@ export default function PlayerProfilePage() {
           targetMembershipId={membershipId}
           targetAlias={profile.alias}
           myMembershipId={myMembershipId}
-          competitionId={competitionId}
+          competitionId={resolvedCompetitionId}
           onClose={() => setShowAttackModal(false)}
         />
       )}

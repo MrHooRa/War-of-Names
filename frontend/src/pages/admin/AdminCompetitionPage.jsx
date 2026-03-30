@@ -5,10 +5,11 @@
  * Also allows creating new competitions (for the sidebar selector to pick up).
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useId } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
 import { useAdminCompetition } from '../../context/AdminCompetitionContext'
+import AccessibleDialog from '../../components/AccessibleDialog'
 
 const STATUS_LABELS = {
   active: { text: 'نشطة', color: 'bg-brand-success/10 text-brand-success' },
@@ -32,6 +33,16 @@ export default function AdminCompetitionPage() {
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(false)
   const [actionMsg, setActionMsg] = useState(null)
+  const createDialogTitleId = useId()
+  const createNameInputId = useId()
+  const createDescInputId = useId()
+  const createVisibilityInputId = useId()
+  const importDialogTitleId = useId()
+  const importFileInputId = useId()
+  const editDialogTitleId = useId()
+  const editNameInputId = useId()
+  const editDescInputId = useId()
+  const editVisibilityInputId = useId()
 
   // Create competition modal
   const [showCreate, setShowCreate] = useState(false)
@@ -448,6 +459,7 @@ export default function AdminCompetitionPage() {
                 </code>
                 <button
                   onClick={() => copyToClipboard(inviteState.code.code, 'رمز الدعوة')}
+                  aria-label="نسخ رمز الدعوة"
                   className="w-9 h-9 flex items-center justify-center rounded-lg bg-brand-teal/10 text-brand-teal hover:bg-brand-teal/20 smooth-transition"
                   title="نسخ"
                 >
@@ -455,6 +467,7 @@ export default function AdminCompetitionPage() {
                 </button>
                 <button
                   onClick={handleRegenerateCode}
+                  aria-label="تجديد رمز الدعوة"
                   className="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-200 smooth-transition"
                   title="تجديد الرمز"
                 >
@@ -494,6 +507,7 @@ export default function AdminCompetitionPage() {
                   </code>
                   <button
                     onClick={() => copyToClipboard(`${window.location.origin}/invite/${inviteState.link.code}`, 'رابط الدعوة')}
+                    aria-label="نسخ رابط الدعوة"
                     className="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 hover:bg-blue-200 smooth-transition flex-shrink-0"
                     title="نسخ الرابط"
                   >
@@ -501,6 +515,7 @@ export default function AdminCompetitionPage() {
                   </button>
                   <button
                     onClick={handleRegenerateLink}
+                    aria-label="تجديد رابط الدعوة"
                     className="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-200 smooth-transition flex-shrink-0"
                     title="تجديد الرابط"
                   >
@@ -558,21 +573,25 @@ export default function AdminCompetitionPage() {
   function renderCreateModal() {
     if (!showCreate) return null
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCreate(false)}>
-        <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
-          <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white">إنشاء منافسة جديدة</h3>
+      <AccessibleDialog
+        onClose={() => setShowCreate(false)}
+        titleId={createDialogTitleId}
+        panelClassName="max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-brand-card-dark"
+      >
+        <div className="space-y-4">
+          <h3 id={createDialogTitleId} className="font-heading font-black text-lg text-gray-900 dark:text-white">إنشاء منافسة جديدة</h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">اسم المنافسة <span className="text-brand-danger">*</span></label>
-              <input type="text" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="أدخل اسم المنافسة" className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              <label htmlFor={createNameInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">اسم المنافسة <span className="text-brand-danger">*</span></label>
+              <input id={createNameInputId} name="competition_name" autoComplete="off" data-dialog-initial-focus type="text" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="أدخل اسم المنافسة" className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الوصف</label>
-              <input type="text" value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="وصف اختياري" className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              <label htmlFor={createDescInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الوصف</label>
+              <input id={createDescInputId} name="competition_description" autoComplete="off" type="text" value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="وصف اختياري" className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الرؤية</label>
-              <select value={createVisibility} onChange={e => setCreateVisibility(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white">
+              <label htmlFor={createVisibilityInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الرؤية</label>
+              <select id={createVisibilityInputId} name="competition_visibility" autoComplete="off" value={createVisibility} onChange={e => setCreateVisibility(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white">
                 <option value="private">خاصة</option>
                 <option value="public">عامة</option>
               </select>
@@ -585,23 +604,30 @@ export default function AdminCompetitionPage() {
             <button onClick={() => setShowCreate(false)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
           </div>
         </div>
-      </div>
+      </AccessibleDialog>
     )
   }
 
   function renderImportModal() {
     if (!showImport) return null
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowImport(false)}>
-        <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
-          <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
+      <AccessibleDialog
+        onClose={() => setShowImport(false)}
+        titleId={importDialogTitleId}
+        panelClassName="max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-brand-card-dark"
+      >
+        <div className="space-y-4">
+          <h3 id={importDialogTitleId} className="font-heading font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
             <iconify-icon icon="lucide:upload" class="text-purple-500"></iconify-icon>
             استيراد إعدادات (JSON)
           </h3>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">اختر ملف JSON</label>
+            <label htmlFor={importFileInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">اختر ملف JSON</label>
             <input
+              id={importFileInputId}
+              name="competition_config_file"
+              data-dialog-initial-focus
               type="file"
               accept=".json"
               onChange={handleImportFileChange}
@@ -628,7 +654,7 @@ export default function AdminCompetitionPage() {
           )}
 
           {importError && (
-            <p className="text-brand-danger text-sm font-bold text-center py-3 bg-red-500/10 rounded-xl border border-red-500/20">{importError}</p>
+            <p role="alert" className="text-brand-danger text-sm font-bold text-center py-3 bg-red-500/10 rounded-xl border border-red-500/20">{importError}</p>
           )}
 
           <div className="flex gap-3 pt-2">
@@ -649,28 +675,32 @@ export default function AdminCompetitionPage() {
             <button onClick={() => setShowImport(false)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
           </div>
         </div>
-      </div>
+      </AccessibleDialog>
     )
   }
 
   function renderEditModal() {
     if (!showEdit) return null
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEdit(false)}>
-        <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
-          <h3 className="font-heading font-black text-lg text-gray-900 dark:text-white">تعديل المنافسة</h3>
+      <AccessibleDialog
+        onClose={() => setShowEdit(false)}
+        titleId={editDialogTitleId}
+        panelClassName="max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-brand-card-dark"
+      >
+        <div className="space-y-4">
+          <h3 id={editDialogTitleId} className="font-heading font-black text-lg text-gray-900 dark:text-white">تعديل المنافسة</h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">اسم المنافسة <span className="text-brand-danger">*</span></label>
-              <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              <label htmlFor={editNameInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">اسم المنافسة <span className="text-brand-danger">*</span></label>
+              <input id={editNameInputId} name="competition_name" autoComplete="off" data-dialog-initial-focus type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الوصف</label>
-              <input type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
+              <label htmlFor={editDescInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الوصف</label>
+              <input id={editDescInputId} name="competition_description" autoComplete="off" type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الرؤية</label>
-              <select value={editVisibility} onChange={e => setEditVisibility(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white">
+              <label htmlFor={editVisibilityInputId} className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">الرؤية</label>
+              <select id={editVisibilityInputId} name="competition_visibility" autoComplete="off" value={editVisibility} onChange={e => setEditVisibility(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3 px-4 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:text-white">
                 <option value="private">خاصة</option>
                 <option value="public">عامة</option>
               </select>
@@ -683,7 +713,7 @@ export default function AdminCompetitionPage() {
             <button onClick={() => setShowEdit(false)} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 smooth-transition">إلغاء</button>
           </div>
         </div>
-      </div>
+      </AccessibleDialog>
     )
   }
 

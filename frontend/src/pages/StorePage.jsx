@@ -7,6 +7,7 @@ import useBuyItem from '../hooks/useBuyItem'
 import { apiFetch } from '../lib/api'
 import InventoryItemCard from '../components/InventoryItemCard'
 import { RARITY_CONFIG, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_GLOW } from '../config/rarity'
+import { formatNumber } from '../lib/numbers'
 
 const RARITY_ORDER = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 }
 
@@ -106,7 +107,7 @@ function StoreItem({ listing, onBuy, buying, playerBalance }) {
         ) : (
           <iconify-icon icon="lucide:shopping-cart" class={isMythic ? 'text-2xl' : 'text-lg'}></iconify-icon>
         )}
-        {outOfStock ? 'نفذت الكمية' : cantAfford ? 'رصيد غير كافٍ' : `${listing.price.toLocaleString('ar-SA')} نقطة`}
+        {outOfStock ? 'نفذت الكمية' : cantAfford ? 'رصيد غير كافٍ' : `${formatNumber(listing.price)} نقطة`}
       </button>
     </div>
   )
@@ -125,19 +126,26 @@ export default function StorePage() {
 
   useEffect(() => {
     if (buyError) {
-      setToast(buyError)
-      const timer = setTimeout(() => setToast(null), 3000)
-      return () => clearTimeout(timer)
+      setToast({ tone: 'error', title: 'تعذر الشراء', text: buyError })
     }
   }, [buyError])
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
 
   async function handleBuy(listingId) {
     const result = await buyItem(listingId)
     if (result) {
-      setToast(result.message || 'تم الشراء بنجاح')
+      setToast({
+        tone: 'success',
+        title: 'تم الشراء بنجاح',
+        text: result.message || 'تمت إضافة العنصر إلى مخزنك',
+      })
       refetchInventory()
     }
-    setTimeout(() => setToast(null), 3000)
   }
 
   async function handleUseItem(ownedItemId) {
@@ -145,12 +153,18 @@ export default function StorePage() {
     try {
       const qs = competitionId ? `?competition_id=${competitionId}` : ''
       const res = await apiFetch(`/api/me/inventory/${ownedItemId}/use${qs}`, { method: 'POST' })
-      setToast(res.message || 'تم استخدام العنصر بنجاح')
+      setToast({
+        tone: 'success',
+        title: 'تم استخدام العنصر',
+        text: res.message || 'تم استخدام العنصر بنجاح',
+      })
       refetchInventory()
-      setTimeout(() => setToast(null), 3000)
     } catch (err) {
-      setToast(err.message || 'فشل استخدام العنصر')
-      setTimeout(() => setToast(null), 3000)
+      setToast({
+        tone: 'error',
+        title: 'فشل استخدام العنصر',
+        text: err.message || 'تعذر استخدام العنصر الآن',
+      })
     } finally {
       setUsingItem(false)
     }
@@ -196,13 +210,15 @@ export default function StorePage() {
         <div className="lg:col-span-3 space-y-6">
           {/* Tabs */}
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <nav className="flex bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 p-1.5 rounded-xl w-full md:w-auto overflow-x-auto no-scrollbar shadow-sm">
+            <nav aria-label="تصنيفات المتجر" className="flex bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 p-1.5 rounded-xl w-full md:w-auto overflow-x-auto no-scrollbar shadow-sm">
               {categories.map(c => {
                 const count = c.key === 'all' ? listings.length : listings.filter(l => l.category === c.key).length
                 return (
                   <button
                     key={c.key}
                     onClick={() => setCategory(c.key)}
+                    type="button"
+                    aria-pressed={category === c.key}
                     className={`px-5 md:px-8 py-2.5 rounded-lg font-heading font-bold text-sm whitespace-nowrap smooth-transition ${
                       category === c.key
                         ? 'bg-brand-teal text-white dark:bg-brand-slate dark:text-white'
@@ -215,7 +231,10 @@ export default function StorePage() {
               })}
             </nav>
             <div className="flex items-center gap-3">
+              <label htmlFor="store-sort" className="sr-only">ترتيب عناصر المتجر</label>
               <select
+                id="store-sort"
+                name="sort_by"
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value)}
                 className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 font-heading font-bold text-sm text-gray-700 dark:text-gray-300 shadow-sm smooth-transition focus:outline-none focus:ring-2 focus:ring-brand-teal/30 dark:focus:ring-brand-slate/30 cursor-pointer"
@@ -261,8 +280,8 @@ export default function StorePage() {
 
         {/* Right Side: Inventory Sidebar */}
         <aside className="lg:col-span-1">
-          <div className="sticky top-[88px] z-20">
-            <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm flex flex-col h-[600px] md:h-[calc(100vh-140px)] min-h-[500px] overflow-hidden">
+          <div className="lg:sticky lg:top-[88px] lg:z-20">
+            <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm flex flex-col overflow-hidden max-h-[75vh] min-h-[320px] lg:max-h-none lg:h-[calc(100vh-140px)] lg:min-h-[500px]">
               {/* Inventory Header */}
               <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -316,14 +335,24 @@ export default function StorePage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[100] animate-[slideUpFade_0.3s_ease]">
-          <div className="bg-white dark:bg-brand-card-dark border-l-4 border-brand-success rounded-xl shadow-lg p-4 flex items-center gap-4 min-w-[280px]">
-            <div className="w-10 h-10 rounded-full bg-brand-success/10 text-brand-success flex items-center justify-center flex-shrink-0">
-              <iconify-icon icon="lucide:check" class="text-xl"></iconify-icon>
+        <div
+          role={toast.tone === 'error' ? 'alert' : 'status'}
+          aria-live={toast.tone === 'error' ? 'assertive' : 'polite'}
+          className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[100] animate-[slideUpFade_0.3s_ease]"
+        >
+          <div className={`bg-white dark:bg-brand-card-dark border-l-4 rounded-xl shadow-lg p-4 flex items-center gap-4 min-w-[280px] ${
+            toast.tone === 'error' ? 'border-brand-danger' : 'border-brand-success'
+          }`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+              toast.tone === 'error'
+                ? 'bg-brand-danger/10 text-brand-danger'
+                : 'bg-brand-success/10 text-brand-success'
+            }`}>
+              <iconify-icon icon={toast.tone === 'error' ? 'lucide:triangle-alert' : 'lucide:check'} class="text-xl"></iconify-icon>
             </div>
             <div>
-              <div className="font-heading font-black text-gray-900 dark:text-white">تم الشراء بنجاح!</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{toast}</div>
+              <div className="font-heading font-black text-gray-900 dark:text-white">{toast.title}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{toast.text}</div>
             </div>
           </div>
         </div>

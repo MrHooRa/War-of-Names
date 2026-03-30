@@ -1,14 +1,15 @@
 /**
  * LeaderboardPage — ranked list of all active competitors.
  * Wired to GET /api/competitions/{comp_id}/leaderboard
- * Attack buttons navigate to /players/:membershipId
+ * Canonical profile links navigate to /competitions/:competitionId/players/:membershipId
  */
 
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import useLeaderboard from '../hooks/useLeaderboard'
 import useCompetitionContext from '../hooks/useCompetitionContext'
+import { formatNumber } from '../lib/numbers'
 
 function RankBadge({ rank }) {
   if (rank === 1) return <div className="rank-badge-1 w-11 h-11 flex items-center justify-center rounded-xl font-display font-black text-xl shadow-sm">{rank}</div>
@@ -45,10 +46,13 @@ function StatusBadge({ protection, is_bankrupt, attacks_received = 0 }) {
   )
 }
 
-function PlayerRow({ player, myMembershipId }) {
+function PlayerRow({ player, myMembershipId, competitionId }) {
   const isSelf = player.membership_id === myMembershipId
   const canAttack = !isSelf && !player.is_bankrupt && player.protection !== 'full'
   const avatarLetter = player.alias.charAt(0)
+  const profileHref = competitionId
+    ? `/competitions/${competitionId}/players/${player.membership_id}`
+    : `/players/${player.membership_id}`
 
   return (
     <div className={`bg-white dark:bg-brand-card-dark border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-lg dark:hover:shadow-black/20 p-5 md:px-8 smooth-transition hover:-translate-y-1 ${player.is_bankrupt ? 'opacity-60' : ''}`}>
@@ -58,7 +62,7 @@ function PlayerRow({ player, myMembershipId }) {
         <div className="col-span-1 flex items-center gap-4">
           <RankBadge rank={player.rank} />
           <div className="md:hidden">
-            <Link to={`/players/${player.membership_id}`} className={`font-heading text-lg font-black hover:text-brand-teal dark:hover:text-brand-slate smooth-transition ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>{player.alias}</Link>
+            <Link to={profileHref} className={`font-heading text-lg font-black hover:text-brand-teal dark:hover:text-brand-slate smooth-transition ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>{player.alias}</Link>
             {player.is_bankrupt && player.real_name && (
               <p className="text-[11px] font-bold text-red-400 dark:text-red-500 flex items-center gap-1">
                 <iconify-icon icon="lucide:eye" class="text-[10px]"></iconify-icon>
@@ -81,7 +85,7 @@ function PlayerRow({ player, myMembershipId }) {
             )}
           </div>
           <div className="hidden md:block">
-            <Link to={`/players/${player.membership_id}`} className={`font-heading font-black text-lg hover:text-brand-teal dark:hover:text-brand-slate smooth-transition block ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+            <Link to={profileHref} className={`font-heading font-black text-lg hover:text-brand-teal dark:hover:text-brand-slate smooth-transition block ${player.is_bankrupt ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
               {player.alias}
             </Link>
             {player.is_bankrupt && player.real_name && (
@@ -98,7 +102,7 @@ function PlayerRow({ player, myMembershipId }) {
         <div className="col-span-2 text-center">
           <div className="md:hidden text-[10px] font-bold uppercase text-gray-400 mb-1">النقاط</div>
           <span className="font-display text-2xl font-black text-gray-900 dark:text-white">
-            {player.balance.toLocaleString('ar-EG')}
+            {formatNumber(player.balance)}
           </span>
         </div>
 
@@ -121,7 +125,7 @@ function PlayerRow({ player, myMembershipId }) {
             </Link>
           ) : canAttack ? (
             <Link
-              to={`/players/${player.membership_id}`}
+              to={profileHref}
               className="btn-press bg-brand-teal hover:bg-brand-teal-hover text-white dark:bg-brand-orange/80 dark:hover:bg-brand-orange w-full md:w-auto md:px-8 py-2.5 rounded-xl smooth-transition font-heading font-bold text-sm text-center tracking-wider shadow-sm hover:shadow"
             >
               هجوم
@@ -139,8 +143,14 @@ function PlayerRow({ player, myMembershipId }) {
 
 export default function LeaderboardPage() {
   const [search, setSearch] = useState('')
-  const { competitionId, membershipId: myMembershipId } = useCompetitionContext()
-  const { players, loading, error, refetch } = useLeaderboard(competitionId)
+  const { competitionId: routeCompetitionId } = useParams()
+  const {
+    competitionId: resolvedCompetitionId,
+    membershipId: myMembershipId,
+    error: contextError,
+  } = useCompetitionContext(routeCompetitionId)
+  const { players, loading, error, refetch } = useLeaderboard(resolvedCompetitionId)
+  const errorMessage = contextError || error
 
   const myPlayer = players.find(p => p.membership_id === myMembershipId)
 
@@ -179,7 +189,7 @@ export default function LeaderboardPage() {
               <div className="flex items-center gap-5 text-sm">
                 <div className="flex items-center gap-1.5 font-bold text-gray-600 dark:text-gray-300">
                   <iconify-icon icon="lucide:zap" class="text-brand-teal dark:text-brand-slate text-lg"></iconify-icon>
-                  {myPlayer.balance.toLocaleString('ar-EG')}
+                  {formatNumber(myPlayer.balance)}
                 </div>
               </div>
             </div>
@@ -202,7 +212,7 @@ export default function LeaderboardPage() {
             </div>
             <div className="text-brand-teal dark:text-brand-slate font-black text-lg flex items-center gap-1">
               <iconify-icon icon="lucide:zap"></iconify-icon>
-              {myPlayer.balance.toLocaleString('ar-EG')}
+              {formatNumber(myPlayer.balance)}
             </div>
           </div>
         </div>
@@ -211,16 +221,26 @@ export default function LeaderboardPage() {
       {/* Search */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch">
         <div className="flex-1 relative shadow-sm rounded-xl overflow-hidden bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 focus-within:border-brand-teal dark:focus-within:border-brand-slate focus-within:ring-2 focus-within:ring-brand-teal/20 smooth-transition">
+          <label htmlFor="leaderboard-search" className="sr-only">ابحث عن متسابق</label>
           <iconify-icon icon="lucide:search" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 text-xl"></iconify-icon>
           <input
             type="text"
+            id="leaderboard-search"
+            name="search"
+            autoComplete="off"
+            spellCheck={false}
             placeholder="ابحث عن متسابق..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full h-full bg-transparent py-3.5 pr-14 pl-6 font-medium focus:outline-none text-gray-800 dark:text-gray-200 text-base placeholder-gray-400"
           />
         </div>
-        <button onClick={refetch} className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 px-5 rounded-xl shadow-sm flex items-center justify-center text-gray-500 hover:text-brand-teal dark:hover:text-brand-slate smooth-transition">
+        <button
+          onClick={refetch}
+          type="button"
+          aria-label="تحديث قائمة المتسابقين"
+          className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-700 px-5 rounded-xl shadow-sm flex items-center justify-center text-gray-500 hover:text-brand-teal dark:hover:text-brand-slate smooth-transition"
+        >
           <iconify-icon icon="lucide:refresh-cw" class="text-xl"></iconify-icon>
         </button>
       </div>
@@ -241,13 +261,18 @@ export default function LeaderboardPage() {
             Array(5).fill(0).map((_, i) => (
               <div key={i} className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
             ))
-          ) : error ? (
-            <div className="text-center py-12 text-brand-danger font-bold">{error}</div>
+          ) : errorMessage ? (
+            <div className="text-center py-12 text-brand-danger font-bold">{errorMessage}</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-gray-400 font-bold">لا يوجد متسابقون</div>
           ) : (
             filtered.map((player) => (
-              <PlayerRow key={player.membership_id} player={player} myMembershipId={myMembershipId} />
+              <PlayerRow
+                key={player.membership_id}
+                player={player}
+                myMembershipId={myMembershipId}
+                competitionId={resolvedCompetitionId}
+              />
             ))
           )}
         </div>

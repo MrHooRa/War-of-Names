@@ -18,6 +18,10 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    if (!agreed) {
+      setError('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة')
+      setLoading(false); return
+    }
     if (form.username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(form.username)) {
       setError('اسم المستخدم يجب أن يكون 3 أحرف على الأقل (أحرف إنجليزية وأرقام و _ فقط)')
       setLoading(false); return
@@ -33,7 +37,7 @@ export default function RegisterPage() {
     try {
       const json = await apiFetch('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, consent_accepted: agreed }),
       })
       login(json.data)
       trackEvent('registration_complete', { username: form.username })
@@ -103,6 +107,11 @@ export default function RegisterPage() {
                   <input
                     type="text"
                     id="username"
+                    name="username"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    dir="ltr"
                     value={form.username}
                     onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
                     placeholder="warrior_2024"
@@ -123,6 +132,8 @@ export default function RegisterPage() {
                   <input
                     type="text"
                     id="fullname"
+                    name="real_name"
+                    autoComplete="name"
                     value={form.real_name}
                     onChange={e => setForm(f => ({ ...f, real_name: e.target.value }))}
                     placeholder="سلطان بن محمد"
@@ -142,20 +153,27 @@ export default function RegisterPage() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="password"
+                    name="password"
+                    autoComplete="new-password"
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                     placeholder="••••••••"
                     required
                     className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 py-3.5 pr-11 pl-12 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-brand-teal/10 focus:border-brand-teal dark:focus:border-brand-slate dark:focus:ring-brand-slate/20 transition-all text-gray-800 dark:text-white placeholder:text-gray-400"
                   />
-                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 hover:text-brand-teal transition-colors">
+                  <button
+                    type="button"
+                    aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 hover:text-brand-teal transition-colors"
+                  >
                     <iconify-icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} class="text-lg"></iconify-icon>
                   </button>
                 </div>
               </div>
 
               {error && (
-                <p className="text-brand-danger text-sm font-bold text-center py-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30">
+                <p role="alert" className="text-brand-danger text-sm font-bold text-center py-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30">
                   {error}
                 </p>
               )}
@@ -165,6 +183,7 @@ export default function RegisterPage() {
                 <input
                   type="checkbox"
                   id="consent"
+                  name="consent_accepted"
                   checked={agreed}
                   onChange={e => setAgreed(e.target.checked)}
                   className="mt-1 w-4 h-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal"
@@ -182,7 +201,7 @@ export default function RegisterPage() {
               <div className="pt-4">
                 <button
                   type="submit"
-                  disabled={loading || !agreed}
+                  disabled={loading}
                   className="btn-press w-full bg-brand-teal hover:bg-brand-teal-hover text-white dark:bg-brand-slate dark:hover:bg-brand-slate/80 py-4 rounded-xl font-heading font-black text-lg shadow-lg shadow-brand-teal/20 hover:shadow-md transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                 >
                   {loading ? (

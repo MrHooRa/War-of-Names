@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { apiFetch } from '../lib/api'
+import { formatNumber } from '../lib/numbers'
 
 const STORAGE_KEY = 'won_active_competition'
 
@@ -126,7 +127,7 @@ export default function CompetitionSwitcher({ variant = 'light' }) {
                       <span>{mem.alias}</span>
                       <span className="flex items-center gap-1">
                         <iconify-icon icon="lucide:coins" class="text-amber-400 text-[10px]"></iconify-icon>
-                        {mem.balance?.toLocaleString()}
+                        {formatNumber(mem.balance)}
                       </span>
                     </div>
                   </div>

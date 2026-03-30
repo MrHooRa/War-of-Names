@@ -33,13 +33,14 @@ function StatusBadge({ status }) {
 
 function ResultBanner({ result, onDismiss }) {
   if (!result) return null
+  const details = result.details || []
   return (
     <div className="bg-brand-success/10 border border-brand-success/20 rounded-xl p-4 flex items-start gap-3">
       <iconify-icon icon="lucide:check-circle" class="text-xl text-brand-success mt-0.5"></iconify-icon>
       <div className="flex-1">
         <div className="font-bold text-brand-success mb-1">{result.title}</div>
         <div className="text-sm font-bold text-gray-600 dark:text-gray-400 space-y-0.5">
-          {result.details.map((d, i) => <div key={i}>{d}</div>)}
+          {details.map((d, i) => <div key={i}>{d}</div>)}
         </div>
       </div>
       <button onClick={onDismiss} className="mr-auto text-gray-400 hover:text-gray-600">
@@ -72,6 +73,8 @@ export default function AdminSeasonsPage() {
   const [operatingSeason, setOperatingSeason] = useState(null)
   const [resultBanner, setResultBanner] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [showArchivedSeasons, setShowArchivedSeasons] = useState(false)
+  const [showArchivedCycles, setShowArchivedCycles] = useState({})
 
   // ── War/Peace (attack_enabled) ────────────────────────────────────
   const [attackEnabled, setAttackEnabled] = useState(null)
@@ -276,9 +279,12 @@ export default function AdminSeasonsPage() {
     setOperatingCycle(cycleId)
     try {
       const json = await apiFetch(`/api/admin/cycles/${cycleId}/end`, { method: 'POST' })
+      const data = json.data || {}
+      const details = formatResultDetails(data)
+      if (data.auto_started_next_cycle) details.unshift(`بدأت الدورة التالية تلقائياً: ${data.auto_started_next_cycle.label}`)
       setResultBanner({
         title: json.message || 'تم إنهاء الدورة بنجاح',
-        details: formatResultDetails(json.data || {}),
+        details,
       })
       loadDetail()
     } catch {}
@@ -336,6 +342,64 @@ export default function AdminSeasonsPage() {
     return (cycle.status === 'draft' || cycle.status === 'paused') && findActiveCycleInSeason(season)
   }
 
+  async function archiveSeason(seasonId) {
+    if (!confirm('هل أنت متأكد من أرشفة هذا الموسم؟ سيتم إخفاؤه من العرض الافتراضي.')) return
+    setOperatingSeason(seasonId)
+    try {
+      await apiFetch(`/api/admin/seasons/${seasonId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
+      })
+      setResultBanner({ title: 'تم أرشفة الموسم بنجاح', details: ['يمكنك إظهاره لاحقاً من زر المواسم المؤرشفة'] })
+      loadDetail()
+    } catch (err) {
+      setResultBanner({ title: 'فشلت الأرشفة', details: [err.message] })
+    }
+    setOperatingSeason(null)
+  }
+
+  async function deleteSeason(seasonId, seasonName) {
+    if (!confirm(`حذف الموسم "${seasonName}"؟ سيُحذف فقط إذا لم يكن مرتبطاً بسجل لعب تاريخي.`)) return
+    setOperatingSeason(seasonId)
+    try {
+      const json = await apiFetch(`/api/admin/seasons/${seasonId}`, { method: 'DELETE' })
+      setResultBanner({ title: json.message || 'تم حذف الموسم', details: ['تمت إزالة الموسم نهائياً من المنافسة'] })
+      loadDetail()
+    } catch (err) {
+      setResultBanner({ title: 'تعذر حذف الموسم', details: [err.message] })
+    }
+    setOperatingSeason(null)
+  }
+
+  async function archiveCycle(cycleId) {
+    if (!confirm('أرشفة هذه الدورة؟ ستُخفى من العرض الافتراضي.')) return
+    setOperatingCycle(cycleId)
+    try {
+      await apiFetch(`/api/admin/cycles/${cycleId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
+      })
+      setResultBanner({ title: 'تمت أرشفة الدورة', details: ['يمكنك إظهارها من زر الدورات المؤرشفة داخل الموسم'] })
+      loadDetail()
+    } catch (err) {
+      setResultBanner({ title: 'فشلت الأرشفة', details: [err.message] })
+    }
+    setOperatingCycle(null)
+  }
+
+  async function deleteCycle(cycleId, cycleLabel) {
+    if (!confirm(`حذف الدورة "${cycleLabel}"؟ سيُحذف فقط إذا لم تكن مرتبطة بسجل لعب تاريخي.`)) return
+    setOperatingCycle(cycleId)
+    try {
+      const json = await apiFetch(`/api/admin/cycles/${cycleId}`, { method: 'DELETE' })
+      setResultBanner({ title: json.message || 'تم حذف الدورة', details: ['تمت إزالة الدورة نهائياً من الموسم'] })
+      loadDetail()
+    } catch (err) {
+      setResultBanner({ title: 'تعذر حذف الدورة', details: [err.message] })
+    }
+    setOperatingCycle(null)
+  }
+
   // ── Render ──────────────────────────────────────────────────────────
 
   if (!selected) {
@@ -356,6 +420,8 @@ export default function AdminSeasonsPage() {
   }
 
   const seasons = detail?.seasons || []
+  const archivedSeasonsCount = seasons.filter(season => season.status === 'archived').length
+  const visibleSeasons = showArchivedSeasons ? seasons : seasons.filter(season => season.status !== 'archived')
 
   return (
     <div className="space-y-6">
@@ -368,6 +434,16 @@ export default function AdminSeasonsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowArchivedSeasons(v => !v)}
+            className={`text-xs font-bold px-3 py-2 rounded-xl smooth-transition ${
+              showArchivedSeasons
+                ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+            }`}
+          >
+            {showArchivedSeasons ? 'إخفاء المواسم المؤرشفة' : `عرض المؤرشفة (${archivedSeasonsCount})`}
+          </button>
           <button
             onClick={() => setShowBroadcastForm(v => !v)}
             className="flex items-center gap-2 bg-brand-orange/10 hover:bg-brand-orange/20 text-brand-orange px-4 py-2.5 rounded-xl font-heading font-black text-sm smooth-transition"
@@ -593,7 +669,7 @@ export default function AdminSeasonsPage() {
       {/* Create season form */}
       {showSeasonForm && (
         <div className="bg-white dark:bg-brand-card-dark border border-brand-teal/20 dark:border-brand-slate/20 rounded-2xl p-5">
-          <form onSubmit={createSeason} className="flex items-end gap-3">
+          <form onSubmit={createSeason} className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">اسم الموسم</label>
               <input
@@ -616,17 +692,24 @@ export default function AdminSeasonsPage() {
       )}
 
       {/* Seasons list */}
-      {seasons.length === 0 ? (
+      {visibleSeasons.length === 0 ? (
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-10 text-center">
           <iconify-icon icon="lucide:calendar-plus" class="text-4xl text-gray-300 dark:text-gray-600 mb-3"></iconify-icon>
-          <p className="font-bold text-gray-500 dark:text-gray-400">لا توجد مواسم بعد. أنشئ موسماً جديداً للبدء.</p>
+          <p className="font-bold text-gray-500 dark:text-gray-400">
+            {archivedSeasonsCount > 0 ? 'كل المواسم الحالية مؤرشفة' : 'لا توجد مواسم بعد. أنشئ موسماً جديداً للبدء.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
-          {seasons.map(season => {
+          {visibleSeasons.map(season => {
             const activeCycle = findActiveCycleInSeason(season)
+            const archivedCyclesCount = (season.cycles || []).filter(cycle => cycle.status === 'archived').length
+            const seasonShowsArchivedCycles = !!showArchivedCycles[season.id]
+            const visibleCycles = seasonShowsArchivedCycles
+              ? (season.cycles || [])
+              : (season.cycles || []).filter(cycle => cycle.status !== 'archived')
             return (
-              <div key={season.id} className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+              <div key={season.id} className={`bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden ${season.status === 'archived' ? 'opacity-60' : ''}`}>
                 {/* Season header */}
                 <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-3">
@@ -671,34 +754,50 @@ export default function AdminSeasonsPage() {
                     )}
                     {(season.status === 'completed' || season.status === 'paused') && (
                       <button
-                        onClick={async () => {
-                          if (!confirm('هل أنت متأكد من أرشفة هذا الموسم؟ سيتم إخفاؤه من الواجهات النشطة.')) return
-                          try {
-                            await apiFetch(`/api/admin/seasons/${season.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'archived' }) })
-                            setResultBanner({ title: 'تم أرشفة الموسم بنجاح' })
-                            refetchSeasons()
-                          } catch (err) { setResultBanner({ title: err.message }) }
-                        }}
+                        onClick={() => archiveSeason(season.id)}
+                        disabled={operatingSeason === season.id}
                         className="text-xs font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1"
                       >
                         <iconify-icon icon="lucide:archive" class="text-xs"></iconify-icon>
                         أرشفة
                       </button>
                     )}
+                    {season.status !== 'active' && (
+                      <button
+                        onClick={() => deleteSeason(season.id, season.name)}
+                        disabled={operatingSeason === season.id}
+                        className="text-xs font-bold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
+                      >
+                        <iconify-icon icon="lucide:trash-2" class="text-xs"></iconify-icon>
+                        حذف
+                      </button>
+                    )}
                     <button
-                      onClick={() => { setShowCycleForm(season.id); setNewCycleLabel('') }}
-                      className="text-xs font-bold text-brand-teal dark:text-brand-slate hover:bg-brand-teal/10 dark:hover:bg-brand-slate/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1"
+                      onClick={() => setShowArchivedCycles(prev => ({ ...prev, [season.id]: !prev[season.id] }))}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-lg smooth-transition ${
+                        seasonShowsArchivedCycles
+                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                      }`}
                     >
-                      <iconify-icon icon="lucide:plus" class="text-sm"></iconify-icon>
-                      دورة
+                      {seasonShowsArchivedCycles ? 'إخفاء الدورات المؤرشفة' : `عرض المؤرشفة (${archivedCyclesCount})`}
                     </button>
+                    {season.status !== 'completed' && season.status !== 'archived' && (
+                      <button
+                        onClick={() => { setShowCycleForm(season.id); setNewCycleLabel('') }}
+                        className="text-xs font-bold text-brand-teal dark:text-brand-slate hover:bg-brand-teal/10 dark:hover:bg-brand-slate/20 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1"
+                      >
+                        <iconify-icon icon="lucide:plus" class="text-sm"></iconify-icon>
+                        دورة
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* Create cycle form (inline) */}
                 {showCycleForm === season.id && (
                   <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
-                    <form onSubmit={e => createCycle(e, season.id)} className="flex items-center gap-3">
+                    <form onSubmit={e => createCycle(e, season.id)} className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                       <input
                         type="text"
                         value={newCycleLabel}
@@ -715,12 +814,12 @@ export default function AdminSeasonsPage() {
 
                 {/* Cycles list */}
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {(!season.cycles || season.cycles.length === 0) ? (
+                  {visibleCycles.length === 0 ? (
                     <div className="px-5 py-6 text-center text-sm font-bold text-gray-400">
-                      لا توجد دورات في هذا الموسم
+                      {archivedCyclesCount > 0 ? 'كل الدورات الحالية مؤرشفة' : 'لا توجد دورات في هذا الموسم'}
                     </div>
                   ) : (
-                    season.cycles.map(cycle => {
+                    visibleCycles.map(cycle => {
                       const isOperating = operatingCycle === cycle.id
                       const isActive = cycle.status === 'active'
                       const isDraft = cycle.status === 'draft'
@@ -795,6 +894,26 @@ export default function AdminSeasonsPage() {
 
                             {cycle.status === 'completed' && (
                               <span className="text-[10px] font-black text-gray-400 px-2 py-1">مكتملة</span>
+                            )}
+                            {!isActive && cycle.status !== 'archived' && (
+                              <button
+                                onClick={() => archiveCycle(cycle.id)}
+                                disabled={isOperating}
+                                className="text-xs font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
+                              >
+                                <iconify-icon icon="lucide:archive" class="text-xs"></iconify-icon>
+                                أرشفة
+                              </button>
+                            )}
+                            {!isActive && (
+                              <button
+                                onClick={() => deleteCycle(cycle.id, cycle.label)}
+                                disabled={isOperating}
+                                className="text-xs font-bold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 px-3 py-1.5 rounded-lg smooth-transition flex items-center gap-1 disabled:opacity-60"
+                              >
+                                <iconify-icon icon="lucide:trash-2" class="text-xs"></iconify-icon>
+                                حذف
+                              </button>
                             )}
                           </div>
                         </div>

@@ -75,6 +75,11 @@ export default function LoginPage() {
                   <input
                     type="text"
                     id="login-username"
+                    name="username"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    dir="ltr"
                     value={form.username}
                     onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
                     placeholder="warrior_2024"
@@ -94,6 +99,8 @@ export default function LoginPage() {
                   <input
                     type="password"
                     id="login-password"
+                    name="password"
+                    autoComplete="current-password"
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                     placeholder="••••••••"
@@ -104,7 +111,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <p className="text-brand-danger text-sm font-bold text-center py-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30">
+                <p role="alert" className="text-brand-danger text-sm font-bold text-center py-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30">
                   {error}
                 </p>
               )}

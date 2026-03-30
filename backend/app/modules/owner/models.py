@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base
+from app.core.utils import now_riyadh_naive
 
 
 class IPBan(Base):
@@ -18,4 +19,4 @@ class IPBan(Base):
     reason: Mapped[str | None] = mapped_column(Text)
     banned_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
     expires_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)

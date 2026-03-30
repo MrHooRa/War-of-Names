@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import AccountStatus
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class Account(Base):
@@ -26,8 +27,8 @@ class Account(Base):
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="ar")
     consent_at: Mapped[datetime | None] = mapped_column()
     last_login_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     # Relationships
     memberships = relationship("Membership", back_populates="account", lazy="selectin")
@@ -45,7 +46,7 @@ class Role(Base):
     description: Mapped[str | None] = mapped_column(Text)
     permissions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=list)
     is_system: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 class AccountRole(Base):
@@ -55,7 +56,7 @@ class AccountRole(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
     account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
     role_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
-    granted_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    granted_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     granted_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
 
     account = relationship("Account", back_populates="roles", foreign_keys=[account_id])

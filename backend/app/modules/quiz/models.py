@@ -16,6 +16,7 @@ from app.core.enums import (
     SessionType,
 )
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class QuestionGroup(Base):
@@ -28,8 +29,8 @@ class QuestionGroup(Base):
         pg_enum(QuestionStatus, name="question_status"), nullable=False, default=QuestionStatus.DRAFT
     )
     competition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("competitions.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     questions = relationship("Question", back_populates="group", lazy="selectin")
 
@@ -57,8 +58,8 @@ class Question(Base):
         pg_enum(QuestionStatus, name="question_status"), nullable=False, default=QuestionStatus.ACTIVE
     )
     display_order: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     group = relationship("QuestionGroup", back_populates="questions")
 
@@ -85,8 +86,8 @@ class QuizSession(Base):
     scoring_rules: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     visibility_rules: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
+    updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
 
     session_questions = relationship("SessionQuestion", back_populates="session", lazy="selectin")
 
@@ -102,7 +103,7 @@ class SessionQuestion(Base):
     effective_score_value: Mapped[int] = mapped_column(nullable=False)
     effective_prompt_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
     effective_options_snapshot: Mapped[dict | None] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
     session = relationship("QuizSession", back_populates="session_questions")
 
@@ -120,11 +121,11 @@ class AnswerSubmission(Base):
         ForeignKey("session_questions.id", ondelete="RESTRICT"), nullable=False
     )
     submitted_answer: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    submitted_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    submitted_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     status: Mapped[AnswerEvalStatus] = mapped_column(
         pg_enum(AnswerEvalStatus, name="answer_eval_status"), nullable=False, default=AnswerEvalStatus.SUBMITTED
     )
     is_correct: Mapped[bool | None] = mapped_column()
     points_awarded: Mapped[int] = mapped_column(default=0)
     evaluated_at: Mapped[datetime | None] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)

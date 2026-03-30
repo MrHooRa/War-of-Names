@@ -10,7 +10,10 @@ export default function useLeaderboard(competitionId) {
   const [state, setState] = useState({ players: [], loading: true, error: null })
 
   const fetchData = useCallback(async () => {
-    if (!competitionId) return
+    if (!competitionId) {
+      setState({ players: [], loading: false, error: null })
+      return
+    }
     setState(s => ({ ...s, loading: true, error: null }))
     try {
       const json = await apiFetch(`/api/competitions/${competitionId}/leaderboard`)

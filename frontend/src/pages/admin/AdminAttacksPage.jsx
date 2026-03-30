@@ -20,6 +20,54 @@ function StatusBadge({ status }) {
   return <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${colors[status] || 'bg-gray-100 text-gray-500'}`}>{labels[status] || status}</span>
 }
 
+function AttackMobileCard({ attack }) {
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">المهاجم</div>
+          <Link to={`/admin/members/${attack.attacker_membership_id}`} className="font-bold text-gray-900 dark:text-white hover:text-brand-teal smooth-transition">
+            {attack.attacker_alias}
+          </Link>
+          <div className="text-[11px] font-bold text-gray-400">{attack.attacker_real_name}</div>
+        </div>
+        <StatusBadge status={attack.outcome} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">الهدف</div>
+          <Link to={`/admin/members/${attack.target_membership_id}`} className="font-bold text-gray-900 dark:text-white hover:text-brand-teal smooth-transition">
+            {attack.target_alias}
+          </Link>
+          <div className="text-[11px] font-bold text-gray-400">{attack.target_real_name}</div>
+        </div>
+        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">التوقيت</div>
+          <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
+            {attack.created_at ? formatDateTime(attack.created_at) : '—'}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-brand-success/5 p-3 text-center">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">المكافأة</div>
+          <div className="font-heading font-black text-brand-success">
+            {attack.reward_amount > 0 ? `+${attack.reward_amount}` : '—'}
+          </div>
+        </div>
+        <div className="rounded-xl bg-brand-danger/5 p-3 text-center">
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">العقوبة</div>
+          <div className="font-heading font-black text-brand-danger">
+            {attack.penalty_amount > 0 ? `-${attack.penalty_amount}` : '—'}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminAttacksPage() {
   const { selected, selectedId } = useAdminCompetition()
   const [attacks, setAttacks] = useState([])
@@ -62,7 +110,7 @@ export default function AdminAttacksPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-4 text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي</div>
           <div className="font-heading font-black text-2xl text-gray-900 dark:text-white">{attacks.length}</div>
@@ -79,57 +127,63 @@ export default function AdminAttacksPage() {
 
       {/* Attacks Table */}
       <div className="bg-white dark:bg-brand-card-dark border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">النتيجة</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">المهاجم</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">الهدف</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">المكافأة</th>
-                <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">العقوبة</th>
-                <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">التوقيت</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {attacks.map(a => (
-                <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 smooth-transition">
-                  <td className="px-4 py-3"><StatusBadge status={a.outcome} /></td>
-                  <td className="px-4 py-3">
-                    <Link to={`/admin/members/${a.attacker_membership_id}`} className="hover:text-brand-teal smooth-transition">
-                      <div className="font-bold text-gray-900 dark:text-white">{a.attacker_alias}</div>
-                      <div className="text-[11px] font-bold text-gray-400">{a.attacker_real_name}</div>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link to={`/admin/members/${a.target_membership_id}`} className="hover:text-brand-teal smooth-transition">
-                      <div className="font-bold text-gray-900 dark:text-white">{a.target_alias}</div>
-                      <div className="text-[11px] font-bold text-gray-400">{a.target_real_name}</div>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {a.reward_amount > 0 ? (
-                      <span className="font-heading font-black text-brand-success">+{a.reward_amount}</span>
-                    ) : <span className="text-gray-400">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {a.penalty_amount > 0 ? (
-                      <span className="font-heading font-black text-brand-danger">-{a.penalty_amount}</span>
-                    ) : <span className="text-gray-400">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-xs font-bold text-gray-400">
-                    {a.created_at ? formatDateTime(a.created_at) : '—'}
-                  </td>
-                </tr>
-              ))}
-              {attacks.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="px-4 py-10 text-center font-bold text-gray-400">لا توجد هجمات بعد</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {attacks.length === 0 ? (
+          <div className="px-4 py-10 text-center font-bold text-gray-400">لا توجد هجمات بعد</div>
+        ) : (
+          <>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 md:hidden">
+              {attacks.map(attack => <AttackMobileCard key={attack.id} attack={attack} />)}
+            </div>
+            <div className="hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-800">
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">النتيجة</th>
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">المهاجم</th>
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">الهدف</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">المكافأة</th>
+                      <th className="text-center px-4 py-3 font-black text-gray-500 dark:text-gray-400">العقوبة</th>
+                      <th className="text-right px-4 py-3 font-black text-gray-500 dark:text-gray-400">التوقيت</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {attacks.map(a => (
+                      <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 smooth-transition">
+                        <td className="px-4 py-3"><StatusBadge status={a.outcome} /></td>
+                        <td className="px-4 py-3">
+                          <Link to={`/admin/members/${a.attacker_membership_id}`} className="hover:text-brand-teal smooth-transition">
+                            <div className="font-bold text-gray-900 dark:text-white">{a.attacker_alias}</div>
+                            <div className="text-[11px] font-bold text-gray-400">{a.attacker_real_name}</div>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link to={`/admin/members/${a.target_membership_id}`} className="hover:text-brand-teal smooth-transition">
+                            <div className="font-bold text-gray-900 dark:text-white">{a.target_alias}</div>
+                            <div className="text-[11px] font-bold text-gray-400">{a.target_real_name}</div>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {a.reward_amount > 0 ? (
+                            <span className="font-heading font-black text-brand-success">+{a.reward_amount}</span>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {a.penalty_amount > 0 ? (
+                            <span className="font-heading font-black text-brand-danger">-{a.penalty_amount}</span>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-bold text-gray-400">
+                          {a.created_at ? formatDateTime(a.created_at) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

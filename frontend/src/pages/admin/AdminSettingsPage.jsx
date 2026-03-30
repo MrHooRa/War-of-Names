@@ -273,6 +273,7 @@ export default function AdminSettingsPage() {
                           {isOverridden && !isDirty && (
                             <button
                               onClick={() => handleResetOverride(setting.key)}
+                              aria-label={`إلغاء تخصيص ${setting.description}`}
                               className="text-xs font-bold text-gray-400 hover:text-brand-danger px-2 py-1 rounded-lg hover:bg-brand-danger/10 smooth-transition"
                               title="إلغاء التخصيص"
                             >
@@ -286,6 +287,7 @@ export default function AdminSettingsPage() {
                                 setEditedValues(prev => ({ ...prev, [setting.key]: sv }))
                                 setDirtyKeys(prev => { const n = new Set(prev); n.delete(setting.key); return n })
                               }}
+                              aria-label={`التراجع عن تعديل ${setting.description}`}
                               className="text-gray-400 hover:text-brand-danger smooth-transition"
                               title="تراجع"
                             >

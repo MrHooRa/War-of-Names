@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { parseDateTime } from '../lib/dates'
 
 function formatTimeLeft(ms) {
   if (ms <= 0) return null
@@ -26,7 +27,8 @@ export default function CycleCountdown({ cycleEndsAt, cycleLabel, nextCycleLabel
     if (!cycleEndsAt) return
 
     function tick() {
-      const ms = new Date(cycleEndsAt).getTime() - Date.now()
+      const endsAt = parseDateTime(cycleEndsAt)
+      const ms = (endsAt?.getTime() ?? 0) - Date.now()
       setTimeLeft(ms > 0 ? ms : 0)
     }
 

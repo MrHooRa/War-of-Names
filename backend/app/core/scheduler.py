@@ -11,12 +11,12 @@ Jobs:
 """
 
 import logging
-from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import select, and_
+from sqlalchemy import select
 
 from app.core.database import async_session
+from app.core.utils import now_riyadh_naive
 from app.core.enums import (
     CycleStatus,
     MembershipStatus,
@@ -30,6 +30,10 @@ from app.modules.competitions.models import Competition, Cycle, Membership, Seas
 from app.modules.quiz.models import QuizSession
 from app.modules.store.models import OwnedItem
 from app.modules.attacks.models import ProtectionRecord
+from app.modules.attacks.protection_service import (
+    active_protection_filters,
+    reconcile_membership_protection,
+)
 from app.modules.notifications.service import create_notification
 
 logger = logging.getLogger("scheduler")
@@ -42,27 +46,17 @@ scheduler = AsyncIOScheduler()
 
 async def job_cycle_transitions():
     """Auto-start draft cycles and auto-end active cycles based on timestamps."""
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     try:
         async with async_session() as session:
             # Import here to avoid circular imports
-            from app.modules.competitions.cycle_service import start_cycle, end_cycle
-
-            # Auto-START: draft cycles whose starts_at has arrived
-            draft_result = await session.execute(
-                select(Cycle).where(
-                    Cycle.status == CycleStatus.DRAFT,
-                    Cycle.starts_at != None,  # noqa: E711
-                    Cycle.starts_at <= now,
-                )
+            from app.modules.competitions.cycle_service import (
+                end_cycle,
+                maybe_auto_start_next_cycle,
+                start_cycle,
             )
-            for cycle in draft_result.scalars().all():
-                season = await session.get(Season, cycle.season_id)
-                if season and season.status == SeasonStatus.ACTIVE:
-                    logger.info(f"Auto-starting cycle: {cycle.label} (id={cycle.id})")
-                    await start_cycle(session, cycle, season)
 
-            # Auto-END: active cycles whose ends_at has passed
+            # Auto-END first so rollover can start the next cycle cleanly.
             active_result = await session.execute(
                 select(Cycle).where(
                     Cycle.status == CycleStatus.ACTIVE,
@@ -75,6 +69,35 @@ async def job_cycle_transitions():
                 if season:
                     logger.info(f"Auto-ending cycle: {cycle.label} (id={cycle.id})")
                     await end_cycle(session, cycle, season)
+                    auto_started = await maybe_auto_start_next_cycle(session, season, cycle)
+                    if auto_started:
+                        logger.info(
+                            "Auto-started next cycle after rollover: %s (id=%s)",
+                            auto_started["label"],
+                            auto_started["cycle_id"],
+                        )
+
+            # Auto-START: draft cycles whose starts_at has arrived
+            draft_result = await session.execute(
+                select(Cycle).where(
+                    Cycle.status == CycleStatus.DRAFT,
+                    Cycle.starts_at != None,  # noqa: E711
+                    Cycle.starts_at <= now,
+                )
+            )
+            for cycle in draft_result.scalars().all():
+                season = await session.get(Season, cycle.season_id)
+                if season and season.status == SeasonStatus.ACTIVE:
+                    active_in_season = await session.execute(
+                        select(Cycle.id).where(
+                            Cycle.season_id == season.id,
+                            Cycle.status == CycleStatus.ACTIVE,
+                        ).limit(1)
+                    )
+                    if active_in_season.scalars().first():
+                        continue
+                    logger.info(f"Auto-starting cycle: {cycle.label} (id={cycle.id})")
+                    await start_cycle(session, cycle, season)
 
             await session.commit()
     except Exception:
@@ -83,7 +106,7 @@ async def job_cycle_transitions():
 
 async def job_season_transitions():
     """Auto-start draft seasons and auto-end active seasons based on timestamps."""
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     try:
         async with async_session() as session:
             from app.modules.competitions.cycle_service import start_season, end_season
@@ -122,7 +145,7 @@ async def job_season_transitions():
 
 async def job_quiz_lifecycle():
     """Auto-open scheduled quiz sessions and auto-close expired ones."""
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     try:
         async with async_session() as session:
             # Auto-OPEN: scheduled sessions whose starts_at has arrived
@@ -179,7 +202,7 @@ async def job_quiz_lifecycle():
 
 async def job_expire_items():
     """Expire owned items whose expires_at has passed."""
-    now = datetime.utcnow()
+    now = now_riyadh_naive()
     try:
         async with async_session() as session:
             result = await session.execute(
@@ -205,42 +228,45 @@ async def job_expire_items():
 
 
 async def job_expire_protections():
-    """Reset protection on memberships whose ProtectionRecord has expired."""
-    now = datetime.utcnow()
+    """Reconcile cached protection state from ProtectionRecord lifecycle."""
+    now = now_riyadh_naive()
     try:
         async with async_session() as session:
-            # Find expired protection records
+            membership_ids_to_reconcile = set()
+
             expired_records = await session.execute(
-                select(ProtectionRecord).where(
-                    ProtectionRecord.ends_at != None,  # noqa: E711
+                select(ProtectionRecord.membership_id).where(
+                    ProtectionRecord.ends_at.is_not(None),
                     ProtectionRecord.ends_at <= now,
                 )
             )
-            membership_ids_to_reset = set()
-            for record in expired_records.scalars().all():
-                membership_ids_to_reset.add(record.membership_id)
+            membership_ids_to_reconcile.update(expired_records.scalars().all())
 
-            # Reset protection on affected memberships (only if still protected)
-            reset_count = 0
-            for mid in membership_ids_to_reset:
-                membership = await session.get(Membership, mid)
-                if membership and membership.protection != ProtectionType.NONE:
-                    # Check if there are any still-active protection records
-                    active_result = await session.execute(
-                        select(ProtectionRecord).where(
-                            ProtectionRecord.membership_id == mid,
-                            and_(
-                                ProtectionRecord.ends_at != None,  # noqa: E711
-                                ProtectionRecord.ends_at > now,
-                            ),
-                        ).limit(1)
-                    )
-                    if not active_result.scalars().first():
-                        membership.protection = ProtectionType.NONE
-                        reset_count += 1
+            active_records = await session.execute(
+                select(ProtectionRecord.membership_id).where(active_protection_filters(now))
+            )
+            membership_ids_to_reconcile.update(active_records.scalars().all())
 
-            if reset_count > 0:
-                logger.info(f"Reset protection on {reset_count} memberships")
+            protected_memberships = await session.execute(
+                select(Membership.id).where(Membership.protection != ProtectionType.NONE)
+            )
+            membership_ids_to_reconcile.update(protected_memberships.scalars().all())
+
+            if not membership_ids_to_reconcile:
+                return
+
+            memberships = await session.execute(
+                select(Membership).where(Membership.id.in_(membership_ids_to_reconcile))
+            )
+            changed_count = 0
+            for membership in memberships.scalars().all():
+                old_protection = membership.protection
+                new_protection = await reconcile_membership_protection(session, membership, now=now)
+                if old_protection != new_protection:
+                    changed_count += 1
+
+            if changed_count > 0:
+                logger.info(f"Reconciled protection on {changed_count} memberships")
                 await session.commit()
     except Exception:
         logger.exception("Error in job_expire_protections")

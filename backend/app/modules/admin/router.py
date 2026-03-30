@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.auth import get_admin_account
 from app.core.database import async_session
+from app.core.utils import coerce_riyadh_naive, now_riyadh_naive
 from app.core.enums import (
     AccountStatus,
     AnswerEvalStatus,
@@ -30,13 +31,20 @@ from app.core.enums import (
     NotificationPriority,
     NotificationType,
     OwnedItemStatus,
+    ProtectionType,
     QuestionStatus,
     SeasonStatus,
     SessionStatus,
     SessionType,
     SettingScope,
 )
-from app.modules.attacks.models import AttackAttempt
+from app.modules.attacks.models import AttackAttempt, AttackExposure, BankruptcyRecord
+from app.modules.attacks.protection_service import (
+    ADMIN_PROTECTION_SOURCE,
+    create_protection_record,
+    expire_active_protection_records,
+    reconcile_membership_protection,
+)
 from app.modules.auth.models import Account
 from app.modules.competitions.models import AliasRecord, Competition, CompetitionInvite, Cycle, Membership, Season
 from app.modules.notifications.models import Notification
@@ -363,7 +371,7 @@ async def create_competition(body: CreateCompetitionRequest, admin: AdminAccount
         initial_status = CompetitionStatus.ACTIVE if body.auto_activate else CompetitionStatus.DRAFT
         season_status = SeasonStatus.ACTIVE if body.auto_activate else SeasonStatus.DRAFT
         cycle_status = CycleStatus.ACTIVE if body.auto_activate else CycleStatus.DRAFT
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
 
         # 1. Create competition
         comp = Competition(
@@ -608,6 +616,8 @@ async def create_cycle(body: CreateCycleRequest, admin: AdminAccount):
         season = await session.get(Season, body.season_id)
         if not season:
             raise HTTPException(status_code=404, detail="الموسم غير موجود")
+        if season.status in (SeasonStatus.COMPLETED, SeasonStatus.ARCHIVED):
+            raise HTTPException(status_code=400, detail="لا يمكن إضافة دورة إلى موسم مكتمل أو مؤرشف")
 
         max_order = (await session.execute(
             select(func.coalesce(func.max(Cycle.order_index), 0))
@@ -708,11 +718,16 @@ async def update_season(season_id: uuid.UUID, body: UpdateSeasonRequest, admin: 
                     status_code=400,
                     detail="استخدم نقطة النهاية /start لتفعيل الموسم — لا يمكن التفعيل مباشرة",
                 )
+            if body.status == SeasonStatus.ARCHIVED and old_status == SeasonStatus.ACTIVE:
+                raise HTTPException(
+                    status_code=400,
+                    detail="يجب إنهاء الموسم أولاً قبل أرشفته",
+                )
             season.status = body.status
         if body.starts_at is not None:
-            season.starts_at = datetime.fromisoformat(body.starts_at) if body.starts_at else None
+            season.starts_at = coerce_riyadh_naive(datetime.fromisoformat(body.starts_at)) if body.starts_at else None
         if body.ends_at is not None:
-            season.ends_at = datetime.fromisoformat(body.ends_at) if body.ends_at else None
+            season.ends_at = coerce_riyadh_naive(datetime.fromisoformat(body.ends_at)) if body.ends_at else None
 
         # Audit trail on status changes
         if body.status is not None and body.status != old_status:
@@ -738,16 +753,131 @@ async def update_cycle(cycle_id: uuid.UUID, body: UpdateCycleRequest, admin: Adm
         cycle = await session.get(Cycle, cycle_id)
         if not cycle:
             raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+        old_status = cycle.status
         if body.label is not None:
             cycle.label = body.label
         if body.status is not None:
+            if body.status == CycleStatus.ACTIVE and old_status != CycleStatus.ACTIVE:
+                raise HTTPException(
+                    status_code=400,
+                    detail="استخدم /start أو /advance لتفعيل الدورة — لا يمكن التفعيل مباشرة",
+                )
+            if body.status == CycleStatus.ARCHIVED and old_status == CycleStatus.ACTIVE:
+                raise HTTPException(
+                    status_code=400,
+                    detail="يجب إنهاء الدورة أو إيقافها مؤقتاً قبل أرشفتها",
+                )
             cycle.status = body.status
         if body.starts_at is not None:
-            cycle.starts_at = datetime.fromisoformat(body.starts_at) if body.starts_at else None
+            cycle.starts_at = coerce_riyadh_naive(datetime.fromisoformat(body.starts_at)) if body.starts_at else None
         if body.ends_at is not None:
-            cycle.ends_at = datetime.fromisoformat(body.ends_at) if body.ends_at else None
+            cycle.ends_at = coerce_riyadh_naive(datetime.fromisoformat(body.ends_at)) if body.ends_at else None
+        if body.status is not None and body.status != old_status:
+            await write_audit(
+                session,
+                actor_id=admin.id,
+                subject_type="cycle",
+                subject_id=cycle.id,
+                event_type="cycle_status_changed",
+                summary=f"تغيير حالة الدورة: {old_status} → {body.status}",
+                before_state={"status": str(old_status)},
+                after_state={"status": body.status},
+                related_type="season",
+                related_id=cycle.season_id,
+            )
         await session.commit()
     return {"success": True, "message": "تم تحديث الدورة بنجاح"}
+
+
+@router.delete("/seasons/{season_id}")
+async def delete_season(season_id: uuid.UUID, admin: AdminAccount):
+    """Delete a non-active season only when it has no historical gameplay records."""
+    async with async_session() as session:
+        season = await session.get(Season, season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+        if season.status == SeasonStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="لا يمكن حذف موسم نشط — أنهِه أو أوقفه أولاً")
+
+        attacks_count = (await session.execute(
+            select(func.count()).where(AttackAttempt.season_id == season_id)
+        )).scalar() or 0
+        exposure_count = (await session.execute(
+            select(func.count()).where(AttackExposure.season_id == season_id)
+        )).scalar() or 0
+        bankruptcy_count = (await session.execute(
+            select(func.count())
+            .select_from(BankruptcyRecord)
+            .join(Cycle, BankruptcyRecord.cycle_id == Cycle.id)
+            .where(Cycle.season_id == season_id)
+        )).scalar() or 0
+
+        if attacks_count or exposure_count or bankruptcy_count:
+            raise HTTPException(
+                status_code=400,
+                detail="الموسم يحتوي على سجل تشغيلي/قتالي؛ استخدم الأرشفة بدلاً من الحذف",
+            )
+
+        season_name = season.name
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="season",
+            subject_id=season.id,
+            event_type="season_deleted",
+            summary=f"حذف الموسم: {season.name}",
+            before_state={"status": str(season.status), "name": season.name},
+            related_type="competition",
+            related_id=season.competition_id,
+        )
+        await session.delete(season)
+        await session.commit()
+
+    return {"success": True, "message": f"تم حذف الموسم: {season_name}"}
+
+
+@router.delete("/cycles/{cycle_id}")
+async def delete_cycle(cycle_id: uuid.UUID, admin: AdminAccount):
+    """Delete a non-active cycle only when it has no historical gameplay records."""
+    async with async_session() as session:
+        cycle = await session.get(Cycle, cycle_id)
+        if not cycle:
+            raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+        if cycle.status == CycleStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="لا يمكن حذف دورة نشطة — أنهِها أو أوقفها أولاً")
+
+        attacks_count = (await session.execute(
+            select(func.count()).where(AttackAttempt.cycle_id == cycle_id)
+        )).scalar() or 0
+        exposure_count = (await session.execute(
+            select(func.count()).where(AttackExposure.cycle_id == cycle_id)
+        )).scalar() or 0
+        bankruptcy_count = (await session.execute(
+            select(func.count()).where(BankruptcyRecord.cycle_id == cycle_id)
+        )).scalar() or 0
+
+        if attacks_count or exposure_count or bankruptcy_count:
+            raise HTTPException(
+                status_code=400,
+                detail="الدورة تحتوي على سجل تشغيلي/قتالي؛ استخدم الأرشفة بدلاً من الحذف",
+            )
+
+        cycle_label = cycle.label
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="cycle",
+            subject_id=cycle.id,
+            event_type="cycle_deleted",
+            summary=f"حذف الدورة: {cycle.label}",
+            before_state={"status": str(cycle.status), "label": cycle.label},
+            related_type="season",
+            related_id=cycle.season_id,
+        )
+        await session.delete(cycle)
+        await session.commit()
+
+    return {"success": True, "message": f"تم حذف الدورة: {cycle_label}"}
 
 
 @router.patch("/invites/{invite_id}")
@@ -1104,23 +1234,33 @@ async def update_player_status(membership_id: uuid.UUID, body: AdminPlayerStatus
 
 
 class AdminPlayerProtectionRequest(BaseModel):
-    protection: str  # "none", "partial", "full"
+    protection: ProtectionType
 
 
 @router.patch("/players/{membership_id}/protection")
 async def update_player_protection(membership_id: uuid.UUID, body: AdminPlayerProtectionRequest, admin: AdminAccount):
     """Set or clear protection on a player."""
-    valid = {"none", "partial", "full"}
-    if body.protection not in valid:
-        raise HTTPException(status_code=400, detail=f"الحماية يجب أن تكون: {', '.join(valid)}")
-
     async with async_session() as session:
         membership = await session.get(Membership, membership_id)
         if not membership:
             raise HTTPException(status_code=404, detail="اللاعب غير موجود")
 
         old_protection = membership.protection
-        membership.protection = body.protection
+        now = now_riyadh_naive()
+
+        await expire_active_protection_records(session, membership.id, now=now)
+        if body.protection != ProtectionType.NONE:
+            await create_protection_record(
+                session,
+                membership,
+                protection_type=body.protection,
+                source_type=ADMIN_PROTECTION_SOURCE,
+                source_id=admin.id,
+                reason="تعديل إداري للحماية",
+                starts_at=now,
+            )
+        else:
+            await reconcile_membership_protection(session, membership, now=now)
 
         await write_audit(
             session,
@@ -1128,16 +1268,23 @@ async def update_player_protection(membership_id: uuid.UUID, body: AdminPlayerPr
             subject_type="membership",
             subject_id=membership.id,
             event_type="protection_changed",
-            summary=f"تغيير الحماية: {old_protection} → {body.protection}",
+            summary=f"تغيير الحماية: {old_protection} → {membership.protection}",
             before_state={"protection": str(old_protection)},
-            after_state={"protection": body.protection},
+            after_state={"protection": str(membership.protection)},
             related_type="competition",
             related_id=membership.competition_id,
         )
         await session.commit()
 
-    labels = {"none": "بدون حماية", "partial": "حماية جزئية", "full": "حماية كاملة"}
-    return {"success": True, "message": f"تم تحديث الحماية إلى: {labels.get(body.protection, body.protection)}"}
+    labels = {
+        ProtectionType.NONE: "بدون حماية",
+        ProtectionType.PARTIAL: "حماية جزئية",
+        ProtectionType.FULL: "حماية كاملة",
+    }
+    return {
+        "success": True,
+        "message": f"تم تحديث الحماية إلى: {labels.get(membership.protection, membership.protection)}",
+    }
 
 
 @router.patch("/players/{membership_id}/remove-bankruptcy")
@@ -1330,7 +1477,7 @@ async def revoke_item_from_player(
         old_status = owned_item.status
         old_quantity = owned_item.quantity
         owned_item.status = OwnedItemStatus.CONSUMED
-        owned_item.consumed_at = datetime.utcnow()
+        owned_item.consumed_at = now_riyadh_naive()
 
         # Create notification for player
         notif = Notification(
@@ -1396,7 +1543,7 @@ async def bulk_revoke_owned_items(item_id: uuid.UUID, body: AdminBulkRevokeReque
         if not owned_items:
             return {"success": True, "message": "لا توجد عناصر نشطة لمصادرتها", "data": {"revoked_count": 0}}
 
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
         affected_membership_ids = set()
 
         for owned in owned_items:
@@ -1713,9 +1860,9 @@ async def update_quiz_session(session_id: uuid.UUID, body: UpdateQuizSessionRequ
         if body.title is not None:
             qs.title = body.title
         if body.starts_at is not None:
-            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')).replace(tzinfo=None) if body.starts_at else None
+            qs.starts_at = coerce_riyadh_naive(datetime.fromisoformat(body.starts_at.replace('Z', '+00:00'))) if body.starts_at else None
         if body.ends_at is not None:
-            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')).replace(tzinfo=None) if body.ends_at else None
+            qs.ends_at = coerce_riyadh_naive(datetime.fromisoformat(body.ends_at.replace('Z', '+00:00'))) if body.ends_at else None
         after = {"status": str(qs.status), "title": qs.title}
         await write_audit(
             session,
@@ -1897,9 +2044,9 @@ async def create_quiz_session(body: CreateQuizSessionRequest, admin: AdminAccoun
             created_by=admin.id,
         )
         if body.starts_at:
-            qs.starts_at = datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')).replace(tzinfo=None)
+            qs.starts_at = coerce_riyadh_naive(datetime.fromisoformat(body.starts_at.replace('Z', '+00:00')))
         if body.ends_at:
-            qs.ends_at = datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')).replace(tzinfo=None)
+            qs.ends_at = coerce_riyadh_naive(datetime.fromisoformat(body.ends_at.replace('Z', '+00:00')))
         session.add(qs)
         await session.flush()
 
@@ -2086,9 +2233,9 @@ async def update_listing(listing_id: uuid.UUID, body: UpdateListingRequest, admi
         if body.max_per_participant is not None:
             listing.max_per_participant = body.max_per_participant
         if body.available_from is not None:
-            listing.available_from = datetime.fromisoformat(body.available_from.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_from else None
+            listing.available_from = coerce_riyadh_naive(datetime.fromisoformat(body.available_from.replace('Z', '+00:00'))) if body.available_from else None
         if body.available_until is not None:
-            listing.available_until = datetime.fromisoformat(body.available_until.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_until else None
+            listing.available_until = coerce_riyadh_naive(datetime.fromisoformat(body.available_until.replace('Z', '+00:00'))) if body.available_until else None
         if body.eligibility_rules is not None:
             listing.eligibility_rules = body.eligibility_rules
 
@@ -2423,8 +2570,8 @@ async def create_store_listing(body: CreateStoreListingRequest, admin: AdminAcco
             total_stock=body.total_stock,
             max_per_participant=body.max_per_participant,
             status=ListingStatus.ACTIVE,
-            available_from=datetime.fromisoformat(body.available_from.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_from else None,
-            available_until=datetime.fromisoformat(body.available_until.replace('Z', '+00:00')).replace(tzinfo=None) if body.available_until else None,
+            available_from=coerce_riyadh_naive(datetime.fromisoformat(body.available_from.replace('Z', '+00:00'))) if body.available_from else None,
+            available_until=coerce_riyadh_naive(datetime.fromisoformat(body.available_until.replace('Z', '+00:00'))) if body.available_until else None,
             eligibility_rules=body.eligibility_rules or {},
         )
         session.add(listing)
@@ -2606,89 +2753,6 @@ async def list_all_notifications(admin: AdminAccount, competition_id: uuid.UUID 
 # ═══════════════════════════════════════════════════════════════════════════
 # SETTINGS / CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
-
-@router.get("/settings/game-info")
-async def get_game_settings(admin: AdminAccount):
-    """Get game info and key configuration."""
-    from app.core.models import GameInfo
-    async with async_session() as session:
-        result = await session.execute(select(GameInfo).limit(1))
-        info = result.scalars().first()
-
-        # Count key stats for overview
-        total_accounts = (await session.execute(
-            select(func.count()).where(Account.username != "_system", Account.username != "admin")
-        )).scalar() or 0
-
-        total_competitions = (await session.execute(
-            select(func.count()).select_from(Competition)
-        )).scalar() or 0
-
-    # Read attack config from settings (DB with cascade)
-    from app.modules.settings.service import get_settings_batch
-    async with async_session() as settings_session:
-        cfg = await get_settings_batch(
-            settings_session,
-            ["attack_base_reward", "attack_decay_factor", "attack_base_penalty",
-             "attack_max_per_cycle", "score_bankruptcy_threshold", "score_initial_balance"],
-        )
-
-    data = {
-        "game_info": {
-            "title": info.title if info else None,
-            "subtitle": info.subtitle if info else None,
-            "current_season": info.current_season if info else None,
-            "status": info.status if info else None,
-            "announcement": info.announcement if info else None,
-        },
-        "system_stats": {
-            "total_accounts": total_accounts,
-            "total_competitions": total_competitions,
-        },
-        "attack_config": {
-            "base_reward": cfg.get("attack_base_reward", 500),
-            "decay_factor": cfg.get("attack_decay_factor", 0.8),
-            "base_penalty": cfg.get("attack_base_penalty", 100),
-            "max_attacks_per_cycle": cfg.get("attack_max_per_cycle", 3),
-            "bankruptcy_threshold": cfg.get("score_bankruptcy_threshold", 0),
-            "initial_balance": cfg.get("score_initial_balance", 1000),
-        },
-    }
-    return {"success": True, "data": data}
-
-
-class UpdateGameInfoRequest(BaseModel):
-    title: str | None = None
-    subtitle: str | None = None
-    current_season: str | None = None
-    announcement: str | None = None
-    status: str | None = None
-
-
-@router.patch("/settings/game-info")
-async def update_game_info(body: UpdateGameInfoRequest, admin: AdminAccount):
-    """Update game info."""
-    from app.core.models import GameInfo
-    async with async_session() as session:
-        result = await session.execute(select(GameInfo).limit(1))
-        info = result.scalars().first()
-        if not info:
-            raise HTTPException(status_code=404, detail="بيانات اللعبة غير موجودة")
-
-        if body.title is not None:
-            info.title = body.title
-        if body.subtitle is not None:
-            info.subtitle = body.subtitle
-        if body.current_season is not None:
-            info.current_season = body.current_season
-        if body.announcement is not None:
-            info.announcement = body.announcement
-        if body.status is not None:
-            info.status = body.status
-
-        await session.commit()
-    return {"success": True, "message": "تم تحديث بيانات اللعبة"}
-
 
 @router.get("/settings")
 async def list_settings(admin: AdminAccount):
@@ -3443,7 +3507,10 @@ async def start_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
 @router.post("/cycles/{cycle_id}/end")
 async def end_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
     """End a cycle with full lifecycle events — clears protections, resets bankruptcy, notifies members."""
-    from app.modules.competitions.cycle_service import end_cycle as do_end_cycle
+    from app.modules.competitions.cycle_service import (
+        end_cycle as do_end_cycle,
+        maybe_auto_start_next_cycle,
+    )
 
     async with async_session() as session:
         cycle = await session.get(Cycle, cycle_id)
@@ -3457,6 +3524,7 @@ async def end_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
             raise HTTPException(status_code=404, detail="الموسم غير موجود")
 
         result = await do_end_cycle(session, cycle, season)
+        auto_started_next_cycle = await maybe_auto_start_next_cycle(session, season, cycle)
 
         await write_audit(
             session,
@@ -3473,7 +3541,10 @@ async def end_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
 
     return {
         "success": True,
-        "data": result.to_dict(),
+        "data": {
+            **result.to_dict(),
+            "auto_started_next_cycle": auto_started_next_cycle,
+        },
         "message": f"تم إنهاء {cycle.label} بنجاح",
     }
 
@@ -3507,26 +3578,44 @@ async def pause_cycle_endpoint(cycle_id: uuid.UUID, admin: AdminAccount):
 
 @router.post("/cycles/{cycle_id}/activate")
 async def activate_cycle(cycle_id: uuid.UUID, admin: AdminAccount):
-    """Activate a draft cycle (simple status change, no lifecycle events). Use /start for full events."""
+    """Compatibility alias for lifecycle-safe cycle activation."""
+    from app.modules.competitions.cycle_service import (
+        close_expired_cycles,
+        start_cycle as do_start_cycle,
+    )
+
     async with async_session() as session:
         cycle = await session.get(Cycle, cycle_id)
         if not cycle:
             raise HTTPException(status_code=404, detail="الدورة غير موجودة")
+        if cycle.status not in (CycleStatus.DRAFT, CycleStatus.PAUSED):
+            raise HTTPException(status_code=400, detail="يمكن تفعيل الدورات ذات الحالة مسودة أو متوقفة فقط")
 
-        # Deactivate other active cycles in the same season
-        await session.execute(
-            update(Cycle).where(
-                Cycle.season_id == cycle.season_id,
-                Cycle.status == CycleStatus.ACTIVE,
-                Cycle.id != cycle_id,
-            ).values(status=CycleStatus.COMPLETED, ends_at=datetime.utcnow())
+        season = await session.get(Season, cycle.season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="الموسم غير موجود")
+
+        await close_expired_cycles(session, season.competition_id)
+        result = await do_start_cycle(session, cycle, season)
+
+        await write_audit(
+            session,
+            actor_id=admin.id,
+            subject_type="cycle",
+            subject_id=cycle.id,
+            event_type="cycle_started",
+            summary=f"تفعيل الدورة عبر مسار التوافق: {cycle.label}",
+            after_state={"status": str(cycle.status), "label": cycle.label},
+            related_type="season",
+            related_id=season.id,
         )
-
-        cycle.status = CycleStatus.ACTIVE
-        cycle.starts_at = datetime.utcnow()
         await session.commit()
 
-    return {"success": True, "message": f"تم تفعيل {cycle.label}"}
+    return {
+        "success": True,
+        "data": result.to_dict(),
+        "message": f"تم تفعيل {cycle.label} بنجاح",
+    }
 
 
 @router.post("/cycles/{cycle_id}/advance")

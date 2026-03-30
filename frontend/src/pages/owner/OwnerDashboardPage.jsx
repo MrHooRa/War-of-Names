@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
+import { formatDate, formatDateTime } from '../../lib/dates'
 
 /* ─────────────────────────────────────────────────────────────────────── */
 /*  Shared UI Components                                                  */
@@ -651,7 +652,7 @@ export default function OwnerDashboardPage() {
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       <span className="font-bold">التشغيل التالي: </span>
                       {job.next_run_time
-                        ? new Date(job.next_run_time).toLocaleString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                        ? formatDateTime(job.next_run_time)
                         : '---'}
                     </div>
                     <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono" dir="ltr">{job.trigger}</div>
@@ -855,7 +856,7 @@ export default function OwnerDashboardPage() {
                     <td className="px-6 py-4">{req.account_status ? statusBadge(req.account_status) : '---'}</td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-xs max-w-[200px] truncate">{req.reason}</td>
                     <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs" dir="ltr">
-                      {req.requested_at ? new Date(req.requested_at).toLocaleDateString('ar-SA') : '---'}
+                      {req.requested_at ? formatDate(req.requested_at) : '---'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -929,10 +930,10 @@ export default function OwnerDashboardPage() {
                     <td className="px-6 py-4 font-bold text-gray-900 dark:text-white font-mono" dir="ltr">{ban.ip_address}</td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{ban.reason}</td>
                     <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs" dir="ltr">
-                      {ban.created_at ? new Date(ban.created_at).toLocaleDateString('ar-SA') : '---'}
+                      {ban.created_at ? formatDate(ban.created_at) : '---'}
                     </td>
                     <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs" dir="ltr">
-                      {ban.expires_at ? new Date(ban.expires_at).toLocaleDateString('ar-SA') : 'دائم'}
+                      {ban.expires_at ? formatDate(ban.expires_at) : 'دائم'}
                     </td>
                     <td className="px-6 py-4">
                       <button

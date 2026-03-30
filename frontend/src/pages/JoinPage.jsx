@@ -81,6 +81,11 @@ export default function JoinPage() {
                   <input
                     type="text"
                     id="invite-code"
+                    name="invite_code"
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    dir="ltr"
                     value={form.invite_code}
                     onChange={e => setForm(f => ({ ...f, invite_code: e.target.value }))}
                     placeholder="مثال: WAR2026"
@@ -100,6 +105,8 @@ export default function JoinPage() {
                   <input
                     type="text"
                     id="warrior-name"
+                    name="alias"
+                    autoComplete="nickname"
                     value={form.alias}
                     onChange={e => setForm(f => ({ ...f, alias: e.target.value }))}
                     placeholder="اكتب اسمك القتالي هنا..."
@@ -111,7 +118,7 @@ export default function JoinPage() {
               </div>
 
               {error && (
-                <p className="text-brand-danger text-sm font-bold text-center py-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30">
+                <p role="alert" className="text-brand-danger text-sm font-bold text-center py-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30">
                   {error}
                 </p>
               )}

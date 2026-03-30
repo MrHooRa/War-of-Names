@@ -4,7 +4,6 @@ import html
 import secrets
 import string
 import uuid
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_admin_account, get_current_account
 from app.core.database import async_session
+from app.core.utils import now_riyadh_naive
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Competition, CompetitionInvite
 from app.modules.landing.models import LandingLink
@@ -178,7 +178,7 @@ async def redirect_landing_link(token: str):
 
         # Increment click counter
         link.total_clicks += 1
-        link.last_clicked_at = datetime.utcnow()
+        link.last_clicked_at = now_riyadh_naive()
         await session.commit()
 
         destination = link.destination_path or "/landing.html"
@@ -321,6 +321,23 @@ async def update_landing_link(
         "success": True,
         "data": _serialize_link(link),
         "message": "تم تحديث الرابط بنجاح",
+    }
+
+
+@router.delete("/api/admin/landing-links/{link_id}")
+async def delete_landing_link(link_id: uuid.UUID, account: AdminAccount):
+    """Admin — permanently delete a tracked landing link."""
+    async with async_session() as session:
+        link = await session.get(LandingLink, link_id)
+        if not link:
+            raise HTTPException(status_code=404, detail="الرابط غير موجود")
+
+        await session.delete(link)
+        await session.commit()
+
+    return {
+        "success": True,
+        "message": "تم حذف رابط التتبع بنجاح",
     }
 
 

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.enums import LedgerDirection, LedgerEntryType
 from app.core.models import Base, pg_enum
+from app.core.utils import now_riyadh_naive
 
 
 class LedgerEntry(Base):
@@ -37,4 +38,4 @@ class LedgerEntry(Base):
     source_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     reason: Mapped[str | None] = mapped_column(Text)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)

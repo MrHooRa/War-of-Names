@@ -15,6 +15,26 @@ def now_riyadh() -> datetime:
     return datetime.now(PLATFORM_TZ)
 
 
+def now_riyadh_naive() -> datetime:
+    """Return the current Riyadh-local datetime without tzinfo.
+
+    The current codebase stores and compares naive datetimes across most ORM
+    models and runtime checks. This helper standardizes those values on Riyadh
+    local time so scheduling and gameplay logic follow the BRD consistently
+    without mixing naive and aware datetime objects.
+    """
+    return now_riyadh().replace(tzinfo=None)
+
+
+def coerce_riyadh_naive(value: datetime | None) -> datetime | None:
+    """Normalize any datetime to a naive Riyadh-local value."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(PLATFORM_TZ).replace(tzinfo=None)
+
+
 def jsonb_safe(obj: Any) -> Any:
     """Recursively convert Python objects to JSON-serializable equivalents.
 

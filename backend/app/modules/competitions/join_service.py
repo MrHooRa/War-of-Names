@@ -5,11 +5,11 @@ both the code-based and link-based join endpoints share the same flow.
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.utils import now_riyadh_naive
 from app.core.enums import (
     AccountStatus,
     CompetitionStatus,
@@ -72,7 +72,7 @@ async def validate_join(
     if invite.status != InviteStatus.ACTIVE:
         raise JoinError("invite_invalid", "رمز الدعوة غير صالح")
 
-    if invite.expires_at and invite.expires_at <= datetime.utcnow():
+    if invite.expires_at and invite.expires_at <= now_riyadh_naive():
         raise JoinError("invite_expired", "رمز الدعوة منتهي الصلاحية")
 
     if invite.max_uses and invite.use_count >= invite.max_uses:

@@ -11,7 +11,14 @@
       "Bash(curl:*)",
       "Bash(docker exec:*)",
       "Bash(wc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "mcp__browser__open",
+      "Bash(npx playwright:*)",
+      "mcp__browser__screenshot",
+      "mcp__browser__console_logs",
+      "mcp__browser__playwright",
+      "mcp__browser__close",
+      "mcp__browser__network_requests"
     ]
   }
 }

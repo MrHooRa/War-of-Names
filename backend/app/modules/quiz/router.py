@@ -1,7 +1,6 @@
 """Quiz session endpoints — get active quiz, submit answers, earn rewards."""
 
 import uuid
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +18,7 @@ from app.core.enums import (
     NotificationType,
     SessionStatus,
 )
+from app.core.utils import now_riyadh_naive
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Competition, Membership
 from app.modules.audit.service import write_audit
@@ -78,7 +78,7 @@ async def list_active_sessions(account: CurrentAccount, competition_id: str | No
         membership, _competition = await _resolve_membership(
             session, account.id, competition_id
         )
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
 
         quiz_result = await session.execute(
             select(QuizSession).where(
@@ -131,7 +131,7 @@ async def get_active_quiz(account: CurrentAccount, competition_id: str | None = 
         membership, _competition = await _resolve_membership(
             session, account.id, competition_id
         )
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
 
         # Find specific or first open quiz session
         query = select(QuizSession).where(
@@ -215,7 +215,7 @@ async def submit_answer(
         membership, _competition = await _resolve_membership(
             session, account.id, competition_id
         )
-        now = datetime.utcnow()
+        now = now_riyadh_naive()
 
         # Verify quiz session exists and is OPEN
         quiz = await session.get(QuizSession, session_id)
@@ -296,7 +296,7 @@ async def submit_answer(
         await session.flush()
 
         # Re-check session time to prevent TOCTOU race
-        now_final = datetime.utcnow()
+        now_final = now_riyadh_naive()
         if quiz.ends_at and now_final > quiz.ends_at:
             await session.rollback()
             raise HTTPException(

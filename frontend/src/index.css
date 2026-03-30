@@ -4,6 +4,14 @@
 
 /* === Styles extracted from HTML templates === */
 
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 /* View Transitions */
 @view-transition {
   navigation: auto;
@@ -69,7 +77,14 @@
 
 /* Smooth transition utility */
 .smooth-transition {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    filter 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Button press effect */
@@ -152,9 +167,30 @@
 }
 
 /* Lobby transitions */
-.trans-slow { transition: all 800ms cubic-bezier(0.25, 1, 0.5, 1); }
-.trans-mid { transition: all 600ms cubic-bezier(0.25, 1, 0.5, 1); }
-.trans-fast { transition: all 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.trans-slow {
+  transition:
+    transform 800ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 800ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 800ms cubic-bezier(0.25, 1, 0.5, 1),
+    filter 800ms cubic-bezier(0.25, 1, 0.5, 1),
+    background-color 800ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.trans-mid {
+  transition:
+    transform 600ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 600ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 600ms cubic-bezier(0.25, 1, 0.5, 1),
+    filter 600ms cubic-bezier(0.25, 1, 0.5, 1),
+    background-color 600ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.trans-fast {
+  transition:
+    transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    opacity 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    box-shadow 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    filter 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    background-color 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
 
 /* Rotating shapes */
 .bg-shape {
@@ -258,4 +294,61 @@ body.lobby-active #main-logo {
 @keyframes fadeInScale {
   0%   { opacity: 0; transform: scale(0.9); }
   100% { opacity: 1; transform: scale(1); }
+}
+
+.skip-link {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 90;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #0B8A8D;
+  color: #FFFFFF;
+  font-size: 0.875rem;
+  font-weight: 800;
+  box-shadow: 0 10px 25px rgba(11, 138, 141, 0.25);
+  transform: translateY(-200%);
+  transition: transform 0.2s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+:focus-visible {
+  outline: 2px solid #0B8A8D;
+  outline-offset: 2px;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

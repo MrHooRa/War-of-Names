@@ -131,6 +131,16 @@ function GameRoutes() {
         }
       />
       <Route
+        path="/competitions/:competitionId/leaderboard"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="leaderboard">
+              <LeaderboardPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/store"
         element={
           <ProtectedRoute>
@@ -182,6 +192,16 @@ function GameRoutes() {
       />
       <Route
         path="/players/:membershipId"
+        element={
+          <ProtectedRoute>
+            <AppLayout activeItem="leaderboard">
+              <PlayerProfilePage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/competitions/:competitionId/players/:membershipId"
         element={
           <ProtectedRoute>
             <AppLayout activeItem="leaderboard">
