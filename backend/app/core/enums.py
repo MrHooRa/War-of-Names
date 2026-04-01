@@ -80,6 +80,12 @@ class LedgerEntryType(StrEnum):
     SYSTEM_REWARD = "system_reward"
     ADMIN_ADJUSTMENT = "admin_adjustment"
     BOX_RESULT = "box_result"
+    # ── Minigame entries ──
+    MINIGAME_BUY_IN = "minigame_buy_in"
+    MINIGAME_PAYOUT = "minigame_payout"
+    MINIGAME_FORFEIT = "minigame_forfeit"
+    MINIGAME_REFUND = "minigame_refund"
+    MINIGAME_CANCEL_PENALTY = "minigame_cancel_penalty"
 
 
 class LedgerDirection(StrEnum):
@@ -328,3 +334,40 @@ class ExportStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
+
+
+# ── Minigame Engine ──────────────────────────────────────────────────────
+
+class MinigameSessionPhase(StrEnum):
+    CREATED = "created"
+    WAITING = "waiting"
+    READY = "ready"
+    IN_PROGRESS = "in_progress"
+    OVERTIME = "overtime"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    ABANDONED = "abandoned"
+
+
+class MinigameMatchType(StrEnum):
+    CHALLENGE = "challenge"
+    QUEUE = "queue"
+
+
+class MinigameSettlementState(StrEnum):
+    PENDING = "pending"
+    SETTLED = "settled"
+    FAILED = "failed"
+    RECONCILED = "reconciled"
+
+
+class MinigameTurnSide(StrEnum):
+    PLAYER_1 = "player_1"
+    PLAYER_2 = "player_2"
+
+
+class MinigameTypeStatus(StrEnum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+    DEPRECATED = "deprecated"
