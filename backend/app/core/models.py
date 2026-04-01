@@ -75,3 +75,12 @@ from app.modules.media.models import ExportArtifact, ImportJob, MediaAsset  # no
 from app.modules.landing.models import LandingLink  # noqa: E402, F401
 from app.modules.announcements.models import Announcement  # noqa: E402, F401
 from app.modules.owner.models import IPBan  # noqa: E402, F401
+from app.modules.minigames.models import (  # noqa: E402, F401
+    MinigameActionReceipt,
+    MinigameLeaderboard,
+    MinigamePolicyRule,
+    MinigameSession,
+    MinigameSessionEvent,
+    MinigameSessionSettlement,
+    MinigameType,
+)
