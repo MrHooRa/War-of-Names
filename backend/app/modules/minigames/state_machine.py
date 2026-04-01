@@ -7,6 +7,25 @@ further actions are rejected.
 
 from app.core.enums import MinigameSessionPhase as Phase
 
+PhaseLike = Phase | str
+
+
+def _normalize_phase(phase: PhaseLike) -> Phase | None:
+    """Convert enum-like input to a Phase member, if recognized."""
+    if isinstance(phase, Phase):
+        return phase
+    try:
+        return Phase(phase)
+    except ValueError:
+        return None
+
+
+def _phase_label(phase: PhaseLike) -> str:
+    """Render enum-like phase input safely in error messages."""
+    normalized = _normalize_phase(phase)
+    return normalized.value if normalized is not None else str(phase)
+
+
 # Valid transitions: from_phase → set of allowed to_phases
 TRANSITION_MAP: dict[Phase, set[Phase]] = {
     Phase.CREATED: {Phase.WAITING, Phase.CANCELLED},
@@ -20,7 +39,8 @@ TRANSITION_MAP: dict[Phase, set[Phase]] = {
         Phase.CANCELLED,
     },
     Phase.OVERTIME: {Phase.COMPLETED, Phase.ABANDONED},
-    Phase.PAUSED: {Phase.IN_PROGRESS, Phase.ABANDONED},
+    # Both players can fail to reconnect, which cancels with refunds.
+    Phase.PAUSED: {Phase.IN_PROGRESS, Phase.ABANDONED, Phase.CANCELLED},
     # Terminal states — no outgoing transitions
     Phase.COMPLETED: set(),
     Phase.CANCELLED: set(),
@@ -34,19 +54,24 @@ TERMINAL_PHASES: frozenset[Phase] = frozenset({
 })
 
 
-def can_transition(from_phase: Phase, to_phase: Phase) -> bool:
+def can_transition(from_phase: PhaseLike, to_phase: PhaseLike) -> bool:
     """Check whether a state transition is allowed."""
-    return to_phase in TRANSITION_MAP.get(from_phase, set())
+    from_normalized = _normalize_phase(from_phase)
+    to_normalized = _normalize_phase(to_phase)
+    if from_normalized is None or to_normalized is None:
+        return False
+    return to_normalized in TRANSITION_MAP.get(from_normalized, set())
 
 
-def validate_transition(from_phase: Phase, to_phase: Phase) -> None:
+def validate_transition(from_phase: PhaseLike, to_phase: PhaseLike) -> None:
     """Raise ValueError if the transition is not allowed."""
     if not can_transition(from_phase, to_phase):
         raise ValueError(
-            f"انتقال غير صالح: {from_phase.value} → {to_phase.value}"
+            f"انتقال غير صالح: {_phase_label(from_phase)} → {_phase_label(to_phase)}"
         )
 
 
-def is_terminal(phase: Phase) -> bool:
+def is_terminal(phase: PhaseLike) -> bool:
     """Check whether a phase is a terminal (final) state."""
-    return phase in TERMINAL_PHASES
+    normalized = _normalize_phase(phase)
+    return normalized in TERMINAL_PHASES if normalized is not None else False

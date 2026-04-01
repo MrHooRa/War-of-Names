@@ -124,3 +124,86 @@ def test_build_public_view_returns_filtered_state():
 def test_cannot_instantiate_abstract_directly():
     with pytest.raises(TypeError):
         GameTypePlugin()
+
+
+def test_missing_required_metadata_fails_on_instantiation():
+    class MissingIdPlugin(GameTypePlugin):
+        name = "لعبة ناقصة"
+        description = "تفتقد المعرّف"
+        plugin_api_version = "1.0"
+        settings_schema_version = "1.0"
+        supports_overtime = False
+        supports_spectators = False
+        supports_ranked = False
+        supports_team_mode = False
+        min_players = 2
+        max_players = 2
+
+        def validate_settings(self, settings: dict) -> list[str]:
+            return []
+
+        def init_session_state(self, config: dict) -> dict:
+            return {}
+
+        def validate_action(self, action: dict, state: dict) -> str | None:
+            return None
+
+        def apply_action(self, action: dict, state: dict) -> tuple[dict, list[dict]]:
+            return state, []
+
+        def evaluate_terminal(self, state: dict) -> dict | None:
+            return None
+
+        def evaluate_overtime(self, state: dict) -> dict | None:
+            return None
+
+        def compute_settlement(self, terminal_result: dict) -> dict:
+            return {}
+
+        def build_public_view(self, state: dict, viewer_membership_id) -> dict:
+            return {}
+
+    with pytest.raises(TypeError, match="id مفقود"):
+        MissingIdPlugin()
+
+
+def test_invalid_player_bounds_fail_on_instantiation():
+    class InvalidBoundsPlugin(GameTypePlugin):
+        id = "invalid_bounds"
+        name = "لعبة غير صالحة"
+        description = "حدود اللاعبين غير صحيحة"
+        plugin_api_version = "1.0"
+        settings_schema_version = "1.0"
+        supports_overtime = False
+        supports_spectators = False
+        supports_ranked = False
+        supports_team_mode = False
+        min_players = 3
+        max_players = 2
+
+        def validate_settings(self, settings: dict) -> list[str]:
+            return []
+
+        def init_session_state(self, config: dict) -> dict:
+            return {}
+
+        def validate_action(self, action: dict, state: dict) -> str | None:
+            return None
+
+        def apply_action(self, action: dict, state: dict) -> tuple[dict, list[dict]]:
+            return state, []
+
+        def evaluate_terminal(self, state: dict) -> dict | None:
+            return None
+
+        def evaluate_overtime(self, state: dict) -> dict | None:
+            return None
+
+        def compute_settlement(self, terminal_result: dict) -> dict:
+            return {}
+
+        def build_public_view(self, state: dict, viewer_membership_id) -> dict:
+            return {}
+
+    with pytest.raises(TypeError, match="max_players يجب أن يكون أكبر من أو يساوي min_players"):
+        InvalidBoundsPlugin()

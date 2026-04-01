@@ -64,6 +64,10 @@ class MinigameSession(Base):
         CheckConstraint("buy_in_amount >= 0", name="chk_mg_buy_in"),
         CheckConstraint("revision >= 0", name="chk_mg_revision"),
         CheckConstraint("turn_number >= 0", name="chk_mg_turn_number"),
+        CheckConstraint(
+            "player_2_membership_id IS NULL OR player_1_membership_id <> player_2_membership_id",
+            name="chk_mg_distinct_players",
+        ),
         Index(
             "idx_mg_sessions_active",
             "game_type", "competition_id",

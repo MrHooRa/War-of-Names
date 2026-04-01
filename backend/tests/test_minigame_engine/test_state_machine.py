@@ -72,6 +72,15 @@ def test_paused_to_abandoned():
     assert can_transition(Phase.PAUSED, Phase.ABANDONED) is True
 
 
+def test_paused_to_cancelled():
+    assert can_transition(Phase.PAUSED, Phase.CANCELLED) is True
+
+
+def test_string_inputs_are_supported():
+    assert can_transition("paused", "cancelled") is True
+    assert is_terminal("completed") is True
+
+
 # ── Invalid transitions ──────────────────────────────────────────
 
 def test_created_to_in_progress_invalid():
@@ -102,6 +111,11 @@ def test_same_state_transition_invalid():
         assert can_transition(phase, phase) is False
 
 
+def test_unknown_phase_inputs_are_invalid():
+    assert can_transition("unknown", "cancelled") is False
+    assert is_terminal("unknown") is False
+
+
 # ── Terminal states ───────────────────────────────────────────────
 
 def test_terminal_phases():
@@ -127,3 +141,8 @@ def test_validate_transition_raises_on_invalid():
 
 def test_validate_transition_passes_on_valid():
     validate_transition(Phase.CREATED, Phase.WAITING)  # Should not raise
+
+
+def test_validate_transition_raises_on_invalid_string_input():
+    with pytest.raises(ValueError, match="completed → in_progress"):
+        validate_transition("completed", "in_progress")

@@ -5,10 +5,69 @@ methods. The engine calls these hooks at specific lifecycle points —
 see BRD Section 5.2 for when each hook fires.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 
 
-class GameTypePlugin(ABC):
+REQUIRED_PLUGIN_METADATA: dict[str, type] = {
+    "id": str,
+    "name": str,
+    "description": str,
+    "plugin_api_version": str,
+    "settings_schema_version": str,
+    "supports_overtime": bool,
+    "supports_spectators": bool,
+    "supports_ranked": bool,
+    "supports_team_mode": bool,
+    "min_players": int,
+    "max_players": int,
+}
+
+
+def _validate_metadata_field(plugin_cls: type, field_name: str, expected_type: type) -> str | None:
+    if not hasattr(plugin_cls, field_name):
+        return f"{field_name} مفقود"
+
+    value = getattr(plugin_cls, field_name)
+    if expected_type is bool and type(value) is not bool:
+        return f"{field_name} يجب أن يكون قيمة منطقية"
+    if expected_type is int and type(value) is not int:
+        return f"{field_name} يجب أن يكون عدداً صحيحاً"
+    if expected_type is str and (not isinstance(value, str) or not value.strip()):
+        return f"{field_name} يجب أن يكون نصاً غير فارغ"
+
+    if expected_type not in {bool, int, str} and not isinstance(value, expected_type):
+        return f"{field_name} يجب أن يكون من النوع {expected_type.__name__}"
+
+    return None
+
+
+def _validate_plugin_metadata(plugin_cls: type) -> None:
+    errors = [
+        error
+        for field_name, expected_type in REQUIRED_PLUGIN_METADATA.items()
+        if (error := _validate_metadata_field(plugin_cls, field_name, expected_type)) is not None
+    ]
+
+    if not errors:
+        if plugin_cls.min_players < 1:
+            errors.append("min_players يجب أن يكون 1 أو أكثر")
+        if plugin_cls.max_players < plugin_cls.min_players:
+            errors.append("max_players يجب أن يكون أكبر من أو يساوي min_players")
+
+    if errors:
+        raise TypeError(f"تعريف plugin غير صالح لـ {plugin_cls.__name__}: {', '.join(errors)}")
+
+
+class GameTypePluginMeta(ABCMeta):
+    """Keep ABC semantics while validating required plugin metadata on instantiation."""
+
+    def __call__(cls, *args, **kwargs):
+        if not getattr(cls, "__abstractmethods__", False):
+            _validate_plugin_metadata(cls)
+        return super().__call__(*args, **kwargs)
+
+
+class GameTypePlugin(ABC, metaclass=GameTypePluginMeta):
     """Contract that every minigame plugin must satisfy.
 
     Class attributes (set by subclass):
