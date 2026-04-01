@@ -475,6 +475,140 @@ docker compose up -d --build
 
 ---
 
+## Updating the Project on VPS (Fresh Clone)
+
+If the VPS copy is outdated, corrupted, or you want a clean start without losing data, re-clone the repo and rebuild.
+
+### Step 1 — Backup before anything
+
+```bash
+ssh deploy@YOUR_VPS_IP
+cd /opt/war-of-names
+
+# Backup the database first
+./scripts/backup.sh
+
+# Save your .env (it's not in git)
+cp .env /tmp/war-of-names-env-backup
+```
+
+### Step 2 — Stop containers
+
+```bash
+cd /opt/war-of-names
+docker compose down
+```
+
+> **Important:** Use `docker compose down` (NOT `docker compose down -v`). The `-v` flag deletes the database volume.
+
+### Step 3 — Remove old code and re-clone
+
+```bash
+# Move old directory out of the way (safer than deleting)
+cd /opt
+mv war-of-names war-of-names-old
+
+# Clone fresh from GitHub
+git clone https://github.com/YOUR_USERNAME/War-of-Names.git /opt/war-of-names
+cd /opt/war-of-names
+
+# If you need a specific branch:
+git checkout phase5/minigame-engine
+```
+
+### Step 4 — Restore .env
+
+```bash
+# Copy back your production .env
+cp /tmp/war-of-names-env-backup /opt/war-of-names/.env
+
+# Verify it looks right
+cat .env
+```
+
+### Step 5 — Rebuild and start Docker
+
+```bash
+cd /opt/war-of-names
+
+# Rebuild all images from scratch and start
+docker compose up -d --build
+
+# Watch logs until "Application startup complete"
+docker compose logs -f
+# (Ctrl+C when ready)
+```
+
+### Step 6 — Verify everything works
+
+```bash
+# Containers running
+docker compose ps
+
+# Health check
+curl -s http://127.0.0.1:8080/health
+
+# API responding
+curl -s http://127.0.0.1:8080/api/game-info | head -c 120
+
+# HTTPS (via Caddy)
+curl -sI https://yourdomain.com | head -3
+```
+
+### Step 7 — Clean up
+
+```bash
+# Once everything is confirmed working, remove the old directory
+rm -rf /opt/war-of-names-old
+rm /tmp/war-of-names-env-backup
+
+# Prune unused Docker images to free disk space
+docker image prune -f
+```
+
+### Quick Reference (All-in-One)
+
+For experienced users, here's the full update in one block:
+
+```bash
+ssh deploy@YOUR_VPS_IP
+cd /opt/war-of-names
+
+# Backup
+./scripts/backup.sh
+cp .env /tmp/war-of-names-env-backup
+
+# Stop, re-clone, restore config, rebuild
+docker compose down
+cd /opt && mv war-of-names war-of-names-old
+git clone https://github.com/YOUR_USERNAME/War-of-Names.git /opt/war-of-names
+cd /opt/war-of-names
+cp /tmp/war-of-names-env-backup .env
+docker compose up -d --build
+
+# Verify
+docker compose ps
+curl -s http://127.0.0.1:8080/health
+
+# Clean up
+rm -rf /opt/war-of-names-old /tmp/war-of-names-env-backup
+docker image prune -f
+```
+
+### What is preserved vs. rebuilt
+
+| Item | After re-clone |
+|------|---------------|
+| Database (pgdata volume) | **Preserved** — Docker volumes survive container/image deletion |
+| `.env` secrets | **Manually restored** from backup copy |
+| Backup files | **Preserved** if inside the Docker volume, otherwise copy from old dir |
+| Docker images | **Rebuilt** from scratch |
+| Frontend + Backend code | **Fresh** from GitHub |
+| Caddy config | **Untouched** — runs on host, not inside Docker |
+| Cron jobs | **Untouched** — but verify backup script path still works |
+
+---
+
 ## Worker / Scheduler Decision
 
 ### Current state
