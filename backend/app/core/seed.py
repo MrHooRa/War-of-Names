@@ -75,6 +75,7 @@ async def seed(session: AsyncSession) -> None:
     await _seed_store_items(session)
     await _seed_quiz(session)
     await _seed_settings(session)
+    await _seed_minigame_types(session)
 
 
 async def _seed_system_account(session: AsyncSession) -> None:
@@ -405,6 +406,15 @@ SETTING_IDS = {
     "google_ads_id": uuid.UUID("00000000-0000-0000-0000-000000000067"),
     "ad_consent_required": uuid.UUID("00000000-0000-0000-0000-000000000068"),
     "og_image_url": uuid.UUID("00000000-0000-0000-0000-000000000069"),
+    # Minigame engine settings
+    "minigame_enabled": uuid.UUID("00000000-0000-0000-0000-000000000070"),
+    "minigame_buy_in": uuid.UUID("00000000-0000-0000-0000-000000000071"),
+    "minigame_daily_limit": uuid.UUID("00000000-0000-0000-0000-000000000072"),
+    "minigame_same_opponent_limit": uuid.UUID("00000000-0000-0000-0000-000000000073"),
+    "minigame_turn_duration_sec": uuid.UUID("00000000-0000-0000-0000-000000000074"),
+    "minigame_overtime_enabled": uuid.UUID("00000000-0000-0000-0000-000000000075"),
+    "minigame_grace_timer_sec": uuid.UUID("00000000-0000-0000-0000-000000000076"),
+    "minigame_kill_switch": uuid.UUID("00000000-0000-0000-0000-000000000077"),
 }
 
 
@@ -668,6 +678,85 @@ async def _seed_settings(session: AsyncSession) -> None:
             "default_value": {"v": "/assets/og-image.png"},
             "description": "صورة Open Graph الافتراضية للمشاركة",
         },
+        # ── Minigame Engine ──
+        {
+            "id": SETTING_IDS["minigame_enabled"],
+            "key": "minigame_enabled",
+            "category": "minigame",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": False},
+            "description": "تفعيل الألعاب المصغرة في المسابقة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["minigame_buy_in"],
+            "key": "minigame_buy_in",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 500},
+            "allowed_values": {"min": 0, "max": 50000},
+            "description": "مبلغ الدخول للعبة المصغرة (نقاط)",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["minigame_daily_limit"],
+            "key": "minigame_daily_limit",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 2},
+            "allowed_values": {"min": 1, "max": 50},
+            "description": "الحد الأقصى لعدد المباريات يومياً لكل لاعب",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["minigame_same_opponent_limit"],
+            "key": "minigame_same_opponent_limit",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 1},
+            "allowed_values": {"min": 1, "max": 10},
+            "description": "الحد الأقصى لمبارزة نفس الخصم في الدورة الواحدة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["minigame_turn_duration_sec"],
+            "key": "minigame_turn_duration_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 30},
+            "allowed_values": {"min": 10, "max": 120},
+            "description": "مدة الدور بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["minigame_overtime_enabled"],
+            "key": "minigame_overtime_enabled",
+            "category": "minigame",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": True},
+            "description": "تفعيل الوقت الإضافي عند التعادل",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["minigame_grace_timer_sec"],
+            "key": "minigame_grace_timer_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 60},
+            "allowed_values": {"min": 15, "max": 300},
+            "description": "مهلة إعادة الاتصال بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["minigame_kill_switch"],
+            "key": "minigame_kill_switch",
+            "category": "minigame",
+            "data_type": SettingDataType.STRING,
+            "default_value": {"v": "off"},
+            "allowed_values": {"options": ["off", "soft", "hard", "emergency"]},
+            "description": "مفتاح إيقاف الألعاب المصغرة (off/soft/hard/emergency)",
+            "is_per_competition": True,
+        },
     ]
 
     added = 0
@@ -691,5 +780,29 @@ async def _seed_settings(session: AsyncSession) -> None:
         )
         session.add(sv)
         added += 1
+
+    await session.commit()
+
+
+async def _seed_minigame_types(session: AsyncSession) -> None:
+    """Seed minigame type registry with known game types."""
+    from app.modules.minigames.models import MinigameType
+
+    types_data = [
+        {
+            "id": "mutaraha",
+            "name": "مطارحة",
+            "description": "مبارزة كلمات 1v1 — خمّن كلمات خصمك قبل ما يخمّن كلماتك",
+            "min_players": 2,
+            "max_players": 2,
+            "supports_overtime": True,
+        },
+    ]
+
+    for td in types_data:
+        existing = await session.get(MinigameType, td["id"])
+        if existing:
+            continue
+        session.add(MinigameType(**td))
 
     await session.commit()
