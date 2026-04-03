@@ -45,15 +45,6 @@ CurrentAccount = Annotated[Account, Depends(get_current_account)]
 AdminAccount = Annotated[Account, Depends(get_admin_account)]
 
 # ---------------------------------------------------------------------------
-# Hardcoded limits (Sprint 3 will migrate these to settings)
-# ---------------------------------------------------------------------------
-
-_DEFAULT_BUY_IN = 500
-_DAILY_CAP = 2
-_SAME_OPPONENT_LIMIT = 1
-
-
-# ---------------------------------------------------------------------------
 # Request / response schemas
 # ---------------------------------------------------------------------------
 
@@ -288,6 +279,7 @@ async def send_challenge(
 ):
     """Send a challenge to another player in the same competition."""
     from app.modules.minigames import policy_service, session_service  # noqa: PLC0415
+    from app.modules.minigames.settings_helper import check_kill_switch, get_minigame_settings  # noqa: PLC0415
 
     async with async_session() as session:
         # Resolve challenger membership
@@ -324,13 +316,34 @@ async def send_challenge(
         # Get active season/cycle
         season, cycle = await _get_active_season_cycle(session, competition_id)
 
+        # Load settings via cascade
+        mg_settings = await get_minigame_settings(
+            session,
+            competition_id=competition_id,
+            season_id=season.id if season else None,
+            cycle_id=cycle.id if cycle else None,
+        )
+
+        # Check kill switch
+        ks = check_kill_switch(mg_settings.get("minigame_kill_switch"))
+        if not ks.can_create_session:
+            raise HTTPException(status_code=403, detail=ks.message_ar)
+
+        # Check if minigames are enabled
+        if not mg_settings.get("minigame_enabled"):
+            raise HTTPException(status_code=403, detail="الألعاب المصغرة غير مفعلة في هذه المسابقة")
+
+        buy_in = mg_settings["minigame_buy_in"]
+        daily_cap = mg_settings["minigame_daily_limit"]
+        same_opp = mg_settings["minigame_same_opponent_limit"]
+
         # Run session creation validation
         creation_errors = session_service.validate_session_creation(
             game_type_id=game_type,
             plugin_exists=True,
             plugin_status=game_type_obj.status.value,
             player_balance=membership.current_balance,
-            buy_in_amount=_DEFAULT_BUY_IN,
+            buy_in_amount=buy_in,
             is_bankrupt=False,
         )
         if creation_errors:
@@ -357,11 +370,11 @@ async def send_challenge(
 
         policy_blocks = policy_service.run_all_checks(
             matches_today=matches_today,
-            daily_cap=_DAILY_CAP,
+            daily_cap=daily_cap,
             matches_with_opponent_this_cycle=opponent_matches,
-            same_opponent_limit=_SAME_OPPONENT_LIMIT,
+            same_opponent_limit=same_opp,
             player_balance=membership.current_balance,
-            buy_in_amount=_DEFAULT_BUY_IN,
+            buy_in_amount=buy_in,
             is_bankrupt=False,
         )
         if policy_blocks:
@@ -374,12 +387,8 @@ async def send_challenge(
             competition_id=competition_id,
             player_1_membership_id=membership.id,
             match_type=MinigameMatchType.CHALLENGE,
-            buy_in_amount=_DEFAULT_BUY_IN,
-            settings_snapshot={
-                "buy_in": _DEFAULT_BUY_IN,
-                "daily_cap": _DAILY_CAP,
-                "same_opponent_limit": _SAME_OPPONENT_LIMIT,
-            },
+            buy_in_amount=buy_in,
+            settings_snapshot={k: v for k, v in mg_settings.items()},
             season_id=season.id if season else None,
             cycle_id=cycle.id if cycle else None,
             player_2_membership_id=body.target_membership_id,
@@ -606,3 +615,98 @@ async def admin_cancel_session(
                 },
             },
         }
+
+
+class KillSwitchRequest(BaseModel):
+    level: str  # "off", "soft", "hard", "emergency"
+    competition_id: uuid.UUID
+
+
+@router.patch("/api/admin/minigames/{game_type}/kill-switch")
+async def admin_set_kill_switch(
+    game_type: str,
+    body: KillSwitchRequest,
+    admin: AdminAccount,
+):
+    """Set kill switch level for a game type in a competition."""
+    from app.modules.minigames.settings_helper import KillSwitchLevel  # noqa: PLC0415
+
+    valid_levels = {e.value for e in KillSwitchLevel}
+    if body.level not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"مستوى غير صالح. القيم المسموحة: {', '.join(sorted(valid_levels))}")
+
+    async with async_session() as session:
+        from app.modules.settings.models import SettingDefinition, SettingValue  # noqa: PLC0415
+        from app.core.enums import SettingScope  # noqa: PLC0415
+
+        # Find the setting definition
+        result = await session.execute(
+            select(SettingDefinition).where(SettingDefinition.key == "minigame_kill_switch")
+        )
+        defn = result.scalars().first()
+        if not defn:
+            raise HTTPException(status_code=500, detail="إعداد مفتاح الإيقاف غير موجود في النظام")
+
+        # Upsert the setting value for this competition
+        existing = await session.execute(
+            select(SettingValue).where(
+                SettingValue.setting_definition_id == defn.id,
+                SettingValue.scope == SettingScope.COMPETITION,
+                SettingValue.scope_id == body.competition_id,
+            )
+        )
+        sv = existing.scalars().first()
+        if sv:
+            sv.value = {"v": body.level}
+            sv.updated_by = admin.id
+        else:
+            sv = SettingValue(
+                setting_definition_id=defn.id,
+                scope=SettingScope.COMPETITION,
+                scope_id=body.competition_id,
+                value={"v": body.level},
+                updated_by=admin.id,
+            )
+            session.add(sv)
+
+        await session.commit()
+
+    return {"success": True, "data": {"level": body.level, "message": "تم تحديث مفتاح الإيقاف"}}
+
+
+@router.get("/api/admin/minigames/{game_type}/sessions/{session_id}/events")
+async def admin_get_session_events(
+    game_type: str,
+    session_id: uuid.UUID,
+    admin: AdminAccount,
+):
+    """Admin: view all events for a session, ordered by revision."""
+    async with async_session() as session:
+        from app.modules.minigames.models import MinigameSessionEvent  # noqa: PLC0415
+
+        result = await session.execute(
+            select(MinigameSessionEvent)
+            .where(MinigameSessionEvent.session_id == session_id)
+            .order_by(MinigameSessionEvent.revision.asc())
+        )
+        events = result.scalars().all()
+
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": str(e.id),
+                "revision": e.revision,
+                "event_type": e.event_type,
+                "actor_type": e.actor_type,
+                "actor_membership_id": str(e.actor_membership_id) if e.actor_membership_id else None,
+                "action_type": e.action_type,
+                "payload": e.payload,
+                "result": e.result,
+                "from_phase": e.from_phase,
+                "to_phase": e.to_phase,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in events
+        ],
+    }
