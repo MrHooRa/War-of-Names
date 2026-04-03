@@ -20,6 +20,7 @@ from app.modules.notifications.router import router as notifications_router
 from app.modules.landing.router import router as landing_router
 from app.modules.announcements.router import router as announcements_router
 from app.modules.owner.router import router as owner_router
+from app.modules.minigames.router import router as minigames_router
 
 
 async def _normalize_enum_values(conn):
@@ -231,6 +232,7 @@ app.include_router(admin_router)
 app.include_router(landing_router)
 app.include_router(announcements_router)
 app.include_router(owner_router)
+app.include_router(minigames_router)
 
 
 # --- Global Exception Handler ---
