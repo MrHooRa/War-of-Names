@@ -2,9 +2,17 @@
 
 Endpoints:
 
-  Player
-  ------
-  GET  /api/minigames                                                    — list active game types
+  Player — Discovery
+  ------------------
+  GET  /api/minigames
+         → unscoped global list of active game types (engine metadata only)
+  GET  /api/competitions/{competition_id}/minigames/catalog
+         → scoped rich catalog (BRD §12.1) — the primary player surface
+  GET  /api/competitions/{competition_id}/minigames/{game_type}/lobby
+         → single-game lobby page read model (BRD §12.2)
+
+  Player — Gameplay
+  -----------------
   GET  /api/competitions/{competition_id}/minigames/{game_type}/leaderboard
   GET  /api/competitions/{competition_id}/minigames/{game_type}/stats
   GET  /api/competitions/{competition_id}/minigames/{game_type}/sessions
@@ -16,6 +24,10 @@ Endpoints:
   GET  /api/admin/minigames
   GET  /api/admin/minigames/{game_type}/sessions
   POST /api/admin/minigames/{game_type}/sessions/{session_id}/cancel
+  GET  /api/admin/minigames/catalog-configs
+  GET  /api/admin/minigames/catalog-configs/{game_type}
+  PUT  /api/admin/minigames/catalog-configs/{game_type}
+  DELETE /api/admin/minigames/catalog-configs/{game_type}
 """
 
 from __future__ import annotations
@@ -280,7 +292,18 @@ async def get_catalog_endpoint(
 
 @router.get("/api/minigames")
 async def list_active_game_types(current_account: CurrentAccount):
-    """Return all game types with status=active."""
+    """Return the global list of active minigame types.
+
+    This endpoint is **intentionally unscoped** — it does not require
+    a competition_id and returns only engine-level metadata from
+    ``minigame_types``. It stays as the lightweight discovery surface
+    for admin tools, deep linking, and any client that needs a flat
+    list of games on the platform.
+
+    For the rich, scoped catalog (with buy-in, live counts, player
+    state, and CTAs), use ``GET /api/competitions/{id}/minigames/catalog``
+    instead. See BRD §12.5 for the deprecation path.
+    """
     async with async_session() as session:
         result = await session.execute(
             select(MinigameType).where(MinigameType.status == MinigameTypeStatus.ACTIVE)
