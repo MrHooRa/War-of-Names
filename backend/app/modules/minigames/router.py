@@ -343,6 +343,58 @@ async def get_game_type_detail(
         }
 
 
+@router.get("/api/competitions/{competition_id}/minigames/{game_type}/lobby")
+async def get_lobby_detail_endpoint(
+    competition_id: uuid.UUID,
+    game_type: str,
+    current_account: CurrentAccount,
+):
+    """Return the full lobby page read model for a single game.
+
+    See BRD §8.2 for the response shape and §12.2 for the endpoint contract.
+
+    Errors (BRD §12.4):
+      401 — JWT missing or invalid
+      403 — caller is not an active member of the competition
+      404 — competition or game_type does not exist (or game is hidden)
+    """
+    from app.modules.minigames.catalog_service import get_lobby_detail  # noqa: PLC0415
+
+    async with async_session() as session:
+        membership = await _resolve_catalog_caller(
+            session,
+            account_id=current_account.id,
+            competition_id=competition_id,
+        )
+        season, cycle = await _get_active_season_cycle(session, competition_id)
+
+        try:
+            response = await get_lobby_detail(
+                session,
+                game_type=game_type,
+                competition_id=competition_id,
+                membership_id=membership.id,
+                player_balance=membership.current_balance,
+                is_bankrupt=membership.is_bankrupt,
+                season_id=season.id if season else None,
+                cycle_id=cycle.id if cycle else None,
+            )
+        except LookupError:
+            # Service raises LookupError when the game is missing or hidden.
+            # Convert to a 404 with an Arabic message (BRD §12.4).
+            raise HTTPException(status_code=404, detail="نوع اللعبة غير موجود")
+
+    return {
+        "correlation_id": response.correlation_id,
+        "game": response.game,
+        "my_state": response.my_state,
+        "my_stats": response.my_stats,
+        "lobby": response.lobby,
+        "leaderboard_preview": response.leaderboard_preview,
+        "how_to_play": response.how_to_play,
+    }
+
+
 @router.get("/api/competitions/{competition_id}/minigames/{game_type}/leaderboard")
 async def get_game_leaderboard(
     competition_id: uuid.UUID,
