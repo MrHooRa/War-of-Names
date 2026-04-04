@@ -366,3 +366,25 @@ class MinigameTypeStatus(StrEnum):
     ACTIVE = "active"
     DISABLED = "disabled"
     DEPRECATED = "deprecated"
+
+
+class MinigameHeroVariant(StrEnum):
+    DUEL = "duel"
+    ARENA = "arena"
+    SOLO = "solo"
+    PARTY = "party"
+    TOURNAMENT = "tournament"
+
+
+class MinigameCardVariant(StrEnum):
+    STANDARD = "standard"
+    FEATURED = "featured"
+    COMPACT = "compact"
+    COMING_SOON_TEASER = "coming_soon_teaser"
+
+
+class MinigameCatalogAvailability(StrEnum):
+    ACTIVE = "active"
+    COMING_SOON = "coming_soon"
+    HIDDEN = "hidden"
+    MAINTENANCE = "maintenance"
