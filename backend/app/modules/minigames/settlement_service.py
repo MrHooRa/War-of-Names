@@ -4,13 +4,13 @@ Minigame Settlement Service.
 Responsibilities:
   - Classify finished sessions into settlement types (NORMAL, FORFEIT, CANCEL, SOLO)
   - Execute the financial settlement by building ledger entries and persisting a
-    MinigameSessionSettlement record.
+    MinigameSessionSettlement record using the N-player participant_results model.
 
 Public surface:
-  SettlementType              — StrEnum of the four settlement categories
-  compute_settlement_type()   — pure, synchronous, fully testable
-  execute_settlement()        — async, requires SQLAlchemy AsyncSession
-  _get_loser_id()             — private helper; exposed for testing convenience
+  SettlementType                — StrEnum of the four settlement categories
+  compute_settlement_type()     — pure, synchronous, fully testable
+  execute_settlement()          — async, N-player settlement driven by plugin output
+  execute_cancel_settlement()   — async, refund-all settlement for cancellations
 """
 
 from __future__ import annotations
@@ -23,13 +23,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.minigames.models import MinigameSession, MinigameSessionSettlement
-
-# TODO(sprint-b): N-player refactor — _get_loser_id and execute_settlement still
-# read the removed player_1_membership_id / player_2_membership_id /
-# winner_membership_id / winner_payout / loser_penalty fields. They will be
-# rewritten in Sprint B to drive the participant_results JSONB column via
-# the MinigameSessionParticipant table. Pure compute_settlement_type is
-# unaffected and continues to pass.
 
 
 # ─── Settlement type enum ────────────────────────────────────────────────────
@@ -99,61 +92,30 @@ def compute_settlement_type(
     return SettlementType.NORMAL
 
 
-# ─── Private helper ──────────────────────────────────────────────────────────
-
-def _get_loser_id(mg_session: "MinigameSession") -> uuid.UUID | None:
-    """
-    Derive the loser's membership_id from the session.
-
-    The loser is whichever player is *not* the winner.
-    Returns None when there is no winner or the session is solo.
-    """
-    winner = mg_session.winner_membership_id
-    if winner is None:
-        return None
-
-    p1 = mg_session.player_1_membership_id
-    p2 = mg_session.player_2_membership_id
-
-    if p2 is None:
-        # Solo session — no loser
-        return None
-
-    return p2 if winner == p1 else p1
-
-
 # ─── Async settlement executor ───────────────────────────────────────────────
 
 async def execute_settlement(
     session: "AsyncSession",
     *,
     mg_session: "MinigameSession",
-    winner_balance: int = 0,
-    loser_balance: int = 0,
-    player_1_balance: int = 0,
-    player_2_balance: int = 0,
+    participants: list[dict],
+    plugin_settlement: dict,
 ) -> "MinigameSessionSettlement":
-    """
-    Execute the financial settlement for a terminal minigame session.
+    """Execute financial settlement for a terminal minigame session.
 
-    Idempotent: if a MinigameSessionSettlement already exists for this
-    session_id, it is returned immediately without any additional work.
+    Idempotent: returns existing settlement if one exists for this session_id.
 
-    Parameters
-    ----------
-    session:
-        The SQLAlchemy async session to use for DB operations.
-    mg_session:
-        The MinigameSession ORM instance to settle.
-    winner_balance:
-        Current ledger balance of the winning player (used for NORMAL/FORFEIT).
-    loser_balance:
-        Current ledger balance of the losing player (informational; not consumed
-        by any economy function at present, kept for API symmetry).
-    player_1_balance:
-        Current ledger balance of player 1 (used for CANCEL refunds).
-    player_2_balance:
-        Current ledger balance of player 2 (used for CANCEL refunds).
+    Args:
+        session: SQLAlchemy async session
+        mg_session: The terminal MinigameSession to settle
+        participants: List of participants with their current balances, used for
+                      ledger balance_before calculations. Ordered by slot_index.
+                      Each dict: {"membership_id": UUID, "slot_index": int, "balance": int}
+        plugin_settlement: Output of plugin.compute_settlement(terminal_result).
+                           Contains "participant_results" list and "total_pool".
+
+    Returns:
+        The created (or existing) MinigameSessionSettlement record.
     """
     from sqlalchemy import select
 
@@ -171,90 +133,141 @@ async def execute_settlement(
     if existing is not None:
         return existing
 
-    # ── Determine settlement type ────────────────────────────────────────────
-    is_solo = mg_session.player_2_membership_id is None
+    # Build a balance lookup by membership_id
+    balance_by_mid = {p["membership_id"]: p.get("balance", 0) for p in participants}
 
-    settlement_type = compute_settlement_type(
-        phase=mg_session.phase,
-        terminal_reason=mg_session.terminal_reason,
-        winner_membership_id=mg_session.winner_membership_id,
-        is_solo=is_solo,
+    # Extract participant_results from plugin output
+    participant_results = plugin_settlement.get("participant_results", [])
+    total_pool = plugin_settlement.get("total_pool", 0)
+
+    # Enrich each result with balance_before for the economy helper
+    enriched_results = []
+    for r in participant_results:
+        mid = r["membership_id"]
+        # Convert string UUIDs back to UUID objects if needed
+        if isinstance(mid, str):
+            mid = uuid.UUID(mid)
+        enriched_results.append({
+            "membership_id": mid,
+            "rank": r.get("rank", 0),
+            "payout": r.get("payout", 0),
+            "balance_before": balance_by_mid.get(mid, 0),
+        })
+
+    # Create ledger entries for players with payout > 0
+    entries = economy.create_ranked_settlement_entries(
+        results=enriched_results,
+        competition_id=mg_session.competition_id,
+        session_id=mg_session.id,
+        season_id=mg_session.season_id,
+        cycle_id=mg_session.cycle_id,
     )
 
-    loser_id = _get_loser_id(mg_session)
-
-    # ── Build ledger entries ─────────────────────────────────────────────────
-    entries = []
-
-    if settlement_type == SettlementType.NORMAL:
-        entries = economy.create_normal_settlement_entries(
-            winner_membership_id=mg_session.winner_membership_id,
-            loser_membership_id=loser_id,
-            competition_id=mg_session.competition_id,
-            session_id=mg_session.id,
-            buy_in_amount=mg_session.buy_in_amount,
-            winner_balance=winner_balance,
-            season_id=mg_session.season_id,
-            cycle_id=mg_session.cycle_id,
-        )
-
-    elif settlement_type == SettlementType.FORFEIT:
-        entries = economy.create_forfeit_settlement_entries(
-            winner_membership_id=mg_session.winner_membership_id,
-            competition_id=mg_session.competition_id,
-            session_id=mg_session.id,
-            buy_in_amount=mg_session.buy_in_amount,
-            winner_balance=winner_balance,
-            season_id=mg_session.season_id,
-            cycle_id=mg_session.cycle_id,
-        )
-
-    elif settlement_type == SettlementType.CANCEL:
-        entries = economy.create_cancel_settlement_entries(
-            player_1_membership_id=mg_session.player_1_membership_id,
-            player_2_membership_id=mg_session.player_2_membership_id,
-            competition_id=mg_session.competition_id,
-            session_id=mg_session.id,
-            buy_in_amount=mg_session.buy_in_amount,
-            player_1_balance=player_1_balance,
-            player_2_balance=player_2_balance,
-            season_id=mg_session.season_id,
-            cycle_id=mg_session.cycle_id,
-        )
-
-    elif settlement_type == SettlementType.SOLO:
-        # Reward the solo player buy_in_amount * 2 for a completed run.
-        reward = mg_session.buy_in_amount * 2
-        entries = economy.create_solo_settlement_entries(
-            player_membership_id=mg_session.player_1_membership_id,
-            competition_id=mg_session.competition_id,
-            session_id=mg_session.id,
-            reward_amount=reward,
-            player_balance=player_1_balance,
-            season_id=mg_session.season_id,
-            cycle_id=mg_session.cycle_id,
-        )
-
-    # ── Persist ledger entries ───────────────────────────────────────────────
+    # Persist ledger entries
     for entry in entries:
         session.add(entry)
-
-    # Flush so every entry gets a database-assigned id.
     await session.flush()
 
     ledger_ids = [entry.id for entry in entries]
 
-    # ── Create settlement record ─────────────────────────────────────────────
+    # Build JSONB payload — convert UUIDs to strings for storage
+    jsonb_results = [
+        {
+            "membership_id": str(r["membership_id"]) if not isinstance(r["membership_id"], str) else r["membership_id"],
+            "slot_index": r.get("slot_index", 0),
+            "rank": r.get("rank", 0),
+            "payout": r.get("payout", 0),
+        }
+        for r in participant_results
+    ]
+
     settlement = MinigameSessionSettlement(
         session_id=mg_session.id,
-        winner_membership_id=mg_session.winner_membership_id,
-        loser_membership_id=loser_id,
-        winner_payout=mg_session.buy_in_amount * 2 if settlement_type in (
-            SettlementType.NORMAL,
-            SettlementType.FORFEIT,
-            SettlementType.SOLO,
-        ) else 0,
-        loser_penalty=0,
+        participant_results=jsonb_results,
+        total_pool=total_pool,
+        settlement_state=MinigameSettlementState.SETTLED,
+        ledger_entry_ids=ledger_ids if ledger_ids else None,
+        correlation_id=mg_session.correlation_id,
+        settled_at=now_riyadh_naive(),
+    )
+    session.add(settlement)
+    await session.flush()
+
+    return settlement
+
+
+async def execute_cancel_settlement(
+    session: "AsyncSession",
+    *,
+    mg_session: "MinigameSession",
+    participants: list[dict],
+) -> "MinigameSessionSettlement":
+    """Execute a cancellation settlement — refund all participants.
+
+    Used when a session is cancelled (admin cancel, all players disconnect, etc.).
+    Each participant gets their buy_in refunded.
+
+    Idempotent: returns existing settlement if one exists for this session_id.
+
+    Args:
+        session: SQLAlchemy async session
+        mg_session: The cancelled MinigameSession to settle
+        participants: List of participants with balances, ordered by slot_index.
+                      Each dict: {"membership_id": UUID, "slot_index": int, "balance": int}
+
+    Returns:
+        The created (or existing) MinigameSessionSettlement record.
+    """
+    from sqlalchemy import select
+
+    from app.core.enums import MinigameSettlementState
+    from app.core.utils import now_riyadh_naive
+    from app.modules.minigames.models import MinigameSessionSettlement
+    from app.modules.minigames import economy
+
+    # ── Idempotency check ────────────────────────────────────────────────────
+    existing = await session.scalar(
+        select(MinigameSessionSettlement).where(
+            MinigameSessionSettlement.session_id == mg_session.id
+        )
+    )
+    if existing is not None:
+        return existing
+
+    membership_ids = [p["membership_id"] for p in participants]
+    balances = [p.get("balance", 0) for p in participants]
+
+    entries = economy.create_refund_all_entries(
+        player_membership_ids=membership_ids,
+        player_balances=balances,
+        competition_id=mg_session.competition_id,
+        session_id=mg_session.id,
+        buy_in_amount=mg_session.buy_in_amount,
+        season_id=mg_session.season_id,
+        cycle_id=mg_session.cycle_id,
+    )
+
+    for entry in entries:
+        session.add(entry)
+    await session.flush()
+
+    ledger_ids = [entry.id for entry in entries]
+
+    # Build participant_results showing everyone got their buy_in refunded
+    jsonb_results = [
+        {
+            "membership_id": str(p["membership_id"]),
+            "slot_index": p.get("slot_index", 0),
+            "rank": 0,  # 0 indicates no winner
+            "payout": mg_session.buy_in_amount,
+        }
+        for p in participants
+    ]
+
+    settlement = MinigameSessionSettlement(
+        session_id=mg_session.id,
+        participant_results=jsonb_results,
+        total_pool=mg_session.buy_in_amount * len(participants),
         settlement_state=MinigameSettlementState.SETTLED,
         ledger_entry_ids=ledger_ids if ledger_ids else None,
         correlation_id=mg_session.correlation_id,
