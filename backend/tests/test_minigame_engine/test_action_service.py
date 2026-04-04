@@ -1,6 +1,8 @@
 """Tests for validate_action_envelope — pure function, no DB required."""
 
+import types
 import uuid
+
 import pytest
 
 # Import app.core.models first so all model modules are fully initialized
@@ -8,10 +10,12 @@ import pytest
 # circular import that arises from core/models.py importing minigames/models.py.
 import app.core.models  # noqa: F401
 
+import app.modules.minigames.action_service as action_service_module
 from app.core.enums import MinigameSessionPhase as Phase
 from app.modules.minigames.action_service import (
     ActionError,
     PLAYABLE_PHASES,
+    process_action,
     validate_action_envelope,
 )
 
@@ -61,6 +65,7 @@ def _call(
     session_revision: int = 5,
     current_turn_index: int | None = 0,
     participants: list[dict] | None = None,
+    state: dict | None = None,
 ) -> ActionError | None:
     """Thin wrapper so individual tests only specify what they're varying."""
     return validate_action_envelope(
@@ -69,6 +74,7 @@ def _call(
         session_revision=session_revision,
         current_turn_index=current_turn_index,
         participants=participants if participants is not None else _duo_participants(),
+        state=state,
     )
 
 
@@ -308,6 +314,33 @@ def test_multiplayer_none_turn_index_allows_any_participant():
     assert result is None
 
 
+def test_parallel_word_selection_skips_turn_lock_for_player_2():
+    """Mutaraha word selection is parallel, so player_2 may submit while turn_index=0."""
+    result = _call(
+        envelope=_envelope(
+            actor_membership_id=PLAYER_2,
+            action={"type": "select_words", "payload": {"actor": "player_2"}},
+        ),
+        current_turn_index=0,
+        state={"game_phase": "word_selection"},
+    )
+    assert result is None
+
+
+def test_parallel_word_selection_does_not_skip_turn_lock_for_battle_actions():
+    """Only selection-phase actions bypass turn ownership; battle actions still fail."""
+    err = _call(
+        envelope=_envelope(
+            actor_membership_id=PLAYER_2,
+            action={"type": "GUESS", "payload": {"actor": "player_2"}},
+        ),
+        current_turn_index=0,
+        state={"game_phase": "word_selection"},
+    )
+    assert err is not None
+    assert err.code == "NOT_YOUR_TURN"
+
+
 # ── Check ordering ────────────────────────────────────────────────────────────
 
 def test_phase_check_before_stale_check():
@@ -357,3 +390,161 @@ def test_action_error_equality():
     a = ActionError(code="X", message_ar="ي")
     b = ActionError(code="X", message_ar="ي")
     assert a == b
+
+
+@pytest.mark.asyncio
+async def test_process_action_returns_public_result_and_internal_state(monkeypatch):
+    fixed_now = object()
+    new_state = {"phase": "battle", "revealed": 2}
+    side_effects = [{"type": "tool_result", "result": {"ok": True}}]
+    terminal_result = {"winner": "slot_2"}
+    action_id = uuid.uuid4()
+    correlation_id = uuid.uuid4()
+
+    class FakeUpdateStmt:
+        def __init__(self):
+            self.where_args = ()
+            self.values_kwargs = {}
+            self.returning_args = ()
+
+        def where(self, *args):
+            self.where_args = args
+            return self
+
+        def values(self, **kwargs):
+            self.values_kwargs = kwargs
+            return self
+
+        def returning(self, *args):
+            self.returning_args = args
+            return self
+
+    class FakeUpdateResult:
+        def fetchone(self):
+            return (5,)
+
+    class FakeSession:
+        def __init__(self):
+            self.added = []
+            self.executed = None
+
+        async def execute(self, stmt):
+            self.executed = stmt
+            return FakeUpdateResult()
+
+        def add(self, obj):
+            self.added.append(obj)
+
+    class FakeReceipt:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.response = kwargs["response"]
+
+    class FakeEvent:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    captured_stmt: dict[str, FakeUpdateStmt] = {}
+
+    def fake_update(_model):
+        stmt = FakeUpdateStmt()
+        captured_stmt["stmt"] = stmt
+        return stmt
+
+    monkeypatch.setattr(action_service_module, "update", fake_update)
+    monkeypatch.setattr(action_service_module, "MinigameActionReceipt", FakeReceipt)
+    monkeypatch.setattr(action_service_module, "MinigameSessionEvent", FakeEvent)
+    monkeypatch.setattr(action_service_module, "now_riyadh_naive", lambda: fixed_now)
+
+    class FakePlugin:
+        def validate_action(self, action, state):
+            assert action == {"type": "guess"}
+            assert state == {"phase": "battle", "revealed": 1}
+            return None
+
+        def apply_action(self, action, state):
+            assert action == {"type": "guess"}
+            assert state == {"phase": "battle", "revealed": 1}
+            return new_state, side_effects
+
+        def evaluate_terminal(self, state):
+            assert state == new_state
+            return terminal_result
+
+    mg_session = types.SimpleNamespace(
+        id=uuid.uuid4(),
+        revision=4,
+        game_state={"phase": "battle", "revealed": 1},
+        current_turn_index=1,
+        num_players=3,
+        turn_number=6,
+        correlation_id=correlation_id,
+        turn_started_at=None,
+        updated_at=None,
+    )
+    envelope = {
+        "action": {"type": "guess"},
+        "actor_membership_id": PLAYER_2,
+        "client_seq": 9,
+        "action_id": action_id,
+    }
+    participants = [
+        {"membership_id": PLAYER_1, "slot_index": 0},
+        {"membership_id": PLAYER_2, "slot_index": 1},
+        {"membership_id": uuid.UUID("00000000-0000-0000-0000-000000000003"), "slot_index": 2},
+    ]
+    session = FakeSession()
+
+    result = await process_action(
+        session,
+        mg_session=mg_session,
+        plugin=FakePlugin(),
+        envelope=envelope,
+        participants=participants,
+    )
+
+    assert result == {
+        "success": True,
+        "revision": 5,
+        "side_effects": side_effects,
+        "terminal_result": terminal_result,
+        "next_turn_index": 2,
+        "turn_number": 7,
+        "_state": new_state,
+    }
+    assert captured_stmt["stmt"].values_kwargs == {
+        "game_state": new_state,
+        "current_turn_index": 2,
+        "turn_number": 7,
+        "turn_started_at": fixed_now,
+        "turn_duration_ms": None,
+        "revision": 5,
+        "updated_at": fixed_now,
+    }
+    assert mg_session.game_state == new_state
+    assert mg_session.current_turn_index == 2
+    assert mg_session.turn_number == 7
+    assert mg_session.revision == 5
+
+    receipt = next(obj for obj in session.added if isinstance(obj, FakeReceipt))
+    assert receipt.kwargs["action_id"] == action_id
+    assert receipt.kwargs["actor_membership_id"] == PLAYER_2
+    assert receipt.kwargs["client_seq"] == 9
+    assert receipt.kwargs["response"] == {
+        "success": True,
+        "revision": 5,
+        "side_effects": side_effects,
+        "terminal_result": terminal_result,
+        "next_turn_index": 2,
+        "turn_number": 7,
+    }
+
+    event = next(obj for obj in session.added if isinstance(obj, FakeEvent))
+    assert event.kwargs["revision"] == 5
+    assert event.kwargs["actor_membership_id"] == PLAYER_2
+    assert event.kwargs["result"] == {
+        "side_effects": side_effects,
+        "next_turn_index": 2,
+        "turn_number": 7,
+        "terminal_result": terminal_result,
+    }

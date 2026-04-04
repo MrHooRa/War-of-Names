@@ -148,3 +148,18 @@ class GameTypePlugin(ABC, metaclass=GameTypePluginMeta):
     def build_public_view(self, state: dict, viewer_membership_id) -> dict:
         """Return sanitized state safe to send to a specific player."""
         ...
+
+    def migrate_settings(self, old_version: str, new_version: str, data: dict) -> dict:
+        """Migrate persisted settings between schema versions.
+
+        Default behavior is a no-op pass-through for plugins that have not
+        introduced schema migrations yet.
+        """
+        return data
+
+    def migrate_session(self, old_version: str, new_version: str, data: dict) -> dict:
+        """Migrate persisted session state between schema versions.
+
+        Default behavior is a no-op pass-through for backwards compatibility.
+        """
+        return data

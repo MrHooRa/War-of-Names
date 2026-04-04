@@ -11,8 +11,9 @@ Async functions (require DB session):
 
 import uuid
 from dataclasses import dataclass
+from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import MinigameSessionPhase as Phase
@@ -22,6 +23,11 @@ from app.modules.minigames.models import (
     MinigameSessionEvent,
 )
 from app.modules.minigames.plugin import GameTypePlugin
+from app.modules.minigames.runtime_state import (
+    is_parallel_selection_phase,
+    resolve_state_timer_duration_ms,
+    stamp_phase_deadlines,
+)
 from app.core.utils import now_riyadh_naive
 
 
@@ -48,6 +54,7 @@ def validate_action_envelope(
     session_revision: int,
     current_turn_index: int | None,
     participants: list[dict],
+    state: dict | None = None,
 ) -> ActionError | None:
     """Validate an incoming action envelope before any DB work.
 
@@ -108,6 +115,11 @@ def validate_action_envelope(
     if len(participants) <= 1 or current_turn_index is None:
         return None
 
+    action = envelope.get("action", envelope.get("payload", {})) or {}
+    action_type = action.get("type")
+    if is_parallel_selection_phase(state) and action_type in {"select_words", "redraw"}:
+        return None
+
     if actor_slot != current_turn_index:
         return ActionError(
             code="NOT_YOUR_TURN",
@@ -121,16 +133,63 @@ def validate_action_envelope(
 
 async def check_idempotency(
     session: AsyncSession,
-    action_id: uuid.UUID,
+    action_id: uuid.UUID | None = None,
+    *,
+    session_id: uuid.UUID | None = None,
+    actor_membership_id: uuid.UUID | None = None,
+    client_seq: int | None = None,
 ) -> dict | None:
-    """Return cached action response if action_id was already processed, else None."""
+    """Return cached action response if this action was already processed.
+
+    The primary idempotency key is ``action_id``. As a fallback, callers may
+    supply ``session_id`` + ``actor_membership_id`` + ``client_seq`` to reuse
+    the unique per-player sequence constraint when ``action_id`` is unavailable.
+    """
+    receipt = None
+
+    if action_id is not None:
+        result = await session.execute(
+            select(MinigameActionReceipt).where(
+                MinigameActionReceipt.action_id == action_id
+            )
+        )
+        receipt = result.scalar_one_or_none()
+
+    if (
+        receipt is None
+        and session_id is not None
+        and actor_membership_id is not None
+        and client_seq is not None
+    ):
+        result = await session.execute(
+            select(MinigameActionReceipt).where(
+                MinigameActionReceipt.session_id == session_id,
+                MinigameActionReceipt.actor_membership_id == actor_membership_id,
+                MinigameActionReceipt.client_seq == client_seq,
+            )
+        )
+        receipt = result.scalar_one_or_none()
+
+    return receipt.response if receipt is not None else None
+
+
+async def get_expected_client_seq(
+    session: AsyncSession,
+    *,
+    session_id: uuid.UUID,
+    actor_membership_id: uuid.UUID,
+) -> int:
+    """Return the next valid client_seq for a player in a session."""
     result = await session.execute(
-        select(MinigameActionReceipt).where(
-            MinigameActionReceipt.action_id == action_id
+        select(func.max(MinigameActionReceipt.client_seq)).where(
+            MinigameActionReceipt.session_id == session_id,
+            MinigameActionReceipt.actor_membership_id == actor_membership_id,
         )
     )
-    receipt = result.scalar_one_or_none()
-    return receipt.response if receipt is not None else None
+    max_seen = result.scalar_one_or_none()
+    if max_seen is None:
+        return 1
+    return int(max_seen) + 1
 
 
 async def process_action(
@@ -163,29 +222,69 @@ async def process_action(
                        'reconnect_token' keys, ordered by slot_index.
 
     Returns:
-        Dict with: success, revision, new_state, side_effects, terminal_result,
-        next_turn_index.
+        Dict with the public action result fields plus ``_state`` for the
+        caller's internal follow-up broadcast.
 
     Raises:
         ValueError   — if the plugin rejects the action.
         RuntimeError — if the optimistic lock fails (concurrent modification).
     """
-    del participants  # Currently unused beyond envelope validation; reserved for future
-
     # 1. Call plugin to validate and apply the action
     action = envelope.get("action", envelope.get("payload", {}))
+    actor_membership_id = envelope.get("actor_membership_id")
+    client_seq = envelope.get("client_seq")
+    action_id = envelope.get("action_id") or uuid.uuid4()
+
+    if not isinstance(actor_membership_id, uuid.UUID):
+        raise ValueError("معرف اللاعب غير صالح")
+    if not isinstance(client_seq, int):
+        raise ValueError("تسلسل الإجراء غير صالح")
+    if not isinstance(action_id, uuid.UUID):
+        raise ValueError("معرف الإجراء غير صالح")
 
     validation_err = plugin.validate_action(action, mg_session.game_state)
     if validation_err:
         raise ValueError(validation_err)
 
     new_state, side_effects = plugin.apply_action(action, mg_session.game_state)
+    terminal_result = plugin.evaluate_terminal(new_state)
+    previous_game_phase = (mg_session.game_state or {}).get("game_phase")
+    next_game_phase = (new_state or {}).get("game_phase")
 
-    # 2. Advance turn: next_index = (current + 1) % num_players
-    current_idx = mg_session.current_turn_index or 0
-    next_turn_index = (current_idx + 1) % mg_session.num_players
+    # 2. Advance turn and turn counter using the authoritative participant count.
+    num_players = max(len(participants), int(getattr(mg_session, "num_players", 0) or 0), 1)
+    current_idx = (
+        mg_session.current_turn_index
+        if mg_session.current_turn_index is not None
+        else 0
+    )
+    if previous_game_phase == "word_selection":
+        if next_game_phase == "word_selection":
+            next_turn_index = None
+        else:
+            next_turn_index = 0
+    elif num_players <= 1:
+        next_turn_index = current_idx
+    else:
+        next_turn_index = (current_idx + 1) % num_players
     new_revision = mg_session.revision + 1
+    turn_increment = 0 if previous_game_phase == "word_selection" else 1
+    new_turn_number = (getattr(mg_session, "turn_number", 0) or 0) + turn_increment
     now = now_riyadh_naive()
+    if previous_game_phase == "word_selection" and next_game_phase == "word_selection":
+        timer_started_at = getattr(mg_session, "turn_started_at", None) or now
+        new_turn_duration_ms = getattr(mg_session, "turn_duration_ms", None)
+    else:
+        timer_started_at = now
+        new_turn_duration_ms = resolve_state_timer_duration_ms(
+            new_state,
+            fallback_ms=getattr(mg_session, "turn_duration_ms", None),
+        )
+    new_state = stamp_phase_deadlines(
+        new_state,
+        started_at=timer_started_at,
+        duration_ms=new_turn_duration_ms,
+    )
 
     # 3. Optimistic lock UPDATE
     update_stmt = (
@@ -197,7 +296,9 @@ async def process_action(
         .values(
             game_state=new_state,
             current_turn_index=next_turn_index,
-            turn_started_at=now,
+            turn_number=new_turn_number,
+            turn_started_at=timer_started_at,
+            turn_duration_ms=new_turn_duration_ms,
             revision=new_revision,
             updated_at=now,
         )
@@ -209,41 +310,55 @@ async def process_action(
             "Optimistic lock failed — session was modified concurrently"
         )
 
+    result_payload: dict[str, Any] = {
+        "success": True,
+        "revision": new_revision,
+        "side_effects": side_effects,
+        "terminal_result": terminal_result,
+        "next_turn_index": next_turn_index,
+        "turn_number": new_turn_number,
+    }
+
+    # Keep the in-memory ORM object aligned with the committed update so any
+    # same-request follow-up logic does not read stale fields.
+    mg_session.game_state = new_state
+    mg_session.current_turn_index = next_turn_index
+    mg_session.turn_number = new_turn_number
+    mg_session.turn_started_at = timer_started_at
+    mg_session.turn_duration_ms = new_turn_duration_ms
+    mg_session.revision = new_revision
+    mg_session.updated_at = now
+
     # 4. Log event
     event = MinigameSessionEvent(
         session_id=mg_session.id,
         revision=new_revision,
         event_type="action",
         actor_type="participant",
-        actor_membership_id=envelope.get("actor_membership_id"),
+        actor_membership_id=actor_membership_id,
         action_type=action.get("type"),
         payload=action,
-        result={"side_effects": side_effects, "next_turn_index": next_turn_index},
+        result={
+            "side_effects": side_effects,
+            "next_turn_index": next_turn_index,
+            "turn_number": new_turn_number,
+            "terminal_result": terminal_result,
+        },
         correlation_id=mg_session.correlation_id,
     )
     session.add(event)
 
     # 5. Log receipt for idempotency
     receipt = MinigameActionReceipt(
-        action_id=envelope.get("action_id") or uuid.uuid4(),
+        action_id=action_id,
         session_id=mg_session.id,
-        revision=new_revision,
-        response={
-            "success": True,
-            "new_state": new_state,
-            "side_effects": side_effects,
-        },
+        actor_membership_id=actor_membership_id,
+        client_seq=client_seq,
+        response=dict(result_payload),
     )
     session.add(receipt)
 
-    # 6. Check terminal condition
-    terminal_result = plugin.evaluate_terminal(new_state)
-
     return {
-        "success": True,
-        "revision": new_revision,
-        "new_state": new_state,
-        "side_effects": side_effects,
-        "terminal_result": terminal_result,
-        "next_turn_index": next_turn_index,
+        **result_payload,
+        "_state": new_state,
     }

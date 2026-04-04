@@ -34,6 +34,38 @@ class SettlementType(StrEnum):
     SOLO = "solo"
 
 
+async def _apply_entries_and_membership_balances(
+    session: "AsyncSession",
+    *,
+    entries: list,
+) -> list[uuid.UUID]:
+    """Persist ledger entries and update membership.current_balance in-place."""
+    if not entries:
+        return []
+
+    from sqlalchemy import select
+
+    from app.modules.competitions.models import Membership
+
+    membership_ids = [entry.membership_id for entry in entries]
+    result = await session.execute(
+        select(Membership).where(Membership.id.in_(membership_ids))
+    )
+    memberships = {
+        membership.id: membership
+        for membership in result.scalars().all()
+    }
+
+    for entry in entries:
+        session.add(entry)
+        membership = memberships.get(entry.membership_id)
+        if membership is not None:
+            membership.current_balance = entry.balance_after
+
+    await session.flush()
+    return [entry.id for entry in entries]
+
+
 # ─── Pure logic ──────────────────────────────────────────────────────────────
 
 def compute_settlement_type(
@@ -164,11 +196,10 @@ async def execute_settlement(
     )
 
     # Persist ledger entries
-    for entry in entries:
-        session.add(entry)
-    await session.flush()
-
-    ledger_ids = [entry.id for entry in entries]
+    ledger_ids = await _apply_entries_and_membership_balances(
+        session,
+        entries=entries,
+    )
 
     # Build JSONB payload — convert UUIDs to strings for storage
     jsonb_results = [
@@ -247,11 +278,10 @@ async def execute_cancel_settlement(
         cycle_id=mg_session.cycle_id,
     )
 
-    for entry in entries:
-        session.add(entry)
-    await session.flush()
-
-    ledger_ids = [entry.id for entry in entries]
+    ledger_ids = await _apply_entries_and_membership_balances(
+        session,
+        entries=entries,
+    )
 
     # Build participant_results showing everyone got their buy_in refunded
     jsonb_results = [

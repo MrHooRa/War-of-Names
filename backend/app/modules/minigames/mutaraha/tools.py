@@ -21,6 +21,15 @@ TOOL_COSTS = {
     "GUESS_CORRECT": 0,
 }
 
+TOOL_COST_SETTING_KEYS = {
+    "LETTER_CHECK": "cost_letter_check",
+    "WORD_LENGTH": "cost_word_length",
+    "LETTER_ELIMINATE": "cost_letter_eliminate",
+    "FIRST_LETTER": "cost_first_letter",
+    "NARROW_DOWN": "cost_narrow_down",
+    "GUESS_WRONG": "cost_wrong_guess",
+}
+
 VALID_TOOL_TYPES = {"LETTER_CHECK", "WORD_LENGTH", "LETTER_ELIMINATE", "FIRST_LETTER", "NARROW_DOWN", "GUESS"}
 
 
@@ -171,7 +180,13 @@ def tool_guess(
     }
 
 
-def get_tool_cost(tool_type: str, *, correct: bool = False, overtime_multiplier: int = 1) -> int:
+def get_tool_cost(
+    tool_type: str,
+    *,
+    correct: bool = False,
+    overtime_multiplier: int = 1,
+    settings: dict[str, Any] | None = None,
+) -> int:
     """Get the display cost for a tool action.
 
     Args:
@@ -181,8 +196,18 @@ def get_tool_cost(tool_type: str, *, correct: bool = False, overtime_multiplier:
 
     Returns: cost in points (display-only, not ledger)
     """
+    settings = settings or {}
     if tool_type == "GUESS":
-        base = TOOL_COSTS["GUESS_CORRECT"] if correct else TOOL_COSTS["GUESS_WRONG"]
+        if correct:
+            base = TOOL_COSTS["GUESS_CORRECT"]
+        else:
+            base = settings.get(
+                TOOL_COST_SETTING_KEYS["GUESS_WRONG"],
+                TOOL_COSTS["GUESS_WRONG"],
+            )
     else:
-        base = TOOL_COSTS.get(tool_type, 0)
+        base = settings.get(
+            TOOL_COST_SETTING_KEYS.get(tool_type, ""),
+            TOOL_COSTS.get(tool_type, 0),
+        )
     return base * overtime_multiplier

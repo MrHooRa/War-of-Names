@@ -38,9 +38,9 @@ TRANSITION_MAP: dict[Phase, set[Phase]] = {
         Phase.ABANDONED,
         Phase.CANCELLED,
     },
-    Phase.OVERTIME: {Phase.COMPLETED, Phase.ABANDONED},
+    Phase.OVERTIME: {Phase.COMPLETED, Phase.PAUSED, Phase.ABANDONED},
     # Both players can fail to reconnect, which cancels with refunds.
-    Phase.PAUSED: {Phase.IN_PROGRESS, Phase.ABANDONED, Phase.CANCELLED},
+    Phase.PAUSED: {Phase.IN_PROGRESS, Phase.OVERTIME, Phase.ABANDONED, Phase.CANCELLED},
     # Terminal states — no outgoing transitions
     Phase.COMPLETED: set(),
     Phase.CANCELLED: set(),

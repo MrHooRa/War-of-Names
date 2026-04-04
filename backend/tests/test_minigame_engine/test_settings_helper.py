@@ -4,6 +4,8 @@ from app.modules.minigames.settings_helper import (
     MINIGAME_SETTING_KEYS,
     MINIGAME_DEFAULTS,
     check_kill_switch,
+    get_setting_defaults_for_game,
+    get_setting_keys_for_game,
     KillSwitchLevel,
 )
 
@@ -64,3 +66,15 @@ def test_kill_switch_none_treated_as_off():
     result = check_kill_switch(None)
     assert result.level == KillSwitchLevel.OFF
     assert result.can_create_session is True
+
+
+def test_mutaraha_specific_keys_are_exposed():
+    keys = get_setting_keys_for_game("mutaraha")
+    assert "mutaraha_turn_duration_sec" in keys
+    assert "mutaraha_queue_timeout_sec" in keys
+
+
+def test_mutaraha_specific_defaults_are_available():
+    defaults = get_setting_defaults_for_game("mutaraha")
+    assert defaults["mutaraha_words_per_draw"] == 10
+    assert defaults["mutaraha_challenge_timeout_sec"] == 60

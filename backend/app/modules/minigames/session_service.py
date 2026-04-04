@@ -90,6 +90,13 @@ def compute_transition_update(
     session row. Does NOT mutate any model; the caller is responsible for
     applying the returned dict.
     """
+    # Normalize enum-like inputs so transition-specific field updates behave
+    # the same for ORM enums and raw string phases.
+    if isinstance(current_phase, str):
+        current_phase_enum = Phase(current_phase)
+    else:
+        current_phase_enum = current_phase
+
     # Normalize to enum for is_terminal check.
     if isinstance(target_phase, str):
         target_phase_enum = Phase(target_phase)
@@ -115,9 +122,13 @@ def compute_transition_update(
             updates["winner_slot_index"] = winner_slot_index
 
     if target_phase_enum == Phase.IN_PROGRESS:
-        updates["started_at"] = now
         updates["turn_started_at"] = now
-        updates["current_turn_index"] = 0
+        if current_phase_enum == Phase.READY:
+            updates["started_at"] = now
+            updates["current_turn_index"] = 0
+
+    if target_phase_enum == Phase.OVERTIME:
+        updates["turn_started_at"] = now
 
     return updates
 
@@ -240,6 +251,10 @@ async def transition_session(
     winner_slot_index: int | None = None,
     actor_type: str = "system",
     actor_membership_id: uuid.UUID | None = None,
+    extra_updates: dict[str, Any] | None = None,
+    event_type: str = "transition",
+    payload: dict[str, Any] | None = None,
+    result: dict[str, Any] | None = None,
 ) -> MinigameSession | None:
     """Attempt an optimistic-locked phase transition on a session.
 
@@ -284,6 +299,11 @@ async def transition_session(
         terminal_reason=terminal_reason,
         winner_slot_index=winner_slot_index,
     )
+    if extra_updates:
+        for key, value in extra_updates.items():
+            if key in {"phase", "revision"}:
+                continue
+            updates[key] = value
 
     # Optimistic-locked UPDATE at database layer.
     stmt = (
@@ -306,9 +326,11 @@ async def transition_session(
     event = _MinigameSessionEvent(
         session_id=session_id,
         revision=updates["revision"],
-        event_type="transition",
+        event_type=event_type,
         actor_type=actor_type,
         actor_membership_id=actor_membership_id,
+        payload=payload or {},
+        result=result or {},
         from_phase=str(from_phase),
         to_phase=str(updates["phase"]),
         correlation_id=mg_session.correlation_id,

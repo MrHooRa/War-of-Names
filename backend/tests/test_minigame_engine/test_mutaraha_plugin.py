@@ -71,6 +71,7 @@ def test_init_state_structure(initial_state):
     assert len(initial_state["player_2"]["offered_words"]) == 10
     assert initial_state["player_1"]["correct_guesses"] == 0
     assert initial_state["overtime_active"] is False
+    assert initial_state["player_1"]["turns_taken"] == 0
 
 
 def test_init_state_empty_selections(initial_state):
@@ -155,6 +156,15 @@ def test_validate_redraw_once_only(plugin, initial_state):
     assert error is not None
 
 
+def test_validate_redraw_rejected_after_selection(plugin, initial_state):
+    initial_state["player_1"]["selected_words"] = ["كبسة"]
+    error = plugin.validate_action(
+        {"type": "redraw", "payload": {"actor": "player_1"}},
+        initial_state,
+    )
+    assert error is not None
+
+
 # ── apply_action ─────────────────────────────────────────────
 
 
@@ -205,6 +215,7 @@ def test_apply_letter_check(plugin, battle_state):
     )
     assert len(new_state["revealed_info"]["player_1_known"]["letter_checks"]) == 1
     assert new_state["player_1"]["tool_costs"] == 20
+    assert new_state["player_1"]["turns_taken"] == 1
 
 
 def test_apply_guess_correct(plugin, battle_state):
@@ -226,6 +237,15 @@ def test_apply_guess_wrong(plugin, battle_state):
     assert new_state["player_1"]["tool_costs"] == 50
 
 
+def test_apply_action_uses_configured_tool_costs(plugin, battle_state):
+    battle_state["settings"]["cost_letter_check"] = 33
+    new_state, _ = plugin.apply_action(
+        {"type": "LETTER_CHECK", "payload": {"letter": "م", "actor": "player_1"}},
+        battle_state,
+    )
+    assert new_state["player_1"]["tool_costs"] == 33
+
+
 # ── evaluate_terminal ────────────────────────────────────────
 
 
@@ -244,8 +264,8 @@ def test_terminal_not_yet(plugin, battle_state):
 
 def test_terminal_by_score(plugin, battle_state):
     # Fill up all turns
-    battle_state["player_1"]["tools_used"] = [{"tool": "x"}] * 12
-    battle_state["player_2"]["tools_used"] = [{"tool": "x"}] * 12
+    battle_state["player_1"]["turns_taken"] = 12
+    battle_state["player_2"]["turns_taken"] = 12
     battle_state["player_1"]["correct_guesses"] = 3
     battle_state["player_2"]["correct_guesses"] = 2
     result = plugin.evaluate_terminal(battle_state)
@@ -254,8 +274,8 @@ def test_terminal_by_score(plugin, battle_state):
 
 
 def test_terminal_tied_goes_to_overtime(plugin, battle_state):
-    battle_state["player_1"]["tools_used"] = [{"tool": "x"}] * 12
-    battle_state["player_2"]["tools_used"] = [{"tool": "x"}] * 12
+    battle_state["player_1"]["turns_taken"] = 12
+    battle_state["player_2"]["turns_taken"] = 12
     battle_state["player_1"]["correct_guesses"] = 2
     battle_state["player_2"]["correct_guesses"] = 2
     battle_state["player_1"]["tool_costs"] = 100
@@ -268,6 +288,12 @@ def test_terminal_tied_goes_to_overtime(plugin, battle_state):
 
 
 def test_overtime_returns_config(plugin, battle_state):
+    battle_state["player_1"]["turns_taken"] = 12
+    battle_state["player_2"]["turns_taken"] = 12
+    battle_state["player_1"]["correct_guesses"] = 2
+    battle_state["player_2"]["correct_guesses"] = 2
+    battle_state["player_1"]["tool_costs"] = 100
+    battle_state["player_2"]["tool_costs"] = 100
     result = plugin.evaluate_overtime(battle_state)
     assert result is not None
     assert result["overtime_active"] is True
@@ -278,6 +304,24 @@ def test_no_double_overtime(plugin, battle_state):
     battle_state["overtime_active"] = True
     result = plugin.evaluate_overtime(battle_state)
     assert result is None
+
+
+def test_resolve_selection_timeout_auto_picks_remaining_words(plugin, initial_state):
+    initial_state["player_1"]["selected_words"] = ["كبسة", "ضب", "فيصل", "دلة", "عنيزة"]
+    timeout_result = plugin.resolve_selection_timeout(initial_state)
+    assert timeout_result is not None
+    new_state = timeout_result["state"]
+    assert len(new_state["player_2"]["selected_words"]) == 5
+    assert new_state["game_phase"] == "battle"
+    assert timeout_result["current_turn_index"] == 0
+
+
+def test_resolve_turn_timeout_consumes_turn(plugin, battle_state):
+    timeout_result = plugin.resolve_turn_timeout(battle_state, 0)
+    assert timeout_result is not None
+    new_state = timeout_result["state"]
+    assert new_state["player_1"]["turns_taken"] == 1
+    assert timeout_result["side_effects"][0]["type"] == "turn_skipped"
 
 
 # ── compute_settlement ───────────────────────────────────────

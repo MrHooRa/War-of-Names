@@ -47,7 +47,8 @@ def test_queue_join(lobby):
     key, mid = _key(), uuid.uuid4()
     lobby.join(key, mid, alias="الصقر")
     lobby.queue_join(key, mid)
-    assert lobby.get_players(key)[0]["status"] == "in_queue"
+    assert lobby.is_queued(key, mid) is True
+    assert lobby.get_players(key)[0]["status"] == "idle"
 
 
 def test_queue_join_ignores_non_lobby_player(lobby):
@@ -137,7 +138,31 @@ def test_lobby_state_snapshot(lobby):
     state = lobby.get_lobby_state(key)
     assert "players" in state
     assert "active_matches" in state
+    assert "queue_size" in state
     assert "recent_results" in state
+
+
+def test_queue_size_counts_waiting_players(lobby):
+    key = _key()
+    m1, m2 = uuid.uuid4(), uuid.uuid4()
+    lobby.join(key, m1, alias="a")
+    lobby.join(key, m2, alias="b")
+    lobby.queue_join(key, m1)
+    lobby.queue_join(key, m2)
+    assert lobby.get_queue_size(key) == 2
+
+
+def test_clear_queue_resets_waiting_players_to_idle(lobby):
+    key = _key()
+    m1, m2 = uuid.uuid4(), uuid.uuid4()
+    lobby.join(key, m1, alias="a")
+    lobby.join(key, m2, alias="b")
+    lobby.queue_join(key, m1)
+    lobby.queue_join(key, m2)
+    cleared = lobby.clear_queue(key)
+    assert set(cleared) == {m1, m2}
+    assert lobby.get_queue_size(key) == 0
+    assert all(player["status"] == "idle" for player in lobby.get_players(key))
 
 
 def test_leave_also_removes_from_queue(lobby):

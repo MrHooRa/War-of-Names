@@ -64,16 +64,60 @@ class MutarahaPlugin(GameTypePlugin):
             return "player_2"
         return None
 
+    @staticmethod
+    def _setting_int(settings: dict, key: str, default: int) -> int:
+        value = settings.get(key, default)
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, (int, float)):
+            return int(value)
+        return default
+
+    @staticmethod
+    def _setting_bool(settings: dict, key: str, default: bool) -> bool:
+        value = settings.get(key, default)
+        if isinstance(value, bool):
+            return value
+        return default
+
+    def _words_to_select(self, state: dict) -> int:
+        return self._setting_int(state.get("settings", {}) or {}, "words_to_select", 5)
+
+    def _record_turn_consumed(self, state: dict, actor: str) -> None:
+        state[actor]["turns_taken"] = state[actor].get("turns_taken", 0) + 1
+        if not state.get("overtime_active"):
+            return
+        remaining_key = "overtime_turns_remaining_p1" if actor == "player_1" else "overtime_turns_remaining_p2"
+        state[remaining_key] = max(
+            0,
+            self._setting_int(state, remaining_key, state.get(remaining_key, 0)) - 1,
+        )
+
     # ── 1. validate_settings ─────────────────────────────────
 
     def validate_settings(self, settings: dict) -> list[str]:
         errors = []
-        buy_in = settings.get("minigame_buy_in")
+        buy_in = settings.get("mutaraha_buy_in", settings.get("minigame_buy_in"))
         if buy_in is not None and (not isinstance(buy_in, int) or buy_in < 0):
             errors.append("مبلغ الدخول يجب أن يكون عدداً صحيحاً موجباً")
-        daily = settings.get("minigame_daily_limit")
+        daily = settings.get("mutaraha_daily_limit", settings.get("minigame_daily_limit"))
         if daily is not None and (not isinstance(daily, int) or daily < 1):
             errors.append("الحد اليومي يجب أن يكون 1 أو أكثر")
+        turns_per_player = settings.get("mutaraha_turns_per_player")
+        if turns_per_player is not None and (not isinstance(turns_per_player, int) or turns_per_player < 1):
+            errors.append("عدد الأدوار لكل لاعب يجب أن يكون 1 أو أكثر")
+        words_per_draw = settings.get("mutaraha_words_per_draw")
+        words_to_select = settings.get("mutaraha_words_to_select")
+        if words_per_draw is not None and (not isinstance(words_per_draw, int) or words_per_draw < 2):
+            errors.append("عدد الكلمات في السحب يجب أن يكون 2 أو أكثر")
+        if words_to_select is not None and (not isinstance(words_to_select, int) or words_to_select < 1):
+            errors.append("عدد الكلمات المختارة يجب أن يكون 1 أو أكثر")
+        if (
+            isinstance(words_per_draw, int)
+            and isinstance(words_to_select, int)
+            and words_per_draw < words_to_select * 2
+        ):
+            errors.append("عدد الكلمات في السحب يجب أن يكون على الأقل ضعف عدد الكلمات المختارة")
         return errors
 
     # ── 2. init_session_state ────────────────────────────────
@@ -86,34 +130,86 @@ class MutarahaPlugin(GameTypePlugin):
         """
         settings = config.get("settings", {}) or {}
         word_bank_words = list(config.get("word_bank_words") or [])
+        word_pool_p1 = list(config.get("word_pool_player_1") or word_bank_words)
+        word_pool_p2 = list(config.get("word_pool_player_2") or word_bank_words)
         offered_p1 = list(config.get("offered_words_p1") or [])
         offered_p2 = list(config.get("offered_words_p2") or [])
+        words_per_draw = config.get(
+            "words_per_draw",
+            self._setting_int(settings, "mutaraha_words_per_draw", 10),
+        )
+        words_to_select = config.get(
+            "words_to_select",
+            self._setting_int(settings, "mutaraha_words_to_select", 5),
+        )
         if not offered_p1 and word_bank_words:
-            offered_p1 = self._sample_word_offers(word_bank_words, count=10)
+            offered_p1 = self._sample_word_offers(word_pool_p1, count=words_per_draw)
         if not offered_p2 and word_bank_words:
             offered_p2 = self._sample_word_offers(
-                word_bank_words,
+                word_pool_p2,
                 exclude=set(offered_p1),
-                count=10,
+                count=words_per_draw,
             )
 
-        turns = config.get("turns_per_player", settings.get("turns_per_player", 12))
-        ot_turns = config.get("overtime_turns", settings.get("overtime_turns", 3))
+        turns = config.get(
+            "turns_per_player",
+            self._setting_int(settings, "mutaraha_turns_per_player", 12),
+        )
+        ot_turns = config.get(
+            "overtime_turns",
+            self._setting_int(settings, "mutaraha_overtime_turns", 3),
+        )
+        regular_turn_duration_sec = config.get(
+            "turn_duration_sec",
+            self._setting_int(
+                settings,
+                "mutaraha_turn_duration_sec",
+                self._setting_int(settings, "minigame_turn_duration_sec", 30),
+            ),
+        )
+        selection_duration_sec = config.get(
+            "selection_duration_sec",
+            self._setting_int(settings, "mutaraha_selection_duration_sec", 45),
+        )
+        overtime_turn_duration_sec = config.get(
+            "overtime_turn_duration_sec",
+            self._setting_int(settings, "mutaraha_overtime_turn_sec", 20),
+        )
+        overtime_enabled = config.get(
+            "overtime_enabled",
+            self._setting_bool(
+                settings,
+                "mutaraha_overtime_enabled",
+                self._setting_bool(settings, "minigame_overtime_enabled", True),
+            ),
+        )
+        overtime_cost_multiplier = config.get(
+            "overtime_cost_multiplier",
+            self._setting_int(settings, "mutaraha_overtime_cost_multiplier", 2),
+        )
+        redraw_cost = config.get(
+            "redraw_cost",
+            self._setting_int(settings, "mutaraha_redraw_cost", 20),
+        )
         buy_in = config.get(
             "buy_in",
-            settings.get("minigame_buy_in", settings.get("buy_in", 500)),
+            settings.get(
+                "mutaraha_buy_in",
+                settings.get("minigame_buy_in", settings.get("buy_in", 500)),
+            ),
         )
 
         def _make_player(offered):
             return {
                 "offered_words": offered,
                 "selected_words": [],
-                "guessed_by_opponent": [False, False, False, False, False],
+                "guessed_by_opponent": [False] * words_to_select,
                 "used_redraw": False,
                 "redraw_cost": 0,
                 "tool_costs": 0,
                 "correct_guesses": 0,
                 "tools_used": [],
+                "turns_taken": 0,
             }
 
         return {
@@ -131,6 +227,8 @@ class MutarahaPlugin(GameTypePlugin):
             "player_1": _make_player(offered_p1),
             "player_2": _make_player(offered_p2),
             "word_bank_words": word_bank_words,
+            "word_pool_player_1": word_pool_p1,
+            "word_pool_player_2": word_pool_p2,
             "revealed_info": {
                 "player_1_known": {
                     "letter_checks": [],
@@ -151,10 +249,25 @@ class MutarahaPlugin(GameTypePlugin):
             },
             "settings": {
                 "turns_per_player": turns,
+                "words_per_draw": words_per_draw,
+                "words_to_select": words_to_select,
+                "selection_duration_sec": selection_duration_sec,
+                "turn_duration_sec": regular_turn_duration_sec,
+                "overtime_enabled": overtime_enabled,
                 "overtime_turns": ot_turns,
-                "overtime_cost_multiplier": 2,
+                "overtime_turn_duration_sec": overtime_turn_duration_sec,
+                "overtime_cost_multiplier": overtime_cost_multiplier,
+                "redraw_cost": redraw_cost,
+                "cost_letter_check": self._setting_int(settings, "mutaraha_cost_letter_check", 20),
+                "cost_word_length": self._setting_int(settings, "mutaraha_cost_word_length", 20),
+                "cost_letter_eliminate": self._setting_int(settings, "mutaraha_cost_letter_eliminate", 40),
+                "cost_first_letter": self._setting_int(settings, "mutaraha_cost_first_letter", 50),
+                "cost_narrow_down": self._setting_int(settings, "mutaraha_cost_narrow_down", 60),
+                "cost_wrong_guess": self._setting_int(settings, "mutaraha_cost_wrong_guess", 50),
                 "buy_in": buy_in,
             },
+            "word_selection_deadline": None,
+            "current_turn_deadline": None,
             "overtime_active": False,
             "overtime_turns_remaining_p1": 0,
             "overtime_turns_remaining_p2": 0,
@@ -177,10 +290,11 @@ class MutarahaPlugin(GameTypePlugin):
             words = payload.get("words", [])
             if not isinstance(words, list):
                 return "يجب إرسال قائمة كلمات صالحة"
-            if len(words) != 5:
-                return "يجب اختيار 5 كلمات بالضبط"
-            if len(set(words)) != 5:
-                return "يجب اختيار 5 كلمات مختلفة"
+            words_to_select = self._words_to_select(state)
+            if len(words) != words_to_select:
+                return f"يجب اختيار {words_to_select} كلمات بالضبط"
+            if len(set(words)) != words_to_select:
+                return f"يجب اختيار {words_to_select} كلمات مختلفة"
             offered_words = state.get(actor, {}).get("offered_words", [])
             if any(word not in offered_words for word in words):
                 return "يجب اختيار الكلمات من القائمة المعروضة فقط"
@@ -191,6 +305,8 @@ class MutarahaPlugin(GameTypePlugin):
                 return "مرحلة اختيار الكلمات انتهت"
             if state.get(actor, {}).get("used_redraw"):
                 return "تم استخدام إعادة السحب بالفعل"
+            if state.get(actor, {}).get("selected_words"):
+                return "لا يمكن إعادة السحب بعد اختيار أي كلمة"
             return None
 
         # Battle/overtime actions
@@ -233,11 +349,12 @@ class MutarahaPlugin(GameTypePlugin):
 
         # ── Word selection actions ──
         if action_type == "select_words":
+            words_to_select = self._words_to_select(new_state)
             words = payload.get("words", [])
-            new_state[actor]["selected_words"] = words[:5]
+            new_state[actor]["selected_words"] = words[:words_to_select]
             # Check if both players selected — transition to battle
-            p1_ready = len(new_state["player_1"].get("selected_words", [])) == 5
-            p2_ready = len(new_state["player_2"].get("selected_words", [])) == 5
+            p1_ready = len(new_state["player_1"].get("selected_words", [])) == words_to_select
+            p2_ready = len(new_state["player_2"].get("selected_words", [])) == words_to_select
             if p1_ready and p2_ready:
                 new_state["game_phase"] = "battle"
                 side_effects.append({"type": "phase_change", "phase": "battle"})
@@ -245,11 +362,13 @@ class MutarahaPlugin(GameTypePlugin):
 
         if action_type == "redraw":
             new_state[actor]["used_redraw"] = True
-            new_state[actor]["redraw_cost"] = 20
+            settings = new_state.get("settings", {}) or {}
+            words_per_draw = self._setting_int(settings, "words_per_draw", 10)
+            new_state[actor]["redraw_cost"] = self._setting_int(settings, "redraw_cost", 20)
             new_words = self._sample_word_offers(
-                new_state.get("word_bank_words", []),
+                new_state.get(f"word_pool_{actor}", []),
                 exclude=set(new_state[actor].get("offered_words", [])),
-                count=10,
+                count=words_per_draw,
             )
             new_state[actor]["offered_words"] = new_words
             new_state[actor]["selected_words"] = []
@@ -259,8 +378,9 @@ class MutarahaPlugin(GameTypePlugin):
         # ── Battle/overtime tools ──
         opponent_words = new_state[opponent]["selected_words"]
         opponent_guessed = new_state[opponent]["guessed_by_opponent"]
+        settings = new_state.get("settings", {}) or {}
         multiplier = (
-            new_state["settings"]["overtime_cost_multiplier"]
+            settings["overtime_cost_multiplier"]
             if new_state.get("overtime_active")
             else 1
         )
@@ -273,14 +393,14 @@ class MutarahaPlugin(GameTypePlugin):
             letter = payload["letter"]
             result = tool_letter_check(letter=letter, opponent_words=opponent_words)
             revealed["letter_checks"].append(result)
-            cost = get_tool_cost("LETTER_CHECK", overtime_multiplier=multiplier)
+            cost = get_tool_cost("LETTER_CHECK", overtime_multiplier=multiplier, settings=settings)
             side_effects.append({"type": "tool_result", "tool": "LETTER_CHECK", "result": result})
 
         elif action_type == "WORD_LENGTH":
             result = tool_word_length(opponent_words=opponent_words, guessed_mask=opponent_guessed)
             if result:
                 revealed["word_lengths"].append(result)
-                cost = get_tool_cost("WORD_LENGTH", overtime_multiplier=multiplier)
+                cost = get_tool_cost("WORD_LENGTH", overtime_multiplier=multiplier, settings=settings)
                 side_effects.append({"type": "tool_result", "tool": "WORD_LENGTH", "result": result})
 
         elif action_type == "LETTER_ELIMINATE":
@@ -289,7 +409,7 @@ class MutarahaPlugin(GameTypePlugin):
                 already_eliminated=revealed["eliminated_letters"],
             )
             revealed["eliminated_letters"].extend(result.get("eliminated", []))
-            cost = get_tool_cost("LETTER_ELIMINATE", overtime_multiplier=multiplier)
+            cost = get_tool_cost("LETTER_ELIMINATE", overtime_multiplier=multiplier, settings=settings)
             side_effects.append({"type": "tool_result", "tool": "LETTER_ELIMINATE", "result": result})
 
         elif action_type == "FIRST_LETTER":
@@ -301,7 +421,7 @@ class MutarahaPlugin(GameTypePlugin):
             )
             if result:
                 revealed["first_letters"].append(result)
-                cost = get_tool_cost("FIRST_LETTER", overtime_multiplier=multiplier)
+                cost = get_tool_cost("FIRST_LETTER", overtime_multiplier=multiplier, settings=settings)
                 side_effects.append({"type": "tool_result", "tool": "FIRST_LETTER", "result": result})
 
         elif action_type == "NARROW_DOWN":
@@ -316,7 +436,7 @@ class MutarahaPlugin(GameTypePlugin):
                 revealed["narrow_downs"].append(
                     {"word_index": result["word_index"], "options": result["options"]}
                 )
-                cost = get_tool_cost("NARROW_DOWN", overtime_multiplier=multiplier)
+                cost = get_tool_cost("NARROW_DOWN", overtime_multiplier=multiplier, settings=settings)
                 side_effects.append({"type": "tool_result", "tool": "NARROW_DOWN", "result": result})
 
         elif action_type == "GUESS":
@@ -331,16 +451,27 @@ class MutarahaPlugin(GameTypePlugin):
             if result["correct"]:
                 new_state[opponent]["guessed_by_opponent"][word_index] = True
                 new_state[actor]["correct_guesses"] += 1
-                cost = get_tool_cost("GUESS", correct=True, overtime_multiplier=multiplier)
+                cost = get_tool_cost(
+                    "GUESS",
+                    correct=True,
+                    overtime_multiplier=multiplier,
+                    settings=settings,
+                )
                 side_effects.append(
                     {"type": "guess_correct", "word_index": word_index, "word": result["actual_word"]}
                 )
             else:
                 revealed["failed_guesses"].append(guessed_word)
-                cost = get_tool_cost("GUESS", correct=False, overtime_multiplier=multiplier)
+                cost = get_tool_cost(
+                    "GUESS",
+                    correct=False,
+                    overtime_multiplier=multiplier,
+                    settings=settings,
+                )
                 side_effects.append({"type": "guess_wrong", "word_index": word_index})
 
         # Record tool usage
+        self._record_turn_consumed(new_state, actor)
         new_state[actor]["tool_costs"] += cost
         new_state[actor]["tools_used"].append(
             {
@@ -362,40 +493,40 @@ class MutarahaPlugin(GameTypePlugin):
         p1 = state["player_1"]
         p2 = state["player_2"]
         settings = state["settings"]
+        words_to_select = self._setting_int(settings, "words_to_select", 5)
+        regular_turns = self._setting_int(settings, "turns_per_player", 12)
+        overtime_turns = self._setting_int(settings, "overtime_turns", 3)
+        p1_turns_taken = p1.get("turns_taken", len(p1.get("tools_used", [])))
+        p2_turns_taken = p2.get("turns_taken", len(p2.get("tools_used", [])))
 
-        # Knockout: someone guessed all 5
-        if p1["correct_guesses"] >= 5:
+        # Knockout: someone guessed all target words
+        if p1["correct_guesses"] >= words_to_select:
             return {
                 "winner": "player_1",
                 "loser": "player_2",
                 "winner_membership_id": state.get("player_1_membership_id"),
                 "loser_membership_id": state.get("player_2_membership_id"),
                 "reason": "knockout",
-                "winner_guesses": 5,
+                "winner_guesses": words_to_select,
                 "loser_guesses": p2["correct_guesses"],
             }
-        if p2["correct_guesses"] >= 5:
+        if p2["correct_guesses"] >= words_to_select:
             return {
                 "winner": "player_2",
                 "loser": "player_1",
                 "winner_membership_id": state.get("player_2_membership_id"),
                 "loser_membership_id": state.get("player_1_membership_id"),
                 "reason": "knockout",
-                "winner_guesses": 5,
+                "winner_guesses": words_to_select,
                 "loser_guesses": p1["correct_guesses"],
             }
 
         # Check if turns exhausted
         if state.get("overtime_active"):
-            ot_turns = settings.get("overtime_turns", 3)
-            ot_used_p1 = max(0, len(p1["tools_used"]) - settings.get("turns_per_player", 12))
-            ot_used_p2 = max(0, len(p2["tools_used"]) - settings.get("turns_per_player", 12))
-            if ot_used_p1 >= ot_turns and ot_used_p2 >= ot_turns:
+            if p1_turns_taken >= regular_turns + overtime_turns and p2_turns_taken >= regular_turns + overtime_turns:
                 return self._resolve_by_score(p1, p2, state)
         else:
-            total_turns_used = len(p1["tools_used"]) + len(p2["tools_used"])
-            max_regular = settings.get("turns_per_player", 12) * 2
-            if total_turns_used >= max_regular:
+            if p1_turns_taken >= regular_turns and p2_turns_taken >= regular_turns:
                 # Regular turns exhausted — check who's ahead
                 if p1["correct_guesses"] != p2["correct_guesses"]:
                     return self._resolve_by_score(p1, p2, state)
@@ -403,6 +534,8 @@ class MutarahaPlugin(GameTypePlugin):
                 if p1["tool_costs"] != p2["tool_costs"]:
                     return self._resolve_by_score(p1, p2, state)
                 # Exact tie — overtime needed (return None to trigger evaluate_overtime)
+                if not self._setting_bool(settings, "overtime_enabled", True):
+                    return self._resolve_by_score(p1, p2, state)
                 return None
 
         return None
@@ -438,13 +571,80 @@ class MutarahaPlugin(GameTypePlugin):
     def evaluate_overtime(self, state: dict) -> dict | None:
         if state.get("overtime_active"):
             return None  # Already in overtime — no double overtime
+        if state.get("game_phase") != "battle":
+            return None
+
+        p1 = state["player_1"]
+        p2 = state["player_2"]
         settings = state["settings"]
-        ot_turns = settings.get("overtime_turns", 3)
+        if not self._setting_bool(settings, "overtime_enabled", True):
+            return None
+        regular_turns = self._setting_int(settings, "turns_per_player", 12)
+        p1_turns_taken = p1.get("turns_taken", len(p1.get("tools_used", [])))
+        p2_turns_taken = p2.get("turns_taken", len(p2.get("tools_used", [])))
+        if p1_turns_taken < regular_turns or p2_turns_taken < regular_turns:
+            return None
+        if p1["correct_guesses"] != p2["correct_guesses"]:
+            return None
+        if p1["tool_costs"] != p2["tool_costs"]:
+            return None
+
+        ot_turns = self._setting_int(settings, "overtime_turns", 3)
         return {
             "overtime_active": True,
             "overtime_turns_remaining_p1": ot_turns,
             "overtime_turns_remaining_p2": ot_turns,
             "game_phase": "overtime",
+        }
+
+    def resolve_selection_timeout(self, state: dict) -> dict | None:
+        """Auto-pick any missing words when the selection timer expires."""
+        if state.get("game_phase") != "word_selection":
+            return None
+
+        new_state = copy.deepcopy(state)
+        side_effects: list[dict] = []
+        words_to_select = self._words_to_select(new_state)
+
+        for actor in ("player_1", "player_2"):
+            selected = list(new_state[actor].get("selected_words", []))
+            if len(selected) >= words_to_select:
+                continue
+            offered = list(new_state[actor].get("offered_words", []))
+            remaining_candidates = [word for word in offered if word not in selected]
+            needed = words_to_select - len(selected)
+            auto_selected = remaining_candidates[:]
+            if len(auto_selected) > needed:
+                auto_selected = random.sample(auto_selected, needed)
+            selected.extend(auto_selected[:needed])
+            new_state[actor]["selected_words"] = selected[:words_to_select]
+            side_effects.append({"type": "auto_select", "actor": actor})
+
+        p1_ready = len(new_state["player_1"].get("selected_words", [])) == words_to_select
+        p2_ready = len(new_state["player_2"].get("selected_words", [])) == words_to_select
+        if p1_ready and p2_ready:
+            new_state["game_phase"] = "battle"
+            side_effects.append({"type": "phase_change", "phase": "battle"})
+
+        return {
+            "state": new_state,
+            "side_effects": side_effects,
+            "current_turn_index": 0 if new_state.get("game_phase") == "battle" else None,
+        }
+
+    def resolve_turn_timeout(self, state: dict, actor_slot_index: int | None) -> dict | None:
+        """Skip the active player's turn when the turn timer expires."""
+        if state.get("game_phase") not in {"battle", "overtime"}:
+            return None
+        if actor_slot_index not in {0, 1}:
+            return None
+
+        new_state = copy.deepcopy(state)
+        actor = "player_1" if actor_slot_index == 0 else "player_2"
+        self._record_turn_consumed(new_state, actor)
+        return {
+            "state": new_state,
+            "side_effects": [{"type": "turn_skipped", "actor": actor}],
         }
 
     # ── 7. compute_settlement ────────────────────────────────
@@ -487,6 +687,8 @@ class MutarahaPlugin(GameTypePlugin):
     def build_public_view(self, state: dict, viewer_membership_id) -> dict:
         view = copy.deepcopy(state)
         view.pop("word_bank_words", None)
+        view.pop("word_pool_player_1", None)
+        view.pop("word_pool_player_2", None)
 
         # Determine viewer role
         viewer = self._resolve_actor_slot(view, viewer_membership_id)

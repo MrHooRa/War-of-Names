@@ -56,9 +56,20 @@ class LobbyManager:
 
     def get_players(self, lobby_key: str) -> list[dict]:
         return [
-            {"membership_id": p.membership_id, "alias": p.alias, "status": p.status, "stats": p.stats}
+            {
+                "membership_id": p.membership_id,
+                "alias": p.alias,
+                "status": "idle" if p.status == "in_queue" else p.status,
+                "stats": p.stats,
+            }
             for p in self._lobbies.get(lobby_key, {}).values()
         ]
+
+    def get_queue_size(self, lobby_key: str) -> int:
+        return len(self._queues.get(lobby_key, []))
+
+    def is_queued(self, lobby_key: str, membership_id: uuid.UUID) -> bool:
+        return membership_id in self._queues.get(lobby_key, ())
 
     def set_status(self, lobby_key: str, membership_id: uuid.UUID, status: str) -> None:
         lobby = self._lobbies.get(lobby_key, {})
@@ -85,6 +96,14 @@ class LobbyManager:
                 del self._queues[lobby_key]
         if self.is_in_lobby(lobby_key, membership_id):
             self.set_status(lobby_key, membership_id, "idle")
+
+    def clear_queue(self, lobby_key: str) -> list[uuid.UUID]:
+        queued = list(self._queues.get(lobby_key, []))
+        for membership_id in queued:
+            if self.is_in_lobby(lobby_key, membership_id):
+                self.set_status(lobby_key, membership_id, "idle")
+        self._queues.pop(lobby_key, None)
+        return queued
 
     def try_match(self, lobby_key: str, num_needed: int = 2) -> list[uuid.UUID] | None:
         """Try to match N players from the queue (FIFO).
@@ -122,6 +141,7 @@ class LobbyManager:
         return {
             "players": self.get_players(lobby_key),
             "active_matches": sum(1 for p in self._lobbies.get(lobby_key, {}).values() if p.status == "in_match") // 2,
+            "queue_size": self.get_queue_size(lobby_key),
             "recent_results": self.get_recent_results(lobby_key),
         }
 

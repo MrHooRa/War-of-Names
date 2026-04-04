@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,3 +26,29 @@ class MutarahaWord(Base):
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
+
+
+class MutarahaPlayerWordHistory(Base):
+    __tablename__ = "mutaraha_player_word_history"
+    __table_args__ = (
+        UniqueConstraint("session_id", "membership_id", "word_id", name="uq_mutaraha_word_history"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        ForeignKey("minigame_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    membership_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("memberships.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    word_id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        ForeignKey("mutaraha_word_bank.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    word: Mapped[str] = mapped_column(String(50), nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    used_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
