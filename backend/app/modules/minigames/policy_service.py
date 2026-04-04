@@ -147,12 +147,11 @@ def run_all_checks(
 # Async DB helpers (all SQLAlchemy imports deferred to function body)
 # ---------------------------------------------------------------------------
 #
-# TODO(sprint-b): N-player refactor — count_player_matches_today and
-# count_opponent_matches_this_cycle still filter on the removed
-# MinigameSession.player_1_membership_id / player_2_membership_id columns.
-# Sprint B will rewrite these queries to join through
-# MinigameSessionParticipant so they work for any num_players. Pure check_*
-# helpers above are unaffected.
+# These helpers support N-player minigames (2-8 participants per session).
+# Participants live in the ``minigame_session_participants`` table, so both
+# queries join through ``MinigameSessionParticipant`` and use
+# SELECT COUNT(DISTINCT session.id) to avoid double-counting sessions where
+# a player appears in multiple rows of the join.
 
 
 async def count_player_matches_today(
@@ -164,28 +163,32 @@ async def count_player_matches_today(
     """Return how many matches the player has started or joined today.
 
     "Today" is defined as midnight (00:00:00) in Asia/Riyadh time up to the
-    current moment.  The query counts any session where the player appears as
-    either ``player_1_membership_id`` or ``player_2_membership_id``.
+    current moment. Counts any session where the player appears as a participant
+    regardless of slot index.
     """
-    from sqlalchemy import func, or_, select  # noqa: PLC0415
+    from sqlalchemy import func, select  # noqa: PLC0415
 
     from app.core.utils import now_riyadh_naive  # noqa: PLC0415
-    from app.modules.minigames.models import MinigameSession  # noqa: PLC0415
+    from app.modules.minigames.models import (  # noqa: PLC0415
+        MinigameSession,
+        MinigameSessionParticipant,
+    )
 
     now = now_riyadh_naive()
     today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     stmt = (
-        select(func.count())
+        select(func.count(func.distinct(MinigameSession.id)))
         .select_from(MinigameSession)
+        .join(
+            MinigameSessionParticipant,
+            MinigameSessionParticipant.session_id == MinigameSession.id,
+        )
         .where(
             MinigameSession.game_type == game_type,
             MinigameSession.competition_id == competition_id,
             MinigameSession.created_at >= today_midnight,
-            or_(
-                MinigameSession.player_1_membership_id == membership_id,
-                MinigameSession.player_2_membership_id == membership_id,
-            ),
+            MinigameSessionParticipant.membership_id == membership_id,
         )
     )
     result = await session.execute(stmt)
@@ -202,36 +205,33 @@ async def count_opponent_matches_this_cycle(
 ) -> int:
     """Return the number of times these two players have faced each other in the cycle.
 
-    The check is symmetric: it does not matter which player was player_1 and
-    which was player_2.
+    Counts sessions where both players are participants, regardless of their slot
+    assignments. Works for any num_players (2-8) — if both players are in the same
+    session, it counts once.
     """
-    from sqlalchemy import func, or_, select  # noqa: PLC0415
-    from sqlalchemy import and_  # noqa: PLC0415
+    from sqlalchemy import func, select  # noqa: PLC0415
+    from sqlalchemy.orm import aliased  # noqa: PLC0415
 
-    from app.modules.minigames.models import MinigameSession  # noqa: PLC0415
-
-    mg = MinigameSession
-
-    # Match where (p1=membership AND p2=opponent) OR (p1=opponent AND p2=membership)
-    pair_condition = or_(
-        and_(
-            mg.player_1_membership_id == membership_id,
-            mg.player_2_membership_id == opponent_membership_id,
-        ),
-        and_(
-            mg.player_1_membership_id == opponent_membership_id,
-            mg.player_2_membership_id == membership_id,
-        ),
+    from app.modules.minigames.models import (  # noqa: PLC0415
+        MinigameSession,
+        MinigameSessionParticipant,
     )
 
+    # Self-join the participants table: one alias for "me", one for "opponent"
+    me = aliased(MinigameSessionParticipant)
+    opponent = aliased(MinigameSessionParticipant)
+
     stmt = (
-        select(func.count())
-        .select_from(mg)
+        select(func.count(func.distinct(MinigameSession.id)))
+        .select_from(MinigameSession)
+        .join(me, me.session_id == MinigameSession.id)
+        .join(opponent, opponent.session_id == MinigameSession.id)
         .where(
-            mg.game_type == game_type,
-            mg.competition_id == competition_id,
-            mg.cycle_id == cycle_id,
-            pair_condition,
+            MinigameSession.game_type == game_type,
+            MinigameSession.competition_id == competition_id,
+            MinigameSession.cycle_id == cycle_id,
+            me.membership_id == membership_id,
+            opponent.membership_id == opponent_membership_id,
         )
     )
     result = await session.execute(stmt)
