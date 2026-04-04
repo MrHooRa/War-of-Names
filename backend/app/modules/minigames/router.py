@@ -37,7 +37,7 @@ from app.core.enums import (
     MembershipStatus,
 )
 from app.modules.auth.models import Account
-from app.modules.competitions.models import Cycle, Membership, Season
+from app.modules.competitions.models import Competition, Cycle, Membership, Season
 from app.modules.minigames.models import (
     MinigameLeaderboard,
     MinigameSession,
@@ -114,6 +114,45 @@ async def _get_active_season_cycle(session, competition_id: uuid.UUID):
     )
     cycle = cycle_result.scalars().first()
     return season, cycle
+
+
+async def _ensure_competition_exists(session, competition_id: uuid.UUID) -> Competition:
+    """Return the Competition row or raise 404 with an Arabic message.
+
+    Used by catalog/lobby endpoints where a missing competition must be a
+    distinct error from "not a member". BRD §12.4.
+    """
+    result = await session.execute(
+        select(Competition).where(Competition.id == competition_id)
+    )
+    competition = result.scalars().first()
+    if competition is None:
+        raise HTTPException(status_code=404, detail="المسابقة غير موجودة")
+    return competition
+
+
+async def _resolve_catalog_caller(
+    session,
+    *,
+    account_id: uuid.UUID,
+    competition_id: uuid.UUID,
+) -> Membership:
+    """Resolve the catalog caller's membership with Arabic error on failure.
+
+    Validates in order:
+      1. Competition exists → 404 "المسابقة غير موجودة"
+      2. Caller is an active member → 403 "أنت لست عضواً في هذه المسابقة"
+
+    Returns the membership on success so callers can read balance + bankruptcy.
+    """
+    await _ensure_competition_exists(session, competition_id)
+
+    membership = await _get_membership(session, account_id, competition_id)
+    if membership is None:
+        raise HTTPException(
+            status_code=403, detail="أنت لست عضواً في هذه المسابقة"
+        )
+    return membership
 
 
 def _enum_value(value):
