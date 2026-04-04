@@ -1,8 +1,13 @@
 """Test مطارحة plugin — all 8 lifecycle hooks."""
 
+import uuid
+
 import pytest
 
 from app.modules.minigames.mutaraha.plugin import MutarahaPlugin
+
+PLAYER_1_ID = uuid.uuid4()
+PLAYER_2_ID = uuid.uuid4()
 
 
 @pytest.fixture
@@ -24,6 +29,8 @@ def initial_state(plugin):
             ],
             "turns_per_player": 12,
             "buy_in": 500,
+            "player_1_membership_id": PLAYER_1_ID,
+            "player_2_membership_id": PLAYER_2_ID,
         }
     )
 
@@ -76,7 +83,13 @@ def test_init_state_empty_selections(initial_state):
 
 def test_validate_select_words_valid(plugin, initial_state):
     error = plugin.validate_action(
-        {"type": "select_words", "payload": {"words": ["a", "b", "c", "d", "e"]}},
+        {
+            "type": "select_words",
+            "payload": {
+                "words": ["كبسة", "ضب", "فيصل", "دلة", "عنيزة"],
+                "actor": "player_1",
+            },
+        },
         initial_state,
     )
     assert error is None
@@ -84,7 +97,21 @@ def test_validate_select_words_valid(plugin, initial_state):
 
 def test_validate_select_words_wrong_count(plugin, initial_state):
     error = plugin.validate_action(
-        {"type": "select_words", "payload": {"words": ["a", "b"]}},
+        {"type": "select_words", "payload": {"words": ["a", "b"], "actor": "player_1"}},
+        initial_state,
+    )
+    assert error is not None
+
+
+def test_validate_select_words_rejects_non_offered_word(plugin, initial_state):
+    error = plugin.validate_action(
+        {
+            "type": "select_words",
+            "payload": {
+                "words": ["كبسة", "ضب", "فيصل", "دلة", "كلمة-مفبركة"],
+                "actor": "player_1",
+            },
+        },
         initial_state,
     )
     assert error is not None
@@ -92,7 +119,7 @@ def test_validate_select_words_wrong_count(plugin, initial_state):
 
 def test_validate_tool_in_battle(plugin, battle_state):
     error = plugin.validate_action(
-        {"type": "LETTER_CHECK", "payload": {"letter": "ك"}},
+        {"type": "LETTER_CHECK", "payload": {"letter": "ك", "actor": "player_1"}},
         battle_state,
     )
     assert error is None
@@ -100,21 +127,30 @@ def test_validate_tool_in_battle(plugin, battle_state):
 
 def test_validate_tool_not_in_battle(plugin, initial_state):
     error = plugin.validate_action(
-        {"type": "LETTER_CHECK", "payload": {"letter": "ك"}},
+        {"type": "LETTER_CHECK", "payload": {"letter": "ك", "actor": "player_1"}},
         initial_state,
     )
     assert error is not None
 
 
 def test_validate_invalid_tool_type(plugin, battle_state):
-    error = plugin.validate_action({"type": "INVALID_TOOL"}, battle_state)
+    error = plugin.validate_action({"type": "INVALID_TOOL", "payload": {"actor": "player_1"}}, battle_state)
     assert error is not None
 
 
 def test_validate_guess_missing_word(plugin, battle_state):
     error = plugin.validate_action(
-        {"type": "GUESS", "payload": {"word_index": 0}},
+        {"type": "GUESS", "payload": {"word_index": 0, "actor": "player_1"}},
         battle_state,
+    )
+    assert error is not None
+
+
+def test_validate_redraw_once_only(plugin, initial_state):
+    initial_state["player_1"]["used_redraw"] = True
+    error = plugin.validate_action(
+        {"type": "redraw", "payload": {"actor": "player_1"}},
+        initial_state,
     )
     assert error is not None
 
@@ -257,19 +293,19 @@ def test_settlement_payout(plugin):
 
 
 def test_public_view_hides_opponent_words(plugin, battle_state):
-    view = plugin.build_public_view(battle_state, "player_1")
+    view = plugin.build_public_view(battle_state, PLAYER_1_ID)
     # Player 2's words should be hidden (None)
     assert all(w is None for w in view["player_2"]["selected_words"])
 
 
 def test_public_view_shows_own_words(plugin, battle_state):
-    view = plugin.build_public_view(battle_state, "player_1")
+    view = plugin.build_public_view(battle_state, PLAYER_1_ID)
     assert view["player_1"]["selected_words"] == ["كبسة", "ضب", "فيصل", "دلة", "عنيزة"]
 
 
 def test_public_view_shows_guessed_opponent_words(plugin, battle_state):
     battle_state["player_2"]["guessed_by_opponent"][0] = True  # مندي guessed
-    view = plugin.build_public_view(battle_state, "player_1")
+    view = plugin.build_public_view(battle_state, PLAYER_1_ID)
     assert view["player_2"]["selected_words"][0] == "مندي"
     assert view["player_2"]["selected_words"][1] is None
 
@@ -277,6 +313,12 @@ def test_public_view_shows_guessed_opponent_words(plugin, battle_state):
 def test_public_view_hides_opponent_tools(plugin, battle_state):
     battle_state["player_2"]["tools_used"] = [{"tool": "LETTER_CHECK", "cost": 20}]
     battle_state["player_2"]["tool_costs"] = 20
-    view = plugin.build_public_view(battle_state, "player_1")
+    view = plugin.build_public_view(battle_state, PLAYER_1_ID)
     assert view["player_2"]["tools_used"] == []
     assert view["player_2"]["tool_costs"] == 0
+
+
+def test_public_view_hides_both_sides_for_unknown_viewer(plugin, battle_state):
+    view = plugin.build_public_view(battle_state, uuid.uuid4())
+    assert all(word is None for word in view["player_1"]["selected_words"])
+    assert all(word is None for word in view["player_2"]["selected_words"])

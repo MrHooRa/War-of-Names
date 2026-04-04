@@ -279,6 +279,7 @@ async def send_challenge(
 ):
     """Send a challenge to another player in the same competition."""
     from app.modules.minigames import policy_service, session_service  # noqa: PLC0415
+    from app.modules.minigames.registry import GameTypeRegistry  # noqa: PLC0415
     from app.modules.minigames.settings_helper import check_kill_switch, get_minigame_settings  # noqa: PLC0415
 
     async with async_session() as session:
@@ -312,6 +313,9 @@ async def send_challenge(
             raise HTTPException(status_code=404, detail=f"نوع اللعبة '{game_type}' غير موجود")
         if game_type_obj.status != MinigameTypeStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="هذه اللعبة غير متاحة حالياً")
+        plugin = GameTypeRegistry.get(game_type)
+        if plugin is None:
+            raise HTTPException(status_code=400, detail="نوع اللعبة غير مسجل في المحرك")
 
         # Get active season/cycle
         season, cycle = await _get_active_season_cycle(session, competition_id)
@@ -340,11 +344,11 @@ async def send_challenge(
         # Run session creation validation
         creation_errors = session_service.validate_session_creation(
             game_type_id=game_type,
-            plugin_exists=True,
+            plugin_exists=plugin is not None,
             plugin_status=game_type_obj.status.value,
             player_balance=membership.current_balance,
             buy_in_amount=buy_in,
-            is_bankrupt=False,
+            is_bankrupt=membership.is_bankrupt,
         )
         if creation_errors:
             raise HTTPException(status_code=400, detail=creation_errors[0])
@@ -375,7 +379,7 @@ async def send_challenge(
             same_opponent_limit=same_opp,
             player_balance=membership.current_balance,
             buy_in_amount=buy_in,
-            is_bankrupt=False,
+            is_bankrupt=membership.is_bankrupt,
         )
         if policy_blocks:
             raise HTTPException(status_code=400, detail=policy_blocks[0].message_ar)
@@ -392,7 +396,28 @@ async def send_challenge(
             season_id=season.id if season else None,
             cycle_id=cycle.id if cycle else None,
             player_2_membership_id=body.target_membership_id,
+            turn_duration_ms=int(mg_settings["minigame_turn_duration_sec"]) * 1000,
+            grace_timer_ms=int(mg_settings["minigame_grace_timer_sec"]) * 1000,
         )
+        init_config = {
+            "session_id": str(mg_session.id),
+            "competition_id": str(competition_id),
+            "game_type": game_type,
+            "player_1_membership_id": str(membership.id),
+            "player_2_membership_id": str(body.target_membership_id),
+            "buy_in": buy_in,
+            "settings": mg_settings,
+        }
+        if game_type == "mutaraha":
+            from app.modules.minigames.mutaraha.service import load_active_word_bank  # noqa: PLC0415
+
+            init_config["word_bank_words"] = await load_active_word_bank(session)
+
+        initial_state = plugin.init_session_state(init_config)
+        if not isinstance(initial_state, dict):
+            raise HTTPException(status_code=500, detail="الحالة الأولية للعبة غير صالحة")
+        mg_session.game_state = initial_state
+        await session.flush()
         await session.commit()
 
         return {

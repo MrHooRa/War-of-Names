@@ -1,6 +1,7 @@
 """مطارحة plugin — implements the 8 lifecycle hooks for the word duel minigame."""
 
 import copy
+import random
 
 from app.modules.minigames.plugin import GameTypePlugin
 from app.modules.minigames.mutaraha.tools import (
@@ -31,6 +32,38 @@ class MutarahaPlugin(GameTypePlugin):
     min_players = 2
     max_players = 2
 
+    @staticmethod
+    def _sample_word_offers(
+        word_bank_words: list[str],
+        *,
+        exclude: set[str] | None = None,
+        count: int = 10,
+    ) -> list[str]:
+        exclude = exclude or set()
+        unique_words = list(dict.fromkeys(word for word in word_bank_words if word))
+        candidates = [word for word in unique_words if word not in exclude]
+        if len(candidates) < count:
+            candidates = unique_words
+        if len(candidates) <= count:
+            return candidates[:count]
+        return random.sample(candidates, count)
+
+    @staticmethod
+    def _resolve_actor_slot(state: dict, actor_ref) -> str | None:
+        if actor_ref in {"player_1", "player_2"}:
+            return actor_ref
+        if actor_ref is None:
+            return None
+
+        actor_id = str(actor_ref)
+        player_1_membership_id = state.get("player_1_membership_id")
+        player_2_membership_id = state.get("player_2_membership_id")
+        if player_1_membership_id is not None and actor_id == str(player_1_membership_id):
+            return "player_1"
+        if player_2_membership_id is not None and actor_id == str(player_2_membership_id):
+            return "player_2"
+        return None
+
     # ── 1. validate_settings ─────────────────────────────────
 
     def validate_settings(self, settings: dict) -> list[str]:
@@ -48,13 +81,28 @@ class MutarahaPlugin(GameTypePlugin):
     def init_session_state(self, config: dict) -> dict:
         """Create initial game state.
 
-        config should have offered_words_p1 and offered_words_p2 (10 each).
+        config may include offered_words_p1/offered_words_p2 or a full word_bank_words
+        list from which both players receive 10 offered words.
         """
-        offered_p1 = config.get("offered_words_p1", [])
-        offered_p2 = config.get("offered_words_p2", [])
-        turns = config.get("turns_per_player", 12)
-        ot_turns = config.get("overtime_turns", 3)
-        buy_in = config.get("buy_in", 500)
+        settings = config.get("settings", {}) or {}
+        word_bank_words = list(config.get("word_bank_words") or [])
+        offered_p1 = list(config.get("offered_words_p1") or [])
+        offered_p2 = list(config.get("offered_words_p2") or [])
+        if not offered_p1 and word_bank_words:
+            offered_p1 = self._sample_word_offers(word_bank_words, count=10)
+        if not offered_p2 and word_bank_words:
+            offered_p2 = self._sample_word_offers(
+                word_bank_words,
+                exclude=set(offered_p1),
+                count=10,
+            )
+
+        turns = config.get("turns_per_player", settings.get("turns_per_player", 12))
+        ot_turns = config.get("overtime_turns", settings.get("overtime_turns", 3))
+        buy_in = config.get(
+            "buy_in",
+            settings.get("minigame_buy_in", settings.get("buy_in", 500)),
+        )
 
         def _make_player(offered):
             return {
@@ -70,8 +118,19 @@ class MutarahaPlugin(GameTypePlugin):
 
         return {
             "game_phase": "word_selection",
+            "player_1_membership_id": (
+                str(config.get("player_1_membership_id"))
+                if config.get("player_1_membership_id") is not None
+                else None
+            ),
+            "player_2_membership_id": (
+                str(config.get("player_2_membership_id"))
+                if config.get("player_2_membership_id") is not None
+                else None
+            ),
             "player_1": _make_player(offered_p1),
             "player_2": _make_player(offered_p2),
+            "word_bank_words": word_bank_words,
             "revealed_info": {
                 "player_1_known": {
                     "letter_checks": [],
@@ -106,19 +165,32 @@ class MutarahaPlugin(GameTypePlugin):
     def validate_action(self, action: dict, state: dict) -> str | None:
         action_type = action.get("type")
         phase = state.get("game_phase")
+        payload = action.get("payload", {})
+        actor = self._resolve_actor_slot(state, payload.get("actor"))
+        if actor is None:
+            return "تعذر تحديد اللاعب المنفذ"
 
         # Word selection actions
         if action_type == "select_words":
             if phase != "word_selection":
                 return "مرحلة اختيار الكلمات انتهت"
-            words = action.get("payload", {}).get("words", [])
+            words = payload.get("words", [])
+            if not isinstance(words, list):
+                return "يجب إرسال قائمة كلمات صالحة"
             if len(words) != 5:
                 return "يجب اختيار 5 كلمات بالضبط"
+            if len(set(words)) != 5:
+                return "يجب اختيار 5 كلمات مختلفة"
+            offered_words = state.get(actor, {}).get("offered_words", [])
+            if any(word not in offered_words for word in words):
+                return "يجب اختيار الكلمات من القائمة المعروضة فقط"
             return None
 
         if action_type == "redraw":
             if phase != "word_selection":
                 return "مرحلة اختيار الكلمات انتهت"
+            if state.get(actor, {}).get("used_redraw"):
+                return "تم استخدام إعادة السحب بالفعل"
             return None
 
         # Battle/overtime actions
@@ -129,7 +201,6 @@ class MutarahaPlugin(GameTypePlugin):
             return f"نوع الإجراء غير صالح: {action_type}"
 
         # Validate tool-specific payload
-        payload = action.get("payload", {})
         if action_type == "LETTER_CHECK":
             if not payload.get("letter"):
                 return "يجب تحديد الحرف"
@@ -154,7 +225,9 @@ class MutarahaPlugin(GameTypePlugin):
         payload = action.get("payload", {})
 
         # Determine which player is acting
-        actor = payload.get("actor", "player_1")
+        actor = self._resolve_actor_slot(new_state, payload.get("actor"))
+        if actor is None:
+            raise ValueError("تعذر تحديد اللاعب المنفذ")
         opponent = "player_2" if actor == "player_1" else "player_1"
         actor_known = f"{actor}_known"
 
@@ -173,10 +246,13 @@ class MutarahaPlugin(GameTypePlugin):
         if action_type == "redraw":
             new_state[actor]["used_redraw"] = True
             new_state[actor]["redraw_cost"] = 20
-            new_words = payload.get("new_words", [])
-            if new_words:
-                new_state[actor]["offered_words"] = new_words
-                new_state[actor]["selected_words"] = []
+            new_words = self._sample_word_offers(
+                new_state.get("word_bank_words", []),
+                exclude=set(new_state[actor].get("offered_words", [])),
+                count=10,
+            )
+            new_state[actor]["offered_words"] = new_words
+            new_state[actor]["selected_words"] = []
             side_effects.append({"type": "redraw", "actor": actor})
             return new_state, side_effects
 
@@ -230,12 +306,11 @@ class MutarahaPlugin(GameTypePlugin):
 
         elif action_type == "NARROW_DOWN":
             word_index = payload["word_index"]
-            all_bank = payload.get("all_bank_words", [])
             result = tool_narrow_down(
                 word_index=word_index,
                 opponent_words=opponent_words,
                 guessed_mask=opponent_guessed,
-                all_bank_words=all_bank,
+                all_bank_words=new_state.get("word_bank_words", []),
             )
             if result:
                 revealed["narrow_downs"].append(
@@ -293,6 +368,8 @@ class MutarahaPlugin(GameTypePlugin):
             return {
                 "winner": "player_1",
                 "loser": "player_2",
+                "winner_membership_id": state.get("player_1_membership_id"),
+                "loser_membership_id": state.get("player_2_membership_id"),
                 "reason": "knockout",
                 "winner_guesses": 5,
                 "loser_guesses": p2["correct_guesses"],
@@ -301,6 +378,8 @@ class MutarahaPlugin(GameTypePlugin):
             return {
                 "winner": "player_2",
                 "loser": "player_1",
+                "winner_membership_id": state.get("player_2_membership_id"),
+                "loser_membership_id": state.get("player_1_membership_id"),
                 "reason": "knockout",
                 "winner_guesses": 5,
                 "loser_guesses": p1["correct_guesses"],
@@ -347,6 +426,8 @@ class MutarahaPlugin(GameTypePlugin):
         return {
             "winner": winner,
             "loser": loser,
+            "winner_membership_id": state.get(f"{winner}_membership_id"),
+            "loser_membership_id": state.get(f"{loser}_membership_id"),
             "reason": "score",
             "winner_guesses": w["correct_guesses"],
             "loser_guesses": l["correct_guesses"],
@@ -381,9 +462,19 @@ class MutarahaPlugin(GameTypePlugin):
 
     def build_public_view(self, state: dict, viewer_membership_id) -> dict:
         view = copy.deepcopy(state)
+        view.pop("word_bank_words", None)
 
         # Determine viewer role
-        viewer = viewer_membership_id  # "player_1" or "player_2" string
+        viewer = self._resolve_actor_slot(view, viewer_membership_id)
+        if viewer is None:
+            for player_key in ("player_1", "player_2"):
+                player = view[player_key]
+                player["selected_words"] = [None for _ in player.get("selected_words", [])]
+                player["offered_words"] = []
+                player["tools_used"] = []
+                player["tool_costs"] = 0
+            view["revealed_info"] = {}
+            return view
         opponent = "player_2" if viewer == "player_1" else "player_1"
         opponent_known = f"{opponent}_known"
 

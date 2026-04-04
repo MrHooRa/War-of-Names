@@ -39,6 +39,19 @@ class ActionError:
     message_ar: str
 
 
+def _resolve_actor_slot(
+    *,
+    actor_membership_id,
+    player_1_membership_id,
+    player_2_membership_id,
+) -> str | None:
+    if actor_membership_id == player_1_membership_id:
+        return "player_1"
+    if actor_membership_id == player_2_membership_id:
+        return "player_2"
+    return None
+
+
 # ── Pure validation ───────────────────────────────────────────────────────────
 
 def validate_action_envelope(
@@ -165,10 +178,21 @@ async def process_action(
         RuntimeError — if a race condition prevents the update (stale lock)
     """
 
-    action = envelope.get("action", {})
     actor_id = envelope.get("actor_membership_id")
     action_id = envelope.get("action_id")
     client_seq = envelope.get("client_seq", 0)
+    actor_slot = _resolve_actor_slot(
+        actor_membership_id=actor_id,
+        player_1_membership_id=mg_session.player_1_membership_id,
+        player_2_membership_id=mg_session.player_2_membership_id,
+    )
+    if actor_slot is None:
+        raise ValueError("تعذر تحديد اللاعب المنفذ")
+
+    action = dict(envelope.get("action", {}) or {})
+    payload = dict(action.get("payload", {}) or {})
+    payload["actor"] = actor_slot
+    action["payload"] = payload
 
     current_state = mg_session.game_state
     current_revision = mg_session.revision
@@ -237,11 +261,22 @@ async def process_action(
     session.add(event)
 
     # f. Log MinigameActionReceipt (idempotency)
-    result_dict: dict = {
+    client_result: dict = {
         "success": True,
         "revision": new_revision,
         "side_effects": side_effects,
     }
+    result_dict: dict = {
+        **client_result,
+        "_state": new_state,
+        "_current_turn": next_turn.value if hasattr(next_turn, "value") else next_turn,
+        "_turn_number": new_turn_number,
+    }
+
+    # g. Check terminal state via plugin
+    terminal_result = plugin.evaluate_terminal(new_state)
+    client_result["terminal_result"] = terminal_result
+    result_dict["terminal_result"] = terminal_result
 
     if action_id is not None:
         receipt = MinigameActionReceipt(
@@ -249,14 +284,10 @@ async def process_action(
             session_id=mg_session.id,
             actor_membership_id=actor_id,
             client_seq=client_seq,
-            response=result_dict,
+            response=client_result,
             created_at=now,
         )
         session.add(receipt)
-
-    # g. Check terminal state via plugin
-    terminal_result = plugin.evaluate_terminal(new_state)
-    result_dict["terminal_result"] = terminal_result
 
     await session.flush()
 

@@ -211,8 +211,10 @@ async def test_action_submit_overrides_forged_actor_membership(ws_module, monkey
         phase="in_progress",
         revision=4,
         current_turn="player_1",
+        turn_number=0,
         player_1_membership_id=membership_info["membership_id"],
         player_2_membership_id=opponent_id,
+        game_state={"game_phase": "battle"},
     )
     fake_db = FakeDb(session_obj)
 
@@ -222,7 +224,7 @@ async def test_action_submit_overrides_forged_actor_membership(ws_module, monkey
     async def fake_process_action(_db, *, mg_session, plugin, envelope):
         captured["envelope"] = dict(envelope)
         assert mg_session is session_obj
-        assert plugin == "plugin"
+        assert hasattr(plugin, "build_public_view")
         return {"success": True, "revision": 5}
 
     def fake_validate_action_envelope(**kwargs):
@@ -240,7 +242,9 @@ async def test_action_submit_overrides_forged_actor_membership(ws_module, monkey
     fake_action_service.check_idempotency = fake_check_idempotency
     fake_action_service.process_action = fake_process_action
     fake_registry = types.ModuleType("app.modules.minigames.registry")
-    fake_registry.GameTypeRegistry = types.SimpleNamespace(get=lambda game_type: "plugin")
+    fake_registry.GameTypeRegistry = types.SimpleNamespace(
+        get=lambda game_type: types.SimpleNamespace(build_public_view=lambda state, viewer_id: state)
+    )
 
     monkeypatch.setitem(sys.modules, "sqlalchemy", fake_sqlalchemy)
     monkeypatch.setitem(sys.modules, "app.core.database", fake_core_db)
@@ -276,4 +280,182 @@ async def test_action_submit_overrides_forged_actor_membership(ws_module, monkey
         "action_id": None,
         "result": {"success": True, "revision": 5},
         "cached": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_action_submit_sends_public_state_and_sanitizes_opponent_notification(ws_module, monkeypatch):
+    competition_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    actor_info = _membership("المهاجم")
+    opponent_id = uuid.uuid4()
+    actor_ws = AsyncMock()
+    opponent_ws = AsyncMock()
+    captured: dict = {}
+
+    ws_module.manager.connect(f"session:{session_id}", actor_info["membership_id"], actor_ws)
+    ws_module.manager.connect(f"session:{session_id}", opponent_id, opponent_ws)
+
+    class Field:
+        def __init__(self, name):
+            self.name = name
+
+        def __eq__(self, other):
+            return (self.name, other)
+
+    class FakeQuery:
+        def __init__(self, model):
+            self.model = model
+            self.filters = []
+
+        def where(self, *conditions):
+            self.filters.extend(conditions)
+            return self
+
+    class FakeResult:
+        def __init__(self, value):
+            self.value = value
+
+        def scalar_one_or_none(self):
+            return self.value
+
+    class FakeDb:
+        def __init__(self, session_obj):
+            self.session_obj = session_obj
+
+        async def execute(self, query):
+            assert ("id", session_id) in query.filters
+            assert ("competition_id", competition_id) in query.filters
+            assert ("game_type", "mutaraha") in query.filters
+            return FakeResult(self.session_obj)
+
+        async def commit(self):
+            return None
+
+        async def rollback(self):
+            raise AssertionError("rollback should not be called for a valid action")
+
+    class FakeSessionContext:
+        def __init__(self, db):
+            self.db = db
+
+        async def __aenter__(self):
+            return self.db
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeMinigameSession:
+        id = Field("id")
+        competition_id = Field("competition_id")
+        game_type = Field("game_type")
+
+    session_obj = types.SimpleNamespace(
+        id=session_id,
+        competition_id=competition_id,
+        game_type="mutaraha",
+        phase="in_progress",
+        revision=4,
+        current_turn="player_1",
+        turn_number=0,
+        player_1_membership_id=actor_info["membership_id"],
+        player_2_membership_id=opponent_id,
+        game_state={"game_phase": "battle"},
+    )
+    fake_db = FakeDb(session_obj)
+
+    async def fake_check_idempotency(_db, _action_id):
+        return None
+
+    async def fake_process_action(_db, *, mg_session, plugin, envelope):
+        captured["envelope"] = dict(envelope)
+        assert mg_session is session_obj
+        return {
+            "success": True,
+            "revision": 5,
+            "side_effects": [{"type": "tool_result", "result": {"secret": 1}}],
+            "_state": {"game_phase": "battle", "revision": 5},
+            "_current_turn": "player_2",
+            "_turn_number": 1,
+        }
+
+    def fake_validate_action_envelope(**kwargs):
+        return None
+
+    class FakePlugin:
+        def build_public_view(self, state, viewer_membership_id):
+            return {"viewer": str(viewer_membership_id), "phase": state["game_phase"]}
+
+    fake_sqlalchemy = types.ModuleType("sqlalchemy")
+    fake_sqlalchemy.select = lambda model: FakeQuery(model)
+    fake_core_db = types.ModuleType("app.core.database")
+    fake_core_db.async_session = lambda: FakeSessionContext(fake_db)
+    fake_models = types.ModuleType("app.modules.minigames.models")
+    fake_models.MinigameSession = FakeMinigameSession
+    fake_action_service = types.ModuleType("app.modules.minigames.action_service")
+    fake_action_service.validate_action_envelope = fake_validate_action_envelope
+    fake_action_service.check_idempotency = fake_check_idempotency
+    fake_action_service.process_action = fake_process_action
+    fake_registry = types.ModuleType("app.modules.minigames.registry")
+    fake_registry.GameTypeRegistry = types.SimpleNamespace(get=lambda game_type: FakePlugin())
+
+    monkeypatch.setitem(sys.modules, "sqlalchemy", fake_sqlalchemy)
+    monkeypatch.setitem(sys.modules, "app.core.database", fake_core_db)
+    monkeypatch.setitem(sys.modules, "app.modules.minigames.models", fake_models)
+    monkeypatch.setitem(sys.modules, "app.modules.minigames.action_service", fake_action_service)
+    monkeypatch.setitem(sys.modules, "app.modules.minigames.registry", fake_registry)
+
+    await ws_module._handle_action_submit(
+        actor_ws,
+        {
+            "type": "action_submit",
+            "session_id": str(session_id),
+            "envelope": {
+                "state_revision": 4,
+                "client_seq": 2,
+                "action": {"type": "GUESS"},
+            },
+        },
+        competition_id,
+        "mutaraha",
+        actor_info,
+    )
+
+    actor_messages = [call.args[0] for call in actor_ws.send_json.await_args_list]
+    assert actor_messages[0] == {
+        "type": "action_ack",
+        "action_id": None,
+        "result": {
+            "success": True,
+            "revision": 5,
+            "side_effects": [{"type": "tool_result", "result": {"secret": 1}}],
+        },
+        "cached": False,
+    }
+    assert actor_messages[1] == {
+        "type": "game_state",
+        "session_id": str(session_id),
+        "phase": "in_progress",
+        "revision": 5,
+        "current_turn": "player_2",
+        "turn_number": 1,
+        "state": {"viewer": str(actor_info["membership_id"]), "phase": "battle"},
+    }
+
+    opponent_messages = [call.args[0] for call in opponent_ws.send_json.await_args_list]
+    assert opponent_messages[0] == {
+        "type": "opponent_action",
+        "session_id": str(session_id),
+        "revision": 5,
+        "action_type": "GUESS",
+        "actor_membership_id": str(actor_info["membership_id"]),
+    }
+    assert opponent_messages[1] == {
+        "type": "game_state",
+        "session_id": str(session_id),
+        "phase": "in_progress",
+        "revision": 5,
+        "current_turn": "player_2",
+        "turn_number": 1,
+        "state": {"viewer": str(opponent_id), "phase": "battle"},
     }

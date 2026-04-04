@@ -159,6 +159,60 @@ async def _restore_matchmaking_state(
     await _broadcast_lobby_state(lobby_key)
 
 
+def _enum_value(value):
+    return value.value if hasattr(value, "value") else value
+
+
+async def _send_session_state_snapshots(
+    *,
+    session_id: uuid.UUID,
+    lobby_key: str,
+    session_room: str,
+    plugin,
+    state: dict,
+    phase,
+    revision: int,
+    current_turn,
+    turn_number: int,
+    player_1_membership_id: uuid.UUID,
+    player_2_membership_id: uuid.UUID,
+    reconnect_token_p1: str | None = None,
+    reconnect_token_p2: str | None = None,
+) -> None:
+    current_turn_value = _enum_value(current_turn)
+    phase_value = _enum_value(phase)
+    p1_msg = {
+        "type": "game_state",
+        "session_id": str(session_id),
+        "phase": phase_value,
+        "revision": revision,
+        "current_turn": current_turn_value,
+        "turn_number": turn_number,
+        "state": plugin.build_public_view(state, player_1_membership_id),
+    }
+    p2_msg = {
+        "type": "game_state",
+        "session_id": str(session_id),
+        "phase": phase_value,
+        "revision": revision,
+        "current_turn": current_turn_value,
+        "turn_number": turn_number,
+        "state": plugin.build_public_view(state, player_2_membership_id),
+    }
+    if reconnect_token_p1 is not None:
+        p1_msg["reconnect_token"] = reconnect_token_p1
+    if reconnect_token_p2 is not None:
+        p2_msg["reconnect_token"] = reconnect_token_p2
+
+    sent_p1 = await manager.send_to_player(session_room, player_1_membership_id, p1_msg)
+    if not sent_p1:
+        await manager.send_to_player(lobby_key, player_1_membership_id, p1_msg)
+
+    sent_p2 = await manager.send_to_player(session_room, player_2_membership_id, p2_msg)
+    if not sent_p2:
+        await manager.send_to_player(lobby_key, player_2_membership_id, p2_msg)
+
+
 # ---------------------------------------------------------------------------
 # Queue + session creation
 # ---------------------------------------------------------------------------
@@ -323,16 +377,21 @@ async def _handle_queue_match(
                 grace_timer_ms=int(settings_snapshot["minigame_grace_timer_sec"]) * 1000,
             )
 
-            initial_state = plugin.init_session_state(
-                {
-                    "session_id": str(mg_session.id),
-                    "competition_id": str(competition_id),
-                    "game_type": game_type,
-                    "player_1_membership_id": str(p1_id),
-                    "player_2_membership_id": str(p2_id),
-                    "settings": settings_snapshot,
-                }
-            )
+            init_config = {
+                "session_id": str(mg_session.id),
+                "competition_id": str(competition_id),
+                "game_type": game_type,
+                "player_1_membership_id": str(p1_id),
+                "player_2_membership_id": str(p2_id),
+                "buy_in": buy_in_amount,
+                "settings": settings_snapshot,
+            }
+            if game_type == "mutaraha":
+                from app.modules.minigames.mutaraha.service import load_active_word_bank  # noqa: PLC0415
+
+                init_config["word_bank_words"] = await load_active_word_bank(db)
+
+            initial_state = plugin.init_session_state(init_config)
             if not isinstance(initial_state, dict):
                 raise ValueError("الحالة الأولية للعبة غير صالحة")
 
@@ -362,17 +421,8 @@ async def _handle_queue_match(
         if p2_ws is not None:
             manager.connect(session_room, p2_id, p2_ws)
 
-        current_turn = (
-            mg_session.current_turn.value
-            if hasattr(mg_session.current_turn, "value")
-            else mg_session.current_turn
-        )
-        phase_value = mg_session.phase.value if hasattr(mg_session.phase, "value") else mg_session.phase
-
         p1_alias = memberships[p1_id].current_alias or "مجهول"
         p2_alias = memberships[p2_id].current_alias or "مجهول"
-        p1_public_state = plugin.build_public_view(mg_session.game_state, p1_id)
-        p2_public_state = plugin.build_public_view(mg_session.game_state, p2_id)
 
         p1_match_msg = {
             "type": "match_found",
@@ -390,31 +440,24 @@ async def _handle_queue_match(
             "opponent_membership_id": str(p1_id),
             "opponent_alias": p1_alias,
         }
-        p1_state_msg = {
-            "type": "game_state",
-            "session_id": session_id,
-            "phase": phase_value,
-            "revision": mg_session.revision,
-            "current_turn": current_turn,
-            "turn_number": mg_session.turn_number,
-            "state": p1_public_state,
-            "reconnect_token": mg_session.reconnect_token_p1,
-        }
-        p2_state_msg = {
-            "type": "game_state",
-            "session_id": session_id,
-            "phase": phase_value,
-            "revision": mg_session.revision,
-            "current_turn": current_turn,
-            "turn_number": mg_session.turn_number,
-            "state": p2_public_state,
-            "reconnect_token": mg_session.reconnect_token_p2,
-        }
 
         await manager.send_to_player(session_room, p1_id, p1_match_msg)
         await manager.send_to_player(session_room, p2_id, p2_match_msg)
-        await manager.send_to_player(session_room, p1_id, p1_state_msg)
-        await manager.send_to_player(session_room, p2_id, p2_state_msg)
+        await _send_session_state_snapshots(
+            session_id=mg_session.id,
+            lobby_key=lobby_key,
+            session_room=session_room,
+            plugin=plugin,
+            state=mg_session.game_state,
+            phase=mg_session.phase,
+            revision=mg_session.revision,
+            current_turn=mg_session.current_turn,
+            turn_number=mg_session.turn_number,
+            player_1_membership_id=p1_id,
+            player_2_membership_id=p2_id,
+            reconnect_token_p1=mg_session.reconnect_token_p1,
+            reconnect_token_p2=mg_session.reconnect_token_p2,
+        )
 
         await _broadcast_lobby_state(lobby_key)
 
@@ -562,8 +605,14 @@ async def _handle_action_submit(
             await _send_error(websocket, "STALE_STATE", str(exc))
             return
 
+    authoritative_state = result_payload.pop("_state", getattr(mg_session, "game_state", {}))
+    current_turn = result_payload.pop("_current_turn", getattr(mg_session, "current_turn", None))
+    turn_number = result_payload.pop("_turn_number", getattr(mg_session, "turn_number", 0))
+    actor_action = envelope.get("action", {}) or {}
+
     # Notify sender
     lobby_key = f"{game_type}:{competition_id}"
+    session_room = f"session:{session_id}"
     await websocket.send_json(
         {
             "type": "action_ack",
@@ -584,13 +633,26 @@ async def _handle_action_submit(
         opponent_msg = {
             "type": "opponent_action",
             "session_id": str(session_id),
-            "result": result_payload,
+            "revision": result_payload.get("revision"),
+            "action_type": actor_action.get("type"),
+            "actor_membership_id": str(my_id),
         }
-        # Try game session room first, fall back to lobby room
-        game_room = f"session:{session_id}"
-        sent = await manager.send_to_player(game_room, opponent_id, opponent_msg)
+        sent = await manager.send_to_player(session_room, opponent_id, opponent_msg)
         if not sent:
             await manager.send_to_player(lobby_key, opponent_id, opponent_msg)
+        await _send_session_state_snapshots(
+            session_id=session_id,
+            lobby_key=lobby_key,
+            session_room=session_room,
+            plugin=plugin,
+            state=authoritative_state,
+            phase=mg_session.phase,
+            revision=result_payload["revision"],
+            current_turn=current_turn,
+            turn_number=turn_number,
+            player_1_membership_id=mg_session.player_1_membership_id,
+            player_2_membership_id=mg_session.player_2_membership_id,
+        )
 
 
 # ---------------------------------------------------------------------------
