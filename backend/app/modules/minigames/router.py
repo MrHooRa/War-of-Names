@@ -233,6 +233,51 @@ def _serialize_leaderboard_entry(entry: MinigameLeaderboard) -> dict:
 # ---------------------------------------------------------------------------
 
 
+@router.get("/api/competitions/{competition_id}/minigames/catalog")
+async def get_catalog_endpoint(
+    competition_id: uuid.UUID,
+    current_account: CurrentAccount,
+):
+    """Return the full minigames catalog for a player in a competition.
+
+    This is the primary discovery surface — see BRD §12.1.
+    The response is a scoped, enriched read model with:
+      - buy-in resolved from competition settings
+      - live presence/queue/active-match counts
+      - the caller's personal stats and active session (if any)
+      - a correlation_id for telemetry tracking
+
+    For the legacy global game-type list, see ``GET /api/minigames`` (BRD §12.5).
+
+    Errors (BRD §12.4):
+      401 — JWT missing or invalid (handled by get_current_account dependency)
+      403 — caller is not an active member of the competition
+      404 — competition does not exist
+    """
+    from app.modules.minigames.catalog_read_model import catalog_response_to_dict  # noqa: PLC0415
+    from app.modules.minigames.catalog_service import get_catalog  # noqa: PLC0415
+
+    async with async_session() as session:
+        membership = await _resolve_catalog_caller(
+            session,
+            account_id=current_account.id,
+            competition_id=competition_id,
+        )
+        season, cycle = await _get_active_season_cycle(session, competition_id)
+
+        response = await get_catalog(
+            session,
+            competition_id=competition_id,
+            membership_id=membership.id,
+            player_balance=membership.current_balance,
+            is_bankrupt=membership.is_bankrupt,
+            season_id=season.id if season else None,
+            cycle_id=cycle.id if cycle else None,
+        )
+
+    return catalog_response_to_dict(response)
+
+
 @router.get("/api/minigames")
 async def list_active_game_types(current_account: CurrentAccount):
     """Return all game types with status=active."""
