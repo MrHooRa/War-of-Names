@@ -362,11 +362,6 @@ class MinigameSettlementState(StrEnum):
     RECONCILED = "reconciled"
 
 
-class MinigameTurnSide(StrEnum):
-    PLAYER_1 = "player_1"
-    PLAYER_2 = "player_2"
-
-
 class MinigameTypeStatus(StrEnum):
     ACTIVE = "active"
     DISABLED = "disabled"

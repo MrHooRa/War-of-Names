@@ -81,6 +81,7 @@ from app.modules.minigames.models import (  # noqa: E402, F401
     MinigamePolicyRule,
     MinigameSession,
     MinigameSessionEvent,
+    MinigameSessionParticipant,
     MinigameSessionSettlement,
     MinigameType,
 )

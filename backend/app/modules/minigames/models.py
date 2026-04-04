@@ -28,7 +28,6 @@ from app.core.enums import (
     MinigameMatchType,
     MinigameSessionPhase,
     MinigameSettlementState,
-    MinigameTurnSide,
     MinigameTypeStatus,
 )
 from app.core.models import Base, pg_enum
@@ -64,10 +63,7 @@ class MinigameSession(Base):
         CheckConstraint("buy_in_amount >= 0", name="chk_mg_buy_in"),
         CheckConstraint("revision >= 0", name="chk_mg_revision"),
         CheckConstraint("turn_number >= 0", name="chk_mg_turn_number"),
-        CheckConstraint(
-            "player_2_membership_id IS NULL OR player_1_membership_id <> player_2_membership_id",
-            name="chk_mg_distinct_players",
-        ),
+        CheckConstraint("num_players >= 1 AND num_players <= 8", name="chk_mg_num_players"),
         Index(
             "idx_mg_sessions_active",
             "game_type", "competition_id",
@@ -94,28 +90,19 @@ class MinigameSession(Base):
         default=MinigameSessionPhase.CREATED,
     )
     revision: Mapped[int] = mapped_column(nullable=False, default=0)
-    player_1_membership_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False
-    )
-    player_2_membership_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("memberships.id", ondelete="RESTRICT")
-    )
+    num_players: Mapped[int] = mapped_column(nullable=False, default=2)
+    min_players: Mapped[int] = mapped_column(nullable=False, default=2)
+    max_players: Mapped[int] = mapped_column(nullable=False, default=2)
     match_type: Mapped[MinigameMatchType] = mapped_column(
         pg_enum(MinigameMatchType, name="minigame_match_type"), nullable=False
     )
-    current_turn: Mapped[MinigameTurnSide | None] = mapped_column(
-        pg_enum(MinigameTurnSide, name="minigame_turn_side")
-    )
+    current_turn_index: Mapped[int | None] = mapped_column()  # 0-based player slot
     turn_number: Mapped[int] = mapped_column(nullable=False, default=0)
     game_state: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     settings_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     buy_in_amount: Mapped[int] = mapped_column(nullable=False, default=0)
-    reconnect_token_p1: Mapped[str | None] = mapped_column(String(128))
-    reconnect_token_p2: Mapped[str | None] = mapped_column(String(128))
     terminal_reason: Mapped[str | None] = mapped_column(String(100))
-    winner_membership_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("memberships.id", ondelete="SET NULL")
-    )
+    winner_slot_index: Mapped[int | None] = mapped_column()  # winning player's slot
     turn_started_at: Mapped[datetime | None] = mapped_column()
     turn_duration_ms: Mapped[int] = mapped_column(nullable=False, default=30000)
     grace_timer_ms: Mapped[int] = mapped_column(nullable=False, default=60000)
@@ -124,6 +111,26 @@ class MinigameSession(Base):
     completed_at: Mapped[datetime | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
     updated_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive, onupdate=now_riyadh_naive)
+
+
+class MinigameSessionParticipant(Base):
+    __tablename__ = "minigame_session_participants"
+    __table_args__ = (
+        UniqueConstraint("session_id", "membership_id", name="uq_mg_participant"),
+        UniqueConstraint("session_id", "slot_index", name="uq_mg_participant_slot"),
+        CheckConstraint("slot_index >= 0 AND slot_index <= 7", name="chk_mg_slot_range"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("minigame_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    membership_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False
+    )
+    slot_index: Mapped[int] = mapped_column(nullable=False)  # 0-7
+    reconnect_token: Mapped[str | None] = mapped_column(String(128))
+    joined_at: Mapped[datetime] = mapped_column(default=now_riyadh_naive)
 
 
 class MinigameSessionEvent(Base):
@@ -176,10 +183,9 @@ class MinigameSessionSettlement(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("minigame_sessions.id", ondelete="RESTRICT"), nullable=False
     )
-    winner_membership_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
-    loser_membership_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
-    winner_payout: Mapped[int] = mapped_column(nullable=False, default=0)
-    loser_penalty: Mapped[int] = mapped_column(nullable=False, default=0)
+    participant_results: Mapped[list | None] = mapped_column(JSONB)
+    # Format: [{"membership_id": "uuid", "slot_index": 0, "rank": 1, "payout": 1000}, ...]
+    total_pool: Mapped[int] = mapped_column(nullable=False, default=0)
     settlement_state: Mapped[MinigameSettlementState] = mapped_column(
         pg_enum(MinigameSettlementState, name="minigame_settlement_state"),
         nullable=False,

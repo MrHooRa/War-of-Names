@@ -131,9 +131,16 @@ class GameTypePlugin(ABC, metaclass=GameTypePluginMeta):
         """Calculate financial settlement from terminal result.
 
         Must return: {
-            winner_membership_id, loser_membership_id,
-            winner_payout, loser_penalty
+            "participant_results": [
+                {"membership_id": uuid, "slot_index": int, "rank": int, "payout": int},
+                ...
+            ],
+            "total_pool": int,
         }
+
+        For 2-player games (like مطارحة): 2 entries (winner rank=1, loser rank=2).
+        For N-player games: N entries ranked by placement.
+        payout=0 means the player gets nothing back (lost their buy-in).
         """
         ...
 
