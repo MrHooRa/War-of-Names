@@ -8,7 +8,7 @@ import pytest
 # circular import that arises from core/models.py importing minigames/models.py.
 import app.core.models  # noqa: F401
 
-from app.core.enums import MinigameSessionPhase as Phase, MinigameTurnSide
+from app.core.enums import MinigameSessionPhase as Phase
 from app.modules.minigames.action_service import (
     ActionError,
     PLAYABLE_PHASES,
@@ -38,38 +38,52 @@ def _envelope(
     }
 
 
+def _duo_participants(
+    p1=PLAYER_1,
+    p2=PLAYER_2,
+) -> list[dict]:
+    """Standard 2-player participants list, ordered by slot_index."""
+    return [
+        {"membership_id": p1, "slot_index": 0},
+        {"membership_id": p2, "slot_index": 1},
+    ]
+
+
+def _solo_participants(p1=PLAYER_1) -> list[dict]:
+    """Solo-player participants list."""
+    return [{"membership_id": p1, "slot_index": 0}]
+
+
 def _call(
     *,
     envelope: dict | None = None,
     session_phase: Phase = Phase.IN_PROGRESS,
     session_revision: int = 5,
-    current_turn: MinigameTurnSide = MinigameTurnSide.PLAYER_1,
-    player_1_membership_id=PLAYER_1,
-    player_2_membership_id=PLAYER_2,
+    current_turn_index: int | None = 0,
+    participants: list[dict] | None = None,
 ) -> ActionError | None:
     """Thin wrapper so individual tests only specify what they're varying."""
     return validate_action_envelope(
         envelope=envelope if envelope is not None else _envelope(),
         session_phase=session_phase,
         session_revision=session_revision,
-        current_turn=current_turn,
-        player_1_membership_id=player_1_membership_id,
-        player_2_membership_id=player_2_membership_id,
+        current_turn_index=current_turn_index,
+        participants=participants if participants is not None else _duo_participants(),
     )
 
 
 # ── Happy paths ───────────────────────────────────────────────────────────────
 
 def test_valid_envelope_returns_none():
-    """A fully valid envelope from player_1 on their turn returns None."""
+    """A fully valid envelope from player_1 (slot 0) on their turn returns None."""
     assert _call() is None
 
 
 def test_valid_envelope_player_2_turn():
-    """A valid envelope from player_2 on player_2's turn returns None."""
+    """A valid envelope from player_2 (slot 1) on slot 1's turn returns None."""
     result = _call(
         envelope=_envelope(actor_membership_id=PLAYER_2),
-        current_turn=MinigameTurnSide.PLAYER_2,
+        current_turn_index=1,
     )
     assert result is None
 
@@ -157,9 +171,8 @@ def test_rejects_missing_revision():
         envelope=env,
         session_phase=Phase.IN_PROGRESS,
         session_revision=5,
-        current_turn=MinigameTurnSide.PLAYER_1,
-        player_1_membership_id=PLAYER_1,
-        player_2_membership_id=PLAYER_2,
+        current_turn_index=0,
+        participants=_duo_participants(),
     )
     assert err is not None
     assert err.code == "STALE_STATE"
@@ -175,69 +188,86 @@ def test_rejects_non_participant():
     assert "لست مشاركاً" in err.message_ar
 
 
-# ── Turn checks (1v1) ─────────────────────────────────────────────────────────
+# ── Turn checks (2-player) ───────────────────────────────────────────────────
 
-def test_rejects_wrong_turn_player_2_acts_on_player_1_turn():
-    """Player 2 acting when it is player 1's turn must return NOT_YOUR_TURN."""
+def test_rejects_wrong_turn_player_2_acts_on_slot_0_turn():
+    """Player 2 (slot 1) acting when it is slot 0's turn must return NOT_YOUR_TURN."""
     err = _call(
         envelope=_envelope(actor_membership_id=PLAYER_2),
-        current_turn=MinigameTurnSide.PLAYER_1,
+        current_turn_index=0,
     )
     assert isinstance(err, ActionError)
     assert err.code == "NOT_YOUR_TURN"
     assert "ليس دورك" in err.message_ar
 
 
-def test_rejects_wrong_turn_player_1_acts_on_player_2_turn():
-    """Player 1 acting when it is player 2's turn must return NOT_YOUR_TURN."""
+def test_rejects_wrong_turn_player_1_acts_on_slot_1_turn():
+    """Player 1 (slot 0) acting when it is slot 1's turn must return NOT_YOUR_TURN."""
     err = _call(
         envelope=_envelope(actor_membership_id=PLAYER_1),
-        current_turn=MinigameTurnSide.PLAYER_2,
+        current_turn_index=1,
     )
     assert isinstance(err, ActionError)
     assert err.code == "NOT_YOUR_TURN"
 
 
-# ── Solo game: turn check must be skipped ────────────────────────────────────
+# ── N-player turn checks (3+ participants) ────────────────────────────────────
 
-def test_solo_game_skips_turn_check_player_1_turn():
-    """Solo game (player_2=None): player_1 acting with current_turn=PLAYER_1 passes."""
-    result = validate_action_envelope(
-        envelope=_envelope(actor_membership_id=PLAYER_1),
-        session_phase=Phase.IN_PROGRESS,
-        session_revision=5,
-        current_turn=MinigameTurnSide.PLAYER_1,
-        player_1_membership_id=PLAYER_1,
-        player_2_membership_id=None,
+def test_three_player_valid_slot_2_turn():
+    """3 players: actor at slot 2 acting on slot 2's turn passes."""
+    p3 = uuid.UUID("00000000-0000-0000-0000-000000000003")
+    participants = [
+        {"membership_id": PLAYER_1, "slot_index": 0},
+        {"membership_id": PLAYER_2, "slot_index": 1},
+        {"membership_id": p3, "slot_index": 2},
+    ]
+    result = _call(
+        envelope=_envelope(actor_membership_id=p3),
+        current_turn_index=2,
+        participants=participants,
     )
     assert result is None
 
 
-def test_solo_game_skips_turn_check_player_2_turn_value():
-    """Solo game (player_2=None): player_1 acting with current_turn=PLAYER_2 still passes.
+def test_three_player_rejects_wrong_turn():
+    """3 players: slot 0 acting on slot 2's turn must return NOT_YOUR_TURN."""
+    p3 = uuid.UUID("00000000-0000-0000-0000-000000000003")
+    participants = [
+        {"membership_id": PLAYER_1, "slot_index": 0},
+        {"membership_id": PLAYER_2, "slot_index": 1},
+        {"membership_id": p3, "slot_index": 2},
+    ]
+    err = _call(
+        envelope=_envelope(actor_membership_id=PLAYER_1),
+        current_turn_index=2,
+        participants=participants,
+    )
+    assert err is not None
+    assert err.code == "NOT_YOUR_TURN"
 
-    The turn side value is irrelevant for solo games — no check should occur.
-    """
+
+# ── Solo game: turn check must be skipped ────────────────────────────────────
+
+def test_solo_game_skips_turn_check_slot_0():
+    """Solo game (1 participant): player_1 acting with turn_index=0 passes."""
     result = validate_action_envelope(
         envelope=_envelope(actor_membership_id=PLAYER_1),
         session_phase=Phase.IN_PROGRESS,
         session_revision=5,
-        current_turn=MinigameTurnSide.PLAYER_2,
-        player_1_membership_id=PLAYER_1,
-        player_2_membership_id=None,
+        current_turn_index=0,
+        participants=_solo_participants(),
     )
     assert result is None
 
 
 def test_solo_game_skips_turn_check_none_current_turn():
-    """Solo game (player_2=None): current_turn=None is also fine — turn is irrelevant."""
+    """Solo game: current_turn_index=None is also fine — turn is irrelevant."""
     result = validate_action_envelope(
         envelope=_envelope(actor_membership_id=PLAYER_1),
         session_phase=Phase.IN_PROGRESS,
         session_revision=5,
-        current_turn=None,
-        player_1_membership_id=PLAYER_1,
-        player_2_membership_id=None,
+        current_turn_index=None,
+        participants=_solo_participants(),
     )
     assert result is None
 
@@ -248,9 +278,8 @@ def test_solo_game_still_rejects_non_participant():
         envelope=_envelope(actor_membership_id=OUTSIDER),
         session_phase=Phase.IN_PROGRESS,
         session_revision=5,
-        current_turn=MinigameTurnSide.PLAYER_1,
-        player_1_membership_id=PLAYER_1,
-        player_2_membership_id=None,
+        current_turn_index=0,
+        participants=_solo_participants(),
     )
     assert err is not None
     assert err.code == "NOT_PARTICIPANT"
@@ -262,9 +291,19 @@ def test_solo_game_with_overtime_phase():
         envelope=_envelope(actor_membership_id=PLAYER_1),
         session_phase=Phase.OVERTIME,
         session_revision=0,
-        current_turn=MinigameTurnSide.PLAYER_1,
-        player_1_membership_id=PLAYER_1,
-        player_2_membership_id=None,
+        current_turn_index=0,
+        participants=_solo_participants(),
+    )
+    assert result is None
+
+
+# ── None current_turn_index in multi-player — allow (turn not yet set) ────────
+
+def test_multiplayer_none_turn_index_allows_any_participant():
+    """Multi-player with current_turn_index=None (e.g. turn not yet set) allows any participant."""
+    result = _call(
+        envelope=_envelope(actor_membership_id=PLAYER_2),
+        current_turn_index=None,
     )
     assert result is None
 
@@ -295,10 +334,10 @@ def test_stale_check_before_participant_check():
 
 def test_participant_check_before_turn_check():
     """NOT_PARTICIPANT must be returned before NOT_YOUR_TURN when both would fail."""
-    # OUTSIDER is not a participant, and PLAYER_2 turn is active
+    # OUTSIDER is not a participant, and slot 1's turn is active
     err = _call(
         envelope=_envelope(actor_membership_id=OUTSIDER),
-        current_turn=MinigameTurnSide.PLAYER_2,
+        current_turn_index=1,
     )
     assert err is not None
     assert err.code == "NOT_PARTICIPANT"

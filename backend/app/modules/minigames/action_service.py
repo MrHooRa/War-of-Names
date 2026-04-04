@@ -6,7 +6,7 @@ Pure functions (sync, no DB):
 
 Async functions (require DB session):
     check_idempotency        — look up a cached action receipt
-    process_action           — full action pipeline with optimistic locking
+    process_action           — full N-player action pipeline with optimistic locking
 """
 
 import uuid
@@ -16,11 +16,6 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import MinigameSessionPhase as Phase
-
-# TODO(sprint-b): N-player refactor — MinigameTurnSide enum removed.
-# Turn tracking now uses MinigameSession.current_turn_index (int) + the
-# MinigameSessionParticipant table. The service functions below still hold
-# the old 1v1 shape and will be rewritten in Sprint B.
 from app.modules.minigames.models import (
     MinigameActionReceipt,
     MinigameSession,
@@ -44,19 +39,6 @@ class ActionError:
     message_ar: str
 
 
-def _resolve_actor_slot(
-    *,
-    actor_membership_id,
-    player_1_membership_id,
-    player_2_membership_id,
-) -> str | None:
-    if actor_membership_id == player_1_membership_id:
-        return "player_1"
-    if actor_membership_id == player_2_membership_id:
-        return "player_2"
-    return None
-
-
 # ── Pure validation ───────────────────────────────────────────────────────────
 
 def validate_action_envelope(
@@ -64,22 +46,23 @@ def validate_action_envelope(
     envelope: dict,
     session_phase: Phase | str,
     session_revision: int,
-    current_turn: str | None,  # TODO(sprint-b): switch to current_turn_index + participants list
-    player_1_membership_id,
-    player_2_membership_id,
+    current_turn_index: int | None,
+    participants: list[dict],
 ) -> ActionError | None:
     """Validate an incoming action envelope before any DB work.
 
     Checks are performed in order; the first failure is returned immediately.
 
     Args:
-        envelope:                 Raw action payload from the client.
-                                  Expected keys: state_revision, actor_membership_id, action.
-        session_phase:            Current phase of the minigame session.
-        session_revision:         Current authoritative revision stored in the DB.
-        current_turn:             Whose turn it is (PLAYER_1 / PLAYER_2), or None.
-        player_1_membership_id:   Membership ID of player 1.
-        player_2_membership_id:   Membership ID of player 2, or None for solo games.
+        envelope:            Raw action payload from the client. Expected keys:
+                             state_revision, actor_membership_id, action.
+        session_phase:       Current phase of the minigame session.
+        session_revision:    Current authoritative revision stored in the DB.
+        current_turn_index:  Which slot's turn it is, or None for solo games
+                             (solo always allows).
+        participants:        List of dicts with at least 'membership_id' and
+                             'slot_index' keys, ordered by slot_index
+                             (0, 1, 2, ..., N-1).
 
     Returns:
         None if the envelope is valid, ActionError otherwise.
@@ -106,37 +89,30 @@ def validate_action_envelope(
             message_ar="حالة اللعبة قديمة — يرجى تحديث الشاشة",
         )
 
-    # c. actor_membership_id must be player_1 or player_2
+    # c. actor_membership_id must belong to a participant — resolve slot
     actor_id = envelope.get("actor_membership_id")
-    valid_participants = {player_1_membership_id}
-    if player_2_membership_id is not None:
-        valid_participants.add(player_2_membership_id)
+    actor_slot: int | None = None
+    for p in participants:
+        if p["membership_id"] == actor_id:
+            actor_slot = p["slot_index"]
+            break
 
-    if actor_id not in valid_participants:
+    if actor_slot is None:
         return ActionError(
             code="NOT_PARTICIPANT",
             message_ar="أنت لست مشاركاً في هذه الجلسة",
         )
 
-    # d. Turn check — SKIP FOR SOLO GAMES (player_2_membership_id is None)
-    # TODO(sprint-b): Replace with N-player turn check using current_turn_index
-    # and the MinigameSessionParticipant table. Current shape accepts raw string
-    # turn markers ("player_1" / "player_2") for legacy 1v1 callers only.
-    if player_2_membership_id is not None:
-        # 1v1 game — enforce turn order (legacy string compare)
-        turn_str = current_turn if isinstance(current_turn, str) else None
+    # d. Turn check — skip for solo games (≤1 participant) or when
+    #    current_turn_index is None (turn not yet established).
+    if len(participants) <= 1 or current_turn_index is None:
+        return None
 
-        expected_actor = (
-            player_1_membership_id
-            if turn_str == "player_1"
-            else player_2_membership_id
+    if actor_slot != current_turn_index:
+        return ActionError(
+            code="NOT_YOUR_TURN",
+            message_ar="ليس دورك — انتظر دور الخصم",
         )
-
-        if actor_id != expected_actor:
-            return ActionError(
-                code="NOT_YOUR_TURN",
-                message_ar="ليس دورك — انتظر دور الخصم",
-            )
 
     return None
 
@@ -163,30 +139,111 @@ async def process_action(
     mg_session: MinigameSession,
     plugin: GameTypePlugin,
     envelope: dict,
+    participants: list[dict],
 ) -> dict:
-    """Execute a validated action through the full pipeline.
+    """Execute a validated action through the full N-player pipeline.
+
+    Caller must have already validated the envelope via validate_action_envelope.
 
     Steps:
-        a. plugin.validate_action   — raises ValueError on rule violation
-        b. plugin.apply_action      — returns (new_state, side_effects)
-        c. Advance turn             — PLAYER_1 ↔ PLAYER_2 for 1v1; unchanged for solo
-        d. Optimistic lock UPDATE   — WHERE revision = current
-        e. Log MinigameSessionEvent
-        f. Log MinigameActionReceipt (idempotency)
-        g. plugin.evaluate_terminal — check for game end
+        1. plugin.validate_action   — raises ValueError on rule violation
+        2. plugin.apply_action      — returns (new_state, side_effects)
+        3. Advance turn             — (current_turn_index + 1) % num_players
+        4. Optimistic lock UPDATE   — WHERE revision = current
+        5. Log MinigameSessionEvent
+        6. Log MinigameActionReceipt (idempotency)
+        7. plugin.evaluate_terminal — check for game end
 
-    Returns a result dict with: success, revision, side_effects, terminal_result.
+    Args:
+        session:       Active async DB session.
+        mg_session:    The MinigameSession ORM instance to mutate.
+        plugin:        Game type plugin implementing validate/apply/evaluate.
+        envelope:      Validated action envelope from the client.
+        participants:  List of dicts with 'membership_id', 'slot_index',
+                       'reconnect_token' keys, ordered by slot_index.
+
+    Returns:
+        Dict with: success, revision, new_state, side_effects, terminal_result,
+        next_turn_index.
 
     Raises:
-        ValueError   — if the plugin rejects the action or the optimistic lock fails
-        RuntimeError — if a race condition prevents the update (stale lock)
+        ValueError   — if the plugin rejects the action.
+        RuntimeError — if the optimistic lock fails (concurrent modification).
     """
+    del participants  # Currently unused beyond envelope validation; reserved for future
 
-    # TODO(sprint-b): N-player refactor — process_action needs to be rewritten
-    # to resolve the actor's slot via MinigameSessionParticipant lookup and
-    # advance current_turn_index modulo num_players. The full async pipeline
-    # (optimistic lock, event log, receipt) will be re-implemented in Sprint B.
-    del session, mg_session, plugin, envelope  # silence unused-arg warnings
-    raise NotImplementedError(
-        "process_action is awaiting N-player rewrite in Sprint B"
+    # 1. Call plugin to validate and apply the action
+    action = envelope.get("action", envelope.get("payload", {}))
+
+    validation_err = plugin.validate_action(action, mg_session.game_state)
+    if validation_err:
+        raise ValueError(validation_err)
+
+    new_state, side_effects = plugin.apply_action(action, mg_session.game_state)
+
+    # 2. Advance turn: next_index = (current + 1) % num_players
+    current_idx = mg_session.current_turn_index or 0
+    next_turn_index = (current_idx + 1) % mg_session.num_players
+    new_revision = mg_session.revision + 1
+    now = now_riyadh_naive()
+
+    # 3. Optimistic lock UPDATE
+    update_stmt = (
+        update(MinigameSession)
+        .where(
+            MinigameSession.id == mg_session.id,
+            MinigameSession.revision == mg_session.revision,
+        )
+        .values(
+            game_state=new_state,
+            current_turn_index=next_turn_index,
+            turn_started_at=now,
+            revision=new_revision,
+            updated_at=now,
+        )
+        .returning(MinigameSession.revision)
     )
+    update_result = await session.execute(update_stmt)
+    if update_result.fetchone() is None:
+        raise RuntimeError(
+            "Optimistic lock failed — session was modified concurrently"
+        )
+
+    # 4. Log event
+    event = MinigameSessionEvent(
+        session_id=mg_session.id,
+        revision=new_revision,
+        event_type="action",
+        actor_type="participant",
+        actor_membership_id=envelope.get("actor_membership_id"),
+        action_type=action.get("type"),
+        payload=action,
+        result={"side_effects": side_effects, "next_turn_index": next_turn_index},
+        correlation_id=mg_session.correlation_id,
+    )
+    session.add(event)
+
+    # 5. Log receipt for idempotency
+    receipt = MinigameActionReceipt(
+        action_id=envelope.get("action_id") or uuid.uuid4(),
+        session_id=mg_session.id,
+        revision=new_revision,
+        response={
+            "success": True,
+            "new_state": new_state,
+            "side_effects": side_effects,
+        },
+    )
+    session.add(receipt)
+
+    # 6. Check terminal condition
+    terminal_result = plugin.evaluate_terminal(new_state)
+
+    return {
+        "success": True,
+        "revision": new_revision,
+        "new_state": new_state,
+        "side_effects": side_effects,
+        "terminal_result": terminal_result,
+        "next_turn_index": next_turn_index,
+    }
