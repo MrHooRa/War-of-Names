@@ -151,3 +151,68 @@ def test_leave_also_removes_from_queue(lobby):
     lobby.join(key, m2, alias="Y")
     lobby.queue_join(key, m2)
     assert lobby.try_match(key) is None
+
+
+def test_match_3_players(lobby):
+    key = _key()
+    ids = [uuid.uuid4() for _ in range(3)]
+    for i, mid in enumerate(ids):
+        lobby.join(key, mid, alias=f"player_{i}")
+        lobby.queue_join(key, mid)
+    match = lobby.try_match(key, num_needed=3)
+    assert match is not None
+    assert len(match) == 3
+    # All matched players should be in_match status
+    players = lobby.get_players(key)
+    assert all(p["status"] == "in_match" for p in players)
+
+
+def test_match_not_enough_for_4(lobby):
+    key = _key()
+    for i in range(3):
+        mid = uuid.uuid4()
+        lobby.join(key, mid, alias=f"p{i}")
+        lobby.queue_join(key, mid)
+    match = lobby.try_match(key, num_needed=4)
+    assert match is None  # Only 3 in queue, need 4
+
+
+def test_match_8_players(lobby):
+    """Verify max 8 players supported."""
+    key = _key()
+    ids = [uuid.uuid4() for _ in range(8)]
+    for i, mid in enumerate(ids):
+        lobby.join(key, mid, alias=f"p{i}")
+        lobby.queue_join(key, mid)
+    match = lobby.try_match(key, num_needed=8)
+    assert match is not None
+    assert len(match) == 8
+
+
+def test_match_default_num_needed_is_2(lobby):
+    """Backward compat: calling try_match without num_needed still matches 2 players."""
+    key = _key()
+    m1, m2 = uuid.uuid4(), uuid.uuid4()
+    lobby.join(key, m1, alias="a")
+    lobby.join(key, m2, alias="b")
+    lobby.queue_join(key, m1)
+    lobby.queue_join(key, m2)
+    match = lobby.try_match(key)  # no num_needed = defaults to 2
+    assert match is not None
+    assert len(match) == 2
+    assert set(match) == {m1, m2}
+
+
+def test_match_fifo_order_with_6_players(lobby):
+    """Queue should match players in FIFO order."""
+    key = _key()
+    ids = [uuid.uuid4() for _ in range(6)]
+    for i, mid in enumerate(ids):
+        lobby.join(key, mid, alias=f"p{i}")
+        lobby.queue_join(key, mid)
+    # Match first 4
+    match1 = lobby.try_match(key, num_needed=4)
+    assert list(match1) == ids[:4]  # First 4 in queue order
+    # Match remaining 2
+    match2 = lobby.try_match(key, num_needed=2)
+    assert list(match2) == ids[4:]

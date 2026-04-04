@@ -86,15 +86,28 @@ class LobbyManager:
         if self.is_in_lobby(lobby_key, membership_id):
             self.set_status(lobby_key, membership_id, "idle")
 
-    def try_match(self, lobby_key: str) -> tuple[uuid.UUID, uuid.UUID] | None:
+    def try_match(self, lobby_key: str, num_needed: int = 2) -> list[uuid.UUID] | None:
+        """Try to match N players from the queue (FIFO).
+
+        Args:
+            lobby_key: The lobby identifier
+            num_needed: Number of players required to start a match (2-8)
+
+        Returns:
+            List of N matched membership IDs, or None if not enough players in queue.
+        """
         queue = self._queues.get(lobby_key)
-        if not queue or len(queue) < 2:
+        if not queue or len(queue) < num_needed:
             return None
-        p1 = queue.popleft()
-        p2 = queue.popleft()
-        self.set_status(lobby_key, p1, "in_match")
-        self.set_status(lobby_key, p2, "in_match")
-        return (p1, p2)
+
+        matched = []
+        for _ in range(num_needed):
+            matched.append(queue.popleft())
+
+        for mid in matched:
+            self.set_status(lobby_key, mid, "in_match")
+
+        return matched
 
     def add_result(self, lobby_key: str, result: dict) -> None:
         if lobby_key not in self._results:
