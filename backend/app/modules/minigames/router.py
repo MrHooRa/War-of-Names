@@ -25,7 +25,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 from app.core.auth import get_admin_account, get_current_account
 from app.core.database import async_session
@@ -37,14 +37,12 @@ from app.core.enums import (
 )
 from app.modules.auth.models import Account
 from app.modules.competitions.models import Cycle, Membership, Season
-from app.modules.minigames.models import MinigameLeaderboard, MinigameSession, MinigameType
-
-# TODO(sprint-b): N-player refactor — several handlers below still read/write
-# the removed MinigameSession columns (player_1_membership_id,
-# player_2_membership_id, winner_membership_id) and the old settlement fields
-# (winner_payout, loser_penalty). These call sites will fail at runtime until
-# Sprint B rewrites them against MinigameSessionParticipant + participant_results.
-# The file parses cleanly and is not exercised by any pure test.
+from app.modules.minigames.models import (
+    MinigameLeaderboard,
+    MinigameSession,
+    MinigameSessionParticipant,
+    MinigameType,
+)
 
 router = APIRouter(tags=["minigames"])
 
@@ -110,9 +108,11 @@ def _serialize_session(s: MinigameSession) -> dict:
         "competition_id": str(s.competition_id),
         "phase": s.phase.value if hasattr(s.phase, "value") else s.phase,
         "match_type": s.match_type.value if hasattr(s.match_type, "value") else s.match_type,
-        "player_1_membership_id": str(s.player_1_membership_id),
-        "player_2_membership_id": str(s.player_2_membership_id) if s.player_2_membership_id else None,
-        "winner_membership_id": str(s.winner_membership_id) if s.winner_membership_id else None,
+        "num_players": s.num_players,
+        "min_players": s.min_players,
+        "max_players": s.max_players,
+        "current_turn_index": s.current_turn_index,
+        "winner_slot_index": s.winner_slot_index,
         "buy_in_amount": s.buy_in_amount,
         "turn_number": s.turn_number,
         "revision": s.revision,
@@ -122,6 +122,24 @@ def _serialize_session(s: MinigameSession) -> dict:
         "created_at": s.created_at.isoformat(),
         "updated_at": s.updated_at.isoformat(),
     }
+
+
+async def _serialize_session_with_participants(
+    db_session, mg_session: MinigameSession
+) -> dict:
+    """Serialize a session and attach its participants list ordered by slot_index."""
+    from app.modules.minigames import session_service  # noqa: PLC0415
+
+    data = _serialize_session(mg_session)
+    participants = await session_service.get_session_participants(db_session, mg_session.id)
+    data["participants"] = [
+        {
+            "membership_id": str(p["membership_id"]),
+            "slot_index": p["slot_index"],
+        }
+        for p in participants
+    ]
+    return data
 
 
 def _serialize_leaderboard_entry(entry: MinigameLeaderboard) -> dict:
@@ -258,14 +276,16 @@ async def get_my_sessions(
 
         result = await session.execute(
             select(MinigameSession)
+            .join(
+                MinigameSessionParticipant,
+                MinigameSessionParticipant.session_id == MinigameSession.id,
+            )
             .where(
                 MinigameSession.game_type == game_type,
                 MinigameSession.competition_id == competition_id,
-                or_(
-                    MinigameSession.player_1_membership_id == membership.id,
-                    MinigameSession.player_2_membership_id == membership.id,
-                ),
+                MinigameSessionParticipant.membership_id == membership.id,
             )
+            .distinct()
             .order_by(MinigameSession.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -273,7 +293,10 @@ async def get_my_sessions(
         sessions = result.scalars().all()
         return {
             "success": True,
-            "data": [_serialize_session(s) for s in sessions],
+            "data": [
+                await _serialize_session_with_participants(session, s)
+                for s in sessions
+            ],
         }
 
 
@@ -391,18 +414,19 @@ async def send_challenge(
         if policy_blocks:
             raise HTTPException(status_code=400, detail=policy_blocks[0].message_ar)
 
-        # Create challenge session
+        # Create challenge session (2-player: challenger at slot 0, target at slot 1)
         mg_session = await session_service.create_session(
             session,
             game_type=game_type,
             competition_id=competition_id,
-            player_1_membership_id=membership.id,
+            player_membership_ids=[membership.id, body.target_membership_id],
             match_type=MinigameMatchType.CHALLENGE,
             buy_in_amount=buy_in,
             settings_snapshot={k: v for k, v in mg_settings.items()},
+            min_players=2,
+            max_players=2,
             season_id=season.id if season else None,
             cycle_id=cycle.id if cycle else None,
-            player_2_membership_id=body.target_membership_id,
             turn_duration_ms=int(mg_settings["minigame_turn_duration_sec"]) * 1000,
             grace_timer_ms=int(mg_settings["minigame_grace_timer_sec"]) * 1000,
         )
@@ -410,8 +434,10 @@ async def send_challenge(
             "session_id": str(mg_session.id),
             "competition_id": str(competition_id),
             "game_type": game_type,
-            "player_1_membership_id": str(membership.id),
-            "player_2_membership_id": str(body.target_membership_id),
+            "participants": [
+                {"membership_id": str(membership.id), "slot_index": 0},
+                {"membership_id": str(body.target_membership_id), "slot_index": 1},
+            ],
             "buy_in": buy_in,
             "settings": mg_settings,
         }
@@ -429,7 +455,7 @@ async def send_challenge(
 
         return {
             "success": True,
-            "data": _serialize_session(mg_session),
+            "data": await _serialize_session_with_participants(session, mg_session),
         }
 
 
@@ -467,8 +493,15 @@ async def respond_to_challenge(
         if not mg_session:
             raise HTTPException(status_code=404, detail="الجلسة غير موجودة")
 
-        # Only player 2 (the challenged player) may respond
-        if mg_session.player_2_membership_id != membership.id:
+        # Only the challenged player (slot_index=1) may respond
+        participant_result = await session.execute(
+            select(MinigameSessionParticipant).where(
+                MinigameSessionParticipant.session_id == mg_session.id,
+                MinigameSessionParticipant.slot_index == 1,
+            )
+        )
+        target_participant = participant_result.scalars().first()
+        if target_participant is None or target_participant.membership_id != membership.id:
             raise HTTPException(status_code=403, detail="لا يحق لك الرد على هذا التحدي")
 
         # Must be in CREATED phase
@@ -502,7 +535,7 @@ async def respond_to_challenge(
 
         return {
             "success": True,
-            "data": _serialize_session(mg_session),
+            "data": await _serialize_session_with_participants(session, mg_session),
         }
 
 
@@ -571,7 +604,10 @@ async def admin_list_sessions(
 
         return {
             "success": True,
-            "data": [_serialize_session(s) for s in sessions],
+            "data": [
+                await _serialize_session_with_participants(session, s)
+                for s in sessions
+            ],
         }
 
 
@@ -633,7 +669,7 @@ async def admin_cancel_session(
         return {
             "success": True,
             "data": {
-                "session": _serialize_session(mg_session),
+                "session": await _serialize_session_with_participants(session, mg_session),
                 "settlement": {
                     "id": str(settlement.id),
                     "settlement_state": (
@@ -641,8 +677,8 @@ async def admin_cancel_session(
                         if hasattr(settlement.settlement_state, "value")
                         else settlement.settlement_state
                     ),
-                    "winner_payout": settlement.winner_payout,
-                    "loser_penalty": settlement.loser_penalty,
+                    "participant_results": settlement.participant_results,
+                    "total_pool": settlement.total_pool,
                     "settled_at": settlement.settled_at.isoformat() if settlement.settled_at else None,
                 },
             },
