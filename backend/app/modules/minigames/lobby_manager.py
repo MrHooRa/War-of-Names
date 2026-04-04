@@ -31,6 +31,12 @@ class LobbyManager:
     def join(self, lobby_key: str, membership_id: uuid.UUID, alias: str, stats: dict | None = None) -> None:
         if lobby_key not in self._lobbies:
             self._lobbies[lobby_key] = {}
+        existing = self._lobbies[lobby_key].get(membership_id)
+        if existing is not None:
+            existing.alias = alias
+            if stats is not None:
+                existing.stats = stats
+            return
         self._lobbies[lobby_key][membership_id] = LobbyPlayer(
             membership_id=membership_id, alias=alias, stats=stats or {},
         )
@@ -61,6 +67,8 @@ class LobbyManager:
             player.status = status
 
     def queue_join(self, lobby_key: str, membership_id: uuid.UUID) -> None:
+        if not self.is_in_lobby(lobby_key, membership_id):
+            return
         if lobby_key not in self._queues:
             self._queues[lobby_key] = deque()
         if membership_id not in self._queues[lobby_key]:

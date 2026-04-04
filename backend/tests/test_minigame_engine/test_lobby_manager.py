@@ -50,6 +50,13 @@ def test_queue_join(lobby):
     assert lobby.get_players(key)[0]["status"] == "in_queue"
 
 
+def test_queue_join_ignores_non_lobby_player(lobby):
+    key, mid = _key(), uuid.uuid4()
+    lobby.queue_join(key, mid)
+    assert lobby.get_player_count(key) == 0
+    assert lobby.try_match(key) is None
+
+
 def test_queue_leave(lobby):
     key, mid = _key(), uuid.uuid4()
     lobby.join(key, mid, alias="الصقر")
@@ -94,6 +101,17 @@ def test_set_status(lobby):
     lobby.join(key, mid, alias="X")
     lobby.set_status(key, mid, "challenging")
     assert lobby.get_players(key)[0]["status"] == "challenging"
+
+
+def test_rejoin_preserves_existing_status(lobby):
+    key, mid = _key(), uuid.uuid4()
+    lobby.join(key, mid, alias="X")
+    lobby.set_status(key, mid, "in_match")
+    lobby.join(key, mid, alias="X-2", stats={"wins": 3})
+    player = lobby.get_players(key)[0]
+    assert player["alias"] == "X-2"
+    assert player["status"] == "in_match"
+    assert player["stats"] == {"wins": 3}
 
 
 def test_add_result(lobby):
