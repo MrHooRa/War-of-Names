@@ -19,10 +19,9 @@ from typing import TYPE_CHECKING, Any
 from app.core.enums import MinigameMatchType, MinigameSessionPhase as Phase
 from app.modules.minigames.state_machine import is_terminal, validate_transition
 
-# TODO(sprint-b): N-player refactor — MinigameTurnSide enum removed.
-# Turn tracking now uses current_turn_index (int) on MinigameSession.
-# create_session / transition_session still hold the legacy 1v1 shape and
-# will be rewritten in Sprint B against the new participants table.
+# N-player model: turn tracking uses current_turn_index (int) on MinigameSession,
+# and participant rows live in minigame_session_participants with per-slot
+# reconnect tokens. create_session accepts a list of membership ids.
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,7 +79,7 @@ def compute_transition_update(
     target_phase: Phase | str,
     current_revision: int,
     terminal_reason: str | None = None,
-    winner_membership_id: uuid.UUID | None = None,
+    winner_slot_index: int | None = None,
 ) -> dict[str, Any]:
     """Compute the field updates required for a phase transition.
 
@@ -111,15 +110,14 @@ def compute_transition_update(
     if is_terminal(target_phase_enum):
         updates["completed_at"] = now
         updates["terminal_reason"] = terminal_reason
-        # TODO(sprint-b): replace legacy winner_membership_id with
-        # winner_slot_index on MinigameSession.
-        updates["winner_membership_id"] = winner_membership_id
+        # winner_slot_index passed by caller if known (None for cancellations).
+        if winner_slot_index is not None:
+            updates["winner_slot_index"] = winner_slot_index
 
     if target_phase_enum == Phase.IN_PROGRESS:
         updates["started_at"] = now
         updates["turn_started_at"] = now
-        # TODO(sprint-b): set current_turn_index = 0 for N-player sessions.
-        updates["current_turn"] = "player_1"
+        updates["current_turn_index"] = 0
 
     return updates
 
@@ -134,34 +132,102 @@ async def create_session(
     *,
     game_type: str,
     competition_id: uuid.UUID,
-    player_1_membership_id: uuid.UUID,
+    player_membership_ids: list[uuid.UUID],
     match_type: MinigameMatchType,
     buy_in_amount: int,
     settings_snapshot: dict,
+    min_players: int = 2,
+    max_players: int = 2,
     season_id: uuid.UUID | None = None,
     cycle_id: uuid.UUID | None = None,
-    player_2_membership_id: uuid.UUID | None = None,
     turn_duration_ms: int = 30000,
     grace_timer_ms: int = 60000,
 ) -> MinigameSession:
-    """Persist a new ``MinigameSession`` in the CREATED phase.
+    """Create a new ``MinigameSession`` with N participants (1-8 players).
 
-    TODO(sprint-b): N-player refactor — this function still constructs the
-    legacy 1v1 row with ``player_1_membership_id`` / ``player_2_membership_id``
-    / ``reconnect_token_p1`` / ``reconnect_token_p2`` kwargs that no longer
-    exist on :class:`MinigameSession`. Sprint B will rewrite it to accept a
-    list of participant memberships and insert rows in
-    ``minigame_session_participants`` with per-slot reconnect tokens.
+    Creates one :class:`MinigameSessionParticipant` row per player with
+    ``slot_index`` ``0..N-1``. Generates a unique ``reconnect_token`` per
+    participant. Returns the created session (with participants flushed but
+    not eagerly loaded).
     """
-    del (  # silence unused-arg warnings until Sprint B rewrite
-        session, game_type, competition_id, player_1_membership_id, match_type,
-        buy_in_amount, settings_snapshot, season_id, cycle_id,
-        player_2_membership_id, turn_duration_ms, grace_timer_ms,
+    from app.modules.minigames.models import (  # noqa: PLC0415
+        MinigameSession as _MinigameSession,
+        MinigameSessionParticipant as _MinigameSessionParticipant,
     )
-    _ = secrets  # keep import reachable
-    raise NotImplementedError(
-        "create_session is awaiting N-player rewrite in Sprint B"
+
+    num_players = len(player_membership_ids)
+    if num_players < 1 or num_players > 8:
+        raise ValueError(
+            f"عدد اللاعبين يجب أن يكون بين 1 و 8 (تم إعطاء {num_players})"
+        )
+
+    # Check for duplicate participants.
+    if len(set(player_membership_ids)) != num_players:
+        raise ValueError("لا يمكن أن يكون نفس اللاعب في جلسة واحدة أكثر من مرة")
+
+    mg_session = _MinigameSession(
+        game_type=game_type,
+        competition_id=competition_id,
+        season_id=season_id,
+        cycle_id=cycle_id,
+        phase=Phase.CREATED,
+        revision=0,
+        num_players=num_players,
+        min_players=min_players,
+        max_players=max_players,
+        current_turn_index=None,  # Set when transitioning to IN_PROGRESS.
+        match_type=match_type,
+        buy_in_amount=buy_in_amount,
+        settings_snapshot=settings_snapshot,
+        turn_duration_ms=turn_duration_ms,
+        grace_timer_ms=grace_timer_ms,
+        correlation_id=uuid.uuid4(),
     )
+    session.add(mg_session)
+    await session.flush()  # Get mg_session.id.
+
+    # Create participant rows — one per player, with unique reconnect tokens.
+    for slot_index, membership_id in enumerate(player_membership_ids):
+        participant = _MinigameSessionParticipant(
+            session_id=mg_session.id,
+            membership_id=membership_id,
+            slot_index=slot_index,
+            reconnect_token=secrets.token_urlsafe(48),
+        )
+        session.add(participant)
+
+    await session.flush()
+    return mg_session
+
+
+async def get_session_participants(
+    session: AsyncSession,
+    session_id: uuid.UUID,
+) -> list[dict]:
+    """Load all participants for a session, ordered by ``slot_index``.
+
+    Returns a list of dicts:
+    ``[{"membership_id", "slot_index", "reconnect_token"}, ...]``.
+    """
+    from sqlalchemy import select  # noqa: PLC0415
+    from app.modules.minigames.models import (  # noqa: PLC0415
+        MinigameSessionParticipant as _MinigameSessionParticipant,
+    )
+
+    result = await session.execute(
+        select(_MinigameSessionParticipant)
+        .where(_MinigameSessionParticipant.session_id == session_id)
+        .order_by(_MinigameSessionParticipant.slot_index)
+    )
+    participants = result.scalars().all()
+    return [
+        {
+            "membership_id": p.membership_id,
+            "slot_index": p.slot_index,
+            "reconnect_token": p.reconnect_token,
+        }
+        for p in participants
+    ]
 
 
 async def transition_session(
@@ -171,7 +237,7 @@ async def transition_session(
     expected_revision: int,
     target_phase: Phase | str,
     terminal_reason: str | None = None,
-    winner_membership_id: uuid.UUID | None = None,
+    winner_slot_index: int | None = None,
     actor_type: str = "system",
     actor_membership_id: uuid.UUID | None = None,
 ) -> MinigameSession | None:
@@ -216,7 +282,7 @@ async def transition_session(
         target_phase=target_phase,
         current_revision=expected_revision,
         terminal_reason=terminal_reason,
-        winner_membership_id=winner_membership_id,
+        winner_slot_index=winner_slot_index,
     )
 
     # Optimistic-locked UPDATE at database layer.

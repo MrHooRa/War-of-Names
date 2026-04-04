@@ -10,13 +10,12 @@ asyncpg, etc.) to be installed.
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from unittest.mock import patch
 
 import pytest
 
-from app.core.enums import MinigameSessionPhase as Phase, MinigameTurnSide
+from app.core.enums import MinigameSessionPhase as Phase
 from app.modules.minigames.session_service import (
     compute_transition_update,
     validate_session_creation,
@@ -134,22 +133,21 @@ class TestComputeTransitionUpdate:
         # Non-terminal: no completed_at / terminal_reason / winner
         assert "completed_at" not in result
         assert "terminal_reason" not in result
-        assert "winner_membership_id" not in result
+        assert "winner_slot_index" not in result
 
     def test_terminal_transition_sets_completion_fields(self):
-        winner_id = uuid.uuid4()
         result = _transition(
             current_phase=Phase.IN_PROGRESS,
             target_phase=Phase.COMPLETED,
             current_revision=3,
             terminal_reason="player_won",
-            winner_membership_id=winner_id,
+            winner_slot_index=0,
         )
         assert result["phase"] == Phase.COMPLETED
         assert result["revision"] == 4
         assert result["completed_at"] == _FIXED_NOW
         assert result["terminal_reason"] == "player_won"
-        assert result["winner_membership_id"] == winner_id
+        assert result["winner_slot_index"] == 0
 
     def test_invalid_transition_raises_value_error(self):
         with pytest.raises(ValueError, match="انتقال غير صالح"):
@@ -168,7 +166,7 @@ class TestComputeTransitionUpdate:
         assert result["phase"] == Phase.IN_PROGRESS
         assert result["started_at"] == _FIXED_NOW
         assert result["turn_started_at"] == _FIXED_NOW
-        assert result["current_turn"] == MinigameTurnSide.PLAYER_1
+        assert result["current_turn_index"] == 0
 
     def test_revision_increments_by_one(self):
         result = _transition(
@@ -198,4 +196,5 @@ class TestComputeTransitionUpdate:
         assert result["phase"] == Phase.CANCELLED
         assert result["completed_at"] == _FIXED_NOW
         assert result["terminal_reason"] == "admin_cancelled"
-        assert result["winner_membership_id"] is None
+        # Cancellations don't have a winner — the key should be absent.
+        assert "winner_slot_index" not in result
