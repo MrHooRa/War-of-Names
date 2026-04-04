@@ -77,6 +77,7 @@ async def seed(session: AsyncSession) -> None:
     await _seed_settings(session)
     await _seed_minigame_types(session)
     await _seed_mutaraha_words(session)
+    await _seed_minigame_catalog_configs(session)  # NEW
 
 
 async def _seed_system_account(session: AsyncSession) -> None:
@@ -416,6 +417,32 @@ SETTING_IDS = {
     "minigame_overtime_enabled": uuid.UUID("00000000-0000-0000-0000-000000000075"),
     "minigame_grace_timer_sec": uuid.UUID("00000000-0000-0000-0000-000000000076"),
     "minigame_kill_switch": uuid.UUID("00000000-0000-0000-0000-000000000077"),
+    # Mutaraha overrides / gameplay settings
+    "mutaraha_enabled": uuid.UUID("00000000-0000-0000-0000-000000000078"),
+    "mutaraha_buy_in": uuid.UUID("00000000-0000-0000-0000-000000000079"),
+    "mutaraha_daily_limit": uuid.UUID("00000000-0000-0000-0000-000000000080"),
+    "mutaraha_same_opponent_limit": uuid.UUID("00000000-0000-0000-0000-000000000081"),
+    "mutaraha_turn_duration_sec": uuid.UUID("00000000-0000-0000-0000-000000000082"),
+    "mutaraha_selection_duration_sec": uuid.UUID("00000000-0000-0000-0000-000000000083"),
+    "mutaraha_overtime_enabled": uuid.UUID("00000000-0000-0000-0000-000000000084"),
+    "mutaraha_overtime_turns": uuid.UUID("00000000-0000-0000-0000-000000000085"),
+    "mutaraha_overtime_turn_sec": uuid.UUID("00000000-0000-0000-0000-000000000086"),
+    "mutaraha_overtime_cost_multiplier": uuid.UUID("00000000-0000-0000-0000-000000000087"),
+    "mutaraha_redraw_cost": uuid.UUID("00000000-0000-0000-0000-000000000088"),
+    "mutaraha_grace_timer_sec": uuid.UUID("00000000-0000-0000-0000-000000000089"),
+    "mutaraha_queue_timeout_sec": uuid.UUID("00000000-0000-0000-0000-000000000090"),
+    "mutaraha_challenge_timeout_sec": uuid.UUID("00000000-0000-0000-0000-000000000091"),
+    "mutaraha_cost_letter_check": uuid.UUID("00000000-0000-0000-0000-000000000092"),
+    "mutaraha_cost_word_length": uuid.UUID("00000000-0000-0000-0000-000000000093"),
+    "mutaraha_cost_letter_eliminate": uuid.UUID("00000000-0000-0000-0000-000000000094"),
+    "mutaraha_cost_first_letter": uuid.UUID("00000000-0000-0000-0000-000000000095"),
+    "mutaraha_cost_narrow_down": uuid.UUID("00000000-0000-0000-0000-000000000096"),
+    "mutaraha_cost_wrong_guess": uuid.UUID("00000000-0000-0000-0000-000000000097"),
+    "mutaraha_categories_enabled": uuid.UUID("00000000-0000-0000-0000-000000000098"),
+    "mutaraha_disabled_words": uuid.UUID("00000000-0000-0000-0000-000000000099"),
+    "mutaraha_words_per_draw": uuid.UUID("00000000-0000-0000-0000-000000000100"),
+    "mutaraha_words_to_select": uuid.UUID("00000000-0000-0000-0000-000000000101"),
+    "mutaraha_recent_match_word_limit": uuid.UUID("00000000-0000-0000-0000-000000000102"),
 }
 
 
@@ -758,6 +785,252 @@ async def _seed_settings(session: AsyncSession) -> None:
             "description": "مفتاح إيقاف الألعاب المصغرة (off/soft/hard/emergency)",
             "is_per_competition": True,
         },
+        {
+            "id": SETTING_IDS["mutaraha_enabled"],
+            "key": "mutaraha_enabled",
+            "category": "minigame",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": False},
+            "description": "تفعيل لعبة مطارحة في المسابقة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_buy_in"],
+            "key": "mutaraha_buy_in",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 500},
+            "allowed_values": {"min": 0, "max": 50000},
+            "description": "مبلغ الدخول الخاص بلعبة مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_daily_limit"],
+            "key": "mutaraha_daily_limit",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 2},
+            "allowed_values": {"min": 1, "max": 50},
+            "description": "الحد اليومي لمباريات مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_same_opponent_limit"],
+            "key": "mutaraha_same_opponent_limit",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 1},
+            "allowed_values": {"min": 1, "max": 10},
+            "description": "الحد الأقصى لمبارزة نفس الخصم في مطارحة لكل دورة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_turn_duration_sec"],
+            "key": "mutaraha_turn_duration_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 30},
+            "allowed_values": {"min": 10, "max": 120},
+            "description": "مدة الدور في مطارحة بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_selection_duration_sec"],
+            "key": "mutaraha_selection_duration_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 45},
+            "allowed_values": {"min": 10, "max": 180},
+            "description": "مهلة اختيار الكلمات في مطارحة بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_overtime_enabled"],
+            "key": "mutaraha_overtime_enabled",
+            "category": "minigame",
+            "data_type": SettingDataType.BOOLEAN,
+            "default_value": {"v": True},
+            "description": "تفعيل الوقت الإضافي في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_overtime_turns"],
+            "key": "mutaraha_overtime_turns",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 3},
+            "allowed_values": {"min": 1, "max": 10},
+            "description": "عدد الأدوار الإضافية لكل لاعب في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_overtime_turn_sec"],
+            "key": "mutaraha_overtime_turn_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 20},
+            "allowed_values": {"min": 5, "max": 60},
+            "description": "مدة الدور الإضافي في مطارحة بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_overtime_cost_multiplier"],
+            "key": "mutaraha_overtime_cost_multiplier",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 2},
+            "allowed_values": {"min": 1, "max": 10},
+            "description": "مضاعف تكلفة الأدوات في الوقت الإضافي",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_redraw_cost"],
+            "key": "mutaraha_redraw_cost",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 20},
+            "allowed_values": {"min": 0, "max": 500},
+            "description": "تكلفة إعادة سحب الكلمات في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_grace_timer_sec"],
+            "key": "mutaraha_grace_timer_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 60},
+            "allowed_values": {"min": 15, "max": 300},
+            "description": "مهلة إعادة الاتصال الخاصة بمطارحة بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_queue_timeout_sec"],
+            "key": "mutaraha_queue_timeout_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 120},
+            "allowed_values": {"min": 10, "max": 900},
+            "description": "أقصى انتظار في طابور مطارحة بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_challenge_timeout_sec"],
+            "key": "mutaraha_challenge_timeout_sec",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 60},
+            "allowed_values": {"min": 10, "max": 300},
+            "description": "مهلة قبول تحدي مطارحة بالثواني",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_cost_letter_check"],
+            "key": "mutaraha_cost_letter_check",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 20},
+            "allowed_values": {"min": 0, "max": 500},
+            "description": "تكلفة أداة كشف الحرف في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_cost_word_length"],
+            "key": "mutaraha_cost_word_length",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 20},
+            "allowed_values": {"min": 0, "max": 500},
+            "description": "تكلفة أداة طول الكلمة في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_cost_letter_eliminate"],
+            "key": "mutaraha_cost_letter_eliminate",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 40},
+            "allowed_values": {"min": 0, "max": 500},
+            "description": "تكلفة أداة حذف الحروف في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_cost_first_letter"],
+            "key": "mutaraha_cost_first_letter",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 50},
+            "allowed_values": {"min": 0, "max": 500},
+            "description": "تكلفة أداة أول حرف في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_cost_narrow_down"],
+            "key": "mutaraha_cost_narrow_down",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 60},
+            "allowed_values": {"min": 0, "max": 500},
+            "description": "تكلفة أداة التضييق في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_cost_wrong_guess"],
+            "key": "mutaraha_cost_wrong_guess",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 50},
+            "allowed_values": {"min": 0, "max": 500},
+            "description": "عقوبة التخمين الخاطئ في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_categories_enabled"],
+            "key": "mutaraha_categories_enabled",
+            "category": "minigame",
+            "data_type": SettingDataType.JSON,
+            "default_value": {"v": []},
+            "description": "الفئات المفعلة لبنك كلمات مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_disabled_words"],
+            "key": "mutaraha_disabled_words",
+            "category": "minigame",
+            "data_type": SettingDataType.JSON,
+            "default_value": {"v": []},
+            "description": "معرفات الكلمات المعطلة في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_words_per_draw"],
+            "key": "mutaraha_words_per_draw",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 10},
+            "allowed_values": {"min": 2, "max": 30},
+            "description": "عدد الكلمات المعروضة في كل سحب بمطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_words_to_select"],
+            "key": "mutaraha_words_to_select",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 5},
+            "allowed_values": {"min": 1, "max": 10},
+            "description": "عدد الكلمات التي يختارها اللاعب في مطارحة",
+            "is_per_competition": True,
+        },
+        {
+            "id": SETTING_IDS["mutaraha_recent_match_word_limit"],
+            "key": "mutaraha_recent_match_word_limit",
+            "category": "minigame",
+            "data_type": SettingDataType.INTEGER,
+            "default_value": {"v": 5},
+            "allowed_values": {"min": 1, "max": 20},
+            "description": "عدد المباريات الأخيرة التي تُستبعد كلماتها من عروض مطارحة",
+            "is_per_competition": True,
+        },
     ]
 
     added = 0
@@ -813,6 +1086,46 @@ async def _seed_minigame_types(session: AsyncSession) -> None:
     from app.modules.minigames.mutaraha.plugin import MutarahaPlugin
     if GameTypeRegistry.get("mutaraha") is None:
         GameTypeRegistry.register(MutarahaPlugin())
+
+
+async def _seed_minigame_catalog_configs(session: AsyncSession) -> None:
+    """Seed presentation metadata for minigame catalog cards.
+
+    Idempotent — uses session.get() by primary key and skips if the row
+    already exists. Paired with migration 008_minigame_catalog_configs.sql
+    for fresh deployments.
+    """
+    from app.core.enums import (
+        MinigameCardVariant,
+        MinigameCatalogAvailability,
+        MinigameHeroVariant,
+    )
+    from app.modules.minigames.catalog_config_model import MinigameCatalogConfig
+
+    configs_data = [
+        {
+            "game_type": "mutaraha",
+            "short_description": "مبارزة كلمات 1v1 — فراسة واستنتاج",
+            "icon_token": "lucide:swords",
+            "accent_color": "#D84315",
+            "hero_variant": MinigameHeroVariant.DUEL,
+            "card_variant": MinigameCardVariant.STANDARD,
+            "estimated_duration_sec": 300,
+            "featured": True,
+            "sort_order": 10,
+            "availability_mode": MinigameCatalogAvailability.ACTIVE,
+            "marketing_label": None,
+            "expected_launch_at": None,
+        },
+    ]
+
+    for cd in configs_data:
+        existing = await session.get(MinigameCatalogConfig, cd["game_type"])
+        if existing:
+            continue
+        session.add(MinigameCatalogConfig(**cd))
+
+    await session.commit()
 
 
 async def _seed_mutaraha_words(session: AsyncSession) -> None:
