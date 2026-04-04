@@ -21,6 +21,8 @@ from app.modules.minigames.economy import (
     create_forfeit_settlement_entries,
     create_normal_settlement_entries,
     create_payout_entry,
+    create_ranked_settlement_entries,
+    create_refund_all_entries,
     create_refund_entry,
     create_solo_settlement_entries,
 )
@@ -480,3 +482,88 @@ class TestCreateSoloSettlementEntries:
         entry = entries[0]
         assert entry.source_type == "minigame_session"
         assert entry.source_id == SESSION_ID
+
+
+# ─── create_ranked_settlement_entries ────────────────────────────────────────
+
+def test_ranked_settlement_pays_top_players():
+    import uuid as _uuid
+    results = [
+        {"membership_id": _uuid.uuid4(), "rank": 1, "payout": 600, "balance_before": 0},
+        {"membership_id": _uuid.uuid4(), "rank": 2, "payout": 300, "balance_before": 0},
+        {"membership_id": _uuid.uuid4(), "rank": 3, "payout": 0, "balance_before": 0},
+    ]
+    entries = create_ranked_settlement_entries(
+        results=results, competition_id=_uuid.uuid4(), session_id=_uuid.uuid4(),
+    )
+    assert len(entries) == 2  # Only rank 1 and 2 get entries (rank 3 payout=0)
+    assert entries[0].amount == 600
+    assert entries[1].amount == 300
+
+
+def test_ranked_settlement_empty_results():
+    import uuid as _uuid
+    entries = create_ranked_settlement_entries(
+        results=[], competition_id=_uuid.uuid4(), session_id=_uuid.uuid4(),
+    )
+    assert entries == []
+
+
+def test_ranked_settlement_all_zero_payouts():
+    """All players with payout=0 means no entries created (edge case)."""
+    import uuid as _uuid
+    results = [
+        {"membership_id": _uuid.uuid4(), "rank": 1, "payout": 0, "balance_before": 100},
+        {"membership_id": _uuid.uuid4(), "rank": 2, "payout": 0, "balance_before": 100},
+    ]
+    entries = create_ranked_settlement_entries(
+        results=results, competition_id=_uuid.uuid4(), session_id=_uuid.uuid4(),
+    )
+    assert entries == []
+
+
+# ─── create_refund_all_entries ────────────────────────────────────────────────
+
+def test_refund_all_entries_three_players():
+    import uuid as _uuid
+    ids = [_uuid.uuid4(), _uuid.uuid4(), _uuid.uuid4()]
+    entries = create_refund_all_entries(
+        player_membership_ids=ids,
+        player_balances=[100, 200, 300],
+        competition_id=_uuid.uuid4(),
+        session_id=_uuid.uuid4(),
+        buy_in_amount=500,
+    )
+    assert len(entries) == 3
+    # All entries should be refund type
+    from app.core.enums import LedgerEntryType, LedgerDirection
+    for e in entries:
+        assert e.entry_type == LedgerEntryType.MINIGAME_REFUND
+        assert e.direction == LedgerDirection.CREDIT
+        assert e.amount == 500
+
+
+def test_refund_all_empty():
+    import uuid as _uuid
+    entries = create_refund_all_entries(
+        player_membership_ids=[],
+        player_balances=[],
+        competition_id=_uuid.uuid4(),
+        session_id=_uuid.uuid4(),
+        buy_in_amount=500,
+    )
+    assert entries == []
+
+
+def test_refund_all_eight_players():
+    """Verify max players (8) is supported."""
+    import uuid as _uuid
+    ids = [_uuid.uuid4() for _ in range(8)]
+    entries = create_refund_all_entries(
+        player_membership_ids=ids,
+        player_balances=[500] * 8,
+        competition_id=_uuid.uuid4(),
+        session_id=_uuid.uuid4(),
+        buy_in_amount=500,
+    )
+    assert len(entries) == 8

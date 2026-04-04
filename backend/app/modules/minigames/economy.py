@@ -270,3 +270,66 @@ def create_solo_settlement_entries(
         cycle_id=cycle_id,
     )
     return [entry]
+
+
+# ─── N-player settlement helpers ─────────────────────────────────────────────
+
+def create_ranked_settlement_entries(
+    *,
+    results: list[dict],
+    competition_id: uuid.UUID,
+    session_id: uuid.UUID,
+    season_id: Optional[uuid.UUID] = None,
+    cycle_id: Optional[uuid.UUID] = None,
+) -> list[LedgerEntry]:
+    """Create ledger entries for N-player ranked settlement.
+
+    Args:
+        results: list of {"membership_id": UUID, "rank": int, "payout": int, "balance_before": int}
+                 Only players with payout > 0 get a CREDIT entry.
+
+    Returns:
+        List of LedgerEntry instances (one per player with payout > 0, in rank order)
+    """
+    return [
+        create_payout_entry(
+            membership_id=r["membership_id"],
+            competition_id=competition_id,
+            session_id=session_id,
+            amount=r["payout"],
+            balance_before=r.get("balance_before", 0),
+            season_id=season_id,
+            cycle_id=cycle_id,
+        )
+        for r in results
+        if r["payout"] > 0
+    ]
+
+
+def create_refund_all_entries(
+    *,
+    player_membership_ids: list[uuid.UUID],
+    player_balances: list[int],
+    competition_id: uuid.UUID,
+    session_id: uuid.UUID,
+    buy_in_amount: int,
+    season_id: Optional[uuid.UUID] = None,
+    cycle_id: Optional[uuid.UUID] = None,
+) -> list[LedgerEntry]:
+    """Refund buy-in to all participants (for cancellations).
+
+    player_membership_ids and player_balances must be the same length
+    (each player's starting balance).
+    """
+    return [
+        create_refund_entry(
+            membership_id=mid,
+            competition_id=competition_id,
+            session_id=session_id,
+            amount=buy_in_amount,
+            balance_before=balance,
+            season_id=season_id,
+            cycle_id=cycle_id,
+        )
+        for mid, balance in zip(player_membership_ids, player_balances)
+    ]
