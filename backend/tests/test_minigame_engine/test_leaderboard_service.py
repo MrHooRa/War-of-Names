@@ -120,3 +120,66 @@ def test_best_streak_not_overwritten_by_lower_value():
 
     assert state["current_streak"] == 2
     assert state["best_streak"] == 5          # must remain 5
+
+
+# ─── N-player placement tests ─────────────────────────────────────────────────
+
+def test_placement_1_counts_as_win():
+    stats = compute_updated_stats(
+        current={"wins": 0, "losses": 0, "current_streak": 0, "best_streak": 0, "total_matches": 0},
+        placement=1, num_players=4, tools_used=2, duration_sec=120.0,
+    )
+    assert stats["wins"] == 1
+    assert stats["losses"] == 0
+    assert stats["current_streak"] == 1
+    assert stats["best_streak"] == 1
+
+
+def test_placement_2_counts_as_loss():
+    stats = compute_updated_stats(
+        current={"wins": 1, "losses": 0, "current_streak": 1, "best_streak": 1, "total_matches": 1},
+        placement=2, num_players=4,
+    )
+    assert stats["wins"] == 1
+    assert stats["losses"] == 1
+    assert stats["current_streak"] == 0
+    assert stats["best_streak"] == 1  # unchanged
+
+
+def test_placement_last_counts_as_loss():
+    """8-player game, placement=8 still counts as loss."""
+    stats = compute_updated_stats(
+        current={"wins": 0, "losses": 0, "current_streak": 0, "best_streak": 0, "total_matches": 0},
+        placement=8, num_players=8,
+    )
+    assert stats["losses"] == 1
+    assert stats["wins"] == 0
+
+
+def test_is_win_still_works_for_backward_compat():
+    """Legacy 2-player is_win parameter still works."""
+    stats = compute_updated_stats(
+        current={"wins": 0, "losses": 0, "current_streak": 0, "best_streak": 0, "total_matches": 0},
+        is_win=True, tools_used=1, duration_sec=60.0,
+    )
+    assert stats["wins"] == 1
+    assert stats["current_streak"] == 1
+
+
+def test_placement_overrides_is_win():
+    """If both provided, placement takes priority."""
+    # is_win=False but placement=1 → should count as win
+    stats = compute_updated_stats(
+        current={"wins": 0, "losses": 0, "current_streak": 0, "best_streak": 0, "total_matches": 0},
+        is_win=False, placement=1,
+    )
+    assert stats["wins"] == 1  # placement won
+
+
+def test_no_parameter_raises():
+    """Must provide at least one of is_win or placement."""
+    import pytest
+    with pytest.raises(ValueError):
+        compute_updated_stats(
+            current={"wins": 0, "losses": 0, "current_streak": 0, "best_streak": 0, "total_matches": 0},
+        )

@@ -27,7 +27,9 @@ if TYPE_CHECKING:
 def compute_updated_stats(
     *,
     current: dict,
-    is_win: bool,
+    is_win: bool | None = None,
+    placement: int | None = None,
+    num_players: int = 2,
     tools_used: int = 0,
     duration_sec: float = 0.0,
 ) -> dict:
@@ -35,13 +37,24 @@ def compute_updated_stats(
 
     Args:
         current:      Existing stat dict. Missing keys default to 0 / 0.0.
-        is_win:       True if the player won this match.
+        is_win:       Legacy 2-player binary (True=win, False=loss). Used if placement is None.
+        placement:    1-based rank (1=first, 2=second, etc.). Takes priority over is_win.
+                      For N-player games, only placement=1 counts as a "win".
+        num_players:  Total players in the match (reserved for future weighted scoring).
         tools_used:   Number of tools used during the match.
         duration_sec: Match duration in seconds.
 
     Returns:
         New stat dict with all fields updated.
     """
+    # Resolve win/loss from placement (if provided) or is_win
+    if placement is not None:
+        is_win_resolved = (placement == 1)
+    elif is_win is not None:
+        is_win_resolved = is_win
+    else:
+        raise ValueError("Either is_win or placement must be provided")
+
     wins = current.get("wins", 0)
     losses = current.get("losses", 0)
     current_streak = current.get("current_streak", 0)
@@ -53,7 +66,7 @@ def compute_updated_stats(
     prev_count = total_matches  # count before this match
     total_matches += 1
 
-    if is_win:
+    if is_win_resolved:
         wins += 1
         current_streak += 1
         best_streak = max(best_streak, current_streak)
