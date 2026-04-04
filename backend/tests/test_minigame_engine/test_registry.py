@@ -24,7 +24,7 @@ class FakePlugin(GameTypePlugin):
     def apply_action(self, action, state): return state, []
     def evaluate_terminal(self, state): return None
     def evaluate_overtime(self, state): return None
-    def compute_settlement(self, result): return {"winner_payout": 0, "loser_penalty": 0}
+    def compute_settlement(self, result): return {"participant_results": [], "total_pool": 0}
     def build_public_view(self, state, vid): return state
 
 
@@ -47,7 +47,7 @@ class AnotherFakePlugin(GameTypePlugin):
     def apply_action(self, action, state): return state, []
     def evaluate_terminal(self, state): return None
     def evaluate_overtime(self, state): return None
-    def compute_settlement(self, result): return {"winner_payout": 0, "loser_penalty": 0}
+    def compute_settlement(self, result): return {"participant_results": [], "total_pool": 0}
     def build_public_view(self, state, vid): return state
 
 

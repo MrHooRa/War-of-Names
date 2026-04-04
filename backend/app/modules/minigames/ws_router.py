@@ -23,6 +23,13 @@ from app.modules.minigames.lobby_manager import lobby_mgr
 
 logger = logging.getLogger("minigames.ws")
 
+# TODO(sprint-b): N-player refactor — several handlers below still reference
+# mg_session.player_1_membership_id / player_2_membership_id / reconnect_token_p1
+# / reconnect_token_p2 and pass them into create_session(). Those attribute
+# reads will fail at runtime until Sprint B rewrites them against
+# MinigameSessionParticipant. The file parses cleanly and is not exercised by
+# any pure test.
+
 ws_router = APIRouter()
 
 

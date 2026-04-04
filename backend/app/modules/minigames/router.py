@@ -39,6 +39,13 @@ from app.modules.auth.models import Account
 from app.modules.competitions.models import Cycle, Membership, Season
 from app.modules.minigames.models import MinigameLeaderboard, MinigameSession, MinigameType
 
+# TODO(sprint-b): N-player refactor — several handlers below still read/write
+# the removed MinigameSession columns (player_1_membership_id,
+# player_2_membership_id, winner_membership_id) and the old settlement fields
+# (winner_payout, loser_penalty). These call sites will fail at runtime until
+# Sprint B rewrites them against MinigameSessionParticipant + participant_results.
+# The file parses cleanly and is not exercised by any pure test.
+
 router = APIRouter(tags=["minigames"])
 
 CurrentAccount = Annotated[Account, Depends(get_current_account)]

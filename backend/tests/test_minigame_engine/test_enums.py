@@ -4,7 +4,6 @@ from app.core.enums import (
     MinigameSessionPhase,
     MinigameMatchType,
     MinigameSettlementState,
-    MinigameTurnSide,
     MinigameTypeStatus,
 )
 
@@ -34,11 +33,6 @@ def test_match_type_values():
 def test_settlement_state_values():
     states = {s.value for s in MinigameSettlementState}
     assert states == {"pending", "settled", "failed", "reconciled"}
-
-
-def test_turn_side_values():
-    assert MinigameTurnSide.PLAYER_1.value == "player_1"
-    assert MinigameTurnSide.PLAYER_2.value == "player_2"
 
 
 def test_type_status_values():

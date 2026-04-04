@@ -16,8 +16,13 @@ import secrets
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from app.core.enums import MinigameMatchType, MinigameSessionPhase as Phase, MinigameTurnSide
+from app.core.enums import MinigameMatchType, MinigameSessionPhase as Phase
 from app.modules.minigames.state_machine import is_terminal, validate_transition
+
+# TODO(sprint-b): N-player refactor — MinigameTurnSide enum removed.
+# Turn tracking now uses current_turn_index (int) on MinigameSession.
+# create_session / transition_session still hold the legacy 1v1 shape and
+# will be rewritten in Sprint B against the new participants table.
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,12 +111,15 @@ def compute_transition_update(
     if is_terminal(target_phase_enum):
         updates["completed_at"] = now
         updates["terminal_reason"] = terminal_reason
+        # TODO(sprint-b): replace legacy winner_membership_id with
+        # winner_slot_index on MinigameSession.
         updates["winner_membership_id"] = winner_membership_id
 
     if target_phase_enum == Phase.IN_PROGRESS:
         updates["started_at"] = now
         updates["turn_started_at"] = now
-        updates["current_turn"] = MinigameTurnSide.PLAYER_1
+        # TODO(sprint-b): set current_turn_index = 0 for N-player sessions.
+        updates["current_turn"] = "player_1"
 
     return updates
 
@@ -138,37 +146,22 @@ async def create_session(
 ) -> MinigameSession:
     """Persist a new ``MinigameSession`` in the CREATED phase.
 
-    Generates a reconnect token for player 1 unconditionally, and for
-    player 2 only when ``player_2_membership_id`` is provided. Calls
-    ``session.flush()`` so the row ID is available to the caller before
-    the outer transaction commits.
+    TODO(sprint-b): N-player refactor — this function still constructs the
+    legacy 1v1 row with ``player_1_membership_id`` / ``player_2_membership_id``
+    / ``reconnect_token_p1`` / ``reconnect_token_p2`` kwargs that no longer
+    exist on :class:`MinigameSession`. Sprint B will rewrite it to accept a
+    list of participant memberships and insert rows in
+    ``minigame_session_participants`` with per-slot reconnect tokens.
     """
-    from app.modules.minigames.models import MinigameSession as _MinigameSession  # noqa: PLC0415
-
-    reconnect_token_p1 = secrets.token_urlsafe(64)
-    reconnect_token_p2 = secrets.token_urlsafe(64) if player_2_membership_id is not None else None
-
-    mg_session = _MinigameSession(
-        game_type=game_type,
-        competition_id=competition_id,
-        season_id=season_id,
-        cycle_id=cycle_id,
-        phase=Phase.CREATED,
-        revision=0,
-        player_1_membership_id=player_1_membership_id,
-        player_2_membership_id=player_2_membership_id,
-        match_type=match_type,
-        buy_in_amount=buy_in_amount,
-        settings_snapshot=settings_snapshot,
-        turn_duration_ms=turn_duration_ms,
-        grace_timer_ms=grace_timer_ms,
-        reconnect_token_p1=reconnect_token_p1,
-        reconnect_token_p2=reconnect_token_p2,
+    del (  # silence unused-arg warnings until Sprint B rewrite
+        session, game_type, competition_id, player_1_membership_id, match_type,
+        buy_in_amount, settings_snapshot, season_id, cycle_id,
+        player_2_membership_id, turn_duration_ms, grace_timer_ms,
     )
-
-    session.add(mg_session)
-    await session.flush()
-    return mg_session
+    _ = secrets  # keep import reachable
+    raise NotImplementedError(
+        "create_session is awaiting N-player rewrite in Sprint B"
+    )
 
 
 async def transition_session(

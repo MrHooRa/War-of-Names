@@ -450,12 +450,36 @@ class MutarahaPlugin(GameTypePlugin):
     # ── 7. compute_settlement ────────────────────────────────
 
     def compute_settlement(self, terminal_result: dict) -> dict:
+        """Return settlement payload in the N-player participant_results format.
+
+        For مطارحة (1v1) the winner takes the full pool (2x buy_in); the loser
+        already paid the buy_in on session creation, so no extra penalty is
+        deducted here — the loser's payout is simply 0.
+        """
         buy_in = terminal_result.get("buy_in", 500)
+        winner = terminal_result.get("winner")  # "player_1" or "player_2"
+        winner_mid = terminal_result.get("winner_membership_id")
+        loser_mid = terminal_result.get("loser_membership_id")
+
+        winner_slot = 0 if winner == "player_1" else 1
+        loser_slot = 1 - winner_slot
+
         return {
-            "winner_membership_id": terminal_result.get("winner_membership_id"),
-            "loser_membership_id": terminal_result.get("loser_membership_id"),
-            "winner_payout": buy_in * 2,
-            "loser_penalty": buy_in,
+            "participant_results": [
+                {
+                    "membership_id": winner_mid,
+                    "slot_index": winner_slot,
+                    "rank": 1,
+                    "payout": buy_in * 2,
+                },
+                {
+                    "membership_id": loser_mid,
+                    "slot_index": loser_slot,
+                    "rank": 2,
+                    "payout": 0,
+                },
+            ],
+            "total_pool": buy_in * 2,
         }
 
     # ── 8. build_public_view ─────────────────────────────────

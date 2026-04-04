@@ -24,6 +24,13 @@ if TYPE_CHECKING:
 
     from app.modules.minigames.models import MinigameSession, MinigameSessionSettlement
 
+# TODO(sprint-b): N-player refactor — _get_loser_id and execute_settlement still
+# read the removed player_1_membership_id / player_2_membership_id /
+# winner_membership_id / winner_payout / loser_penalty fields. They will be
+# rewritten in Sprint B to drive the participant_results JSONB column via
+# the MinigameSessionParticipant table. Pure compute_settlement_type is
+# unaffected and continues to pass.
+
 
 # ─── Settlement type enum ────────────────────────────────────────────────────
 

@@ -45,10 +45,11 @@ class DummyPlugin(GameTypePlugin):
 
     def compute_settlement(self, terminal_result: dict) -> dict:
         return {
-            "winner_membership_id": None,
-            "loser_membership_id": None,
-            "winner_payout": 1000,
-            "loser_penalty": 500,
+            "participant_results": [
+                {"membership_id": None, "slot_index": 0, "rank": 1, "payout": 1000},
+                {"membership_id": None, "slot_index": 1, "rank": 2, "payout": 0},
+            ],
+            "total_pool": 1000,
         }
 
     def build_public_view(self, state: dict, viewer_membership_id) -> dict:
@@ -110,8 +111,12 @@ def test_evaluate_terminal_returns_result_at_end():
 def test_compute_settlement_returns_payout():
     plugin = DummyPlugin()
     settlement = plugin.compute_settlement({"winner": "player_1"})
-    assert settlement["winner_payout"] == 1000
-    assert settlement["loser_penalty"] == 500
+    assert settlement["total_pool"] == 1000
+    assert len(settlement["participant_results"]) == 2
+    winner = next(r for r in settlement["participant_results"] if r["rank"] == 1)
+    assert winner["payout"] == 1000
+    loser = next(r for r in settlement["participant_results"] if r["rank"] == 2)
+    assert loser["payout"] == 0
 
 
 def test_build_public_view_returns_filtered_state():

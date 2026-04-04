@@ -284,9 +284,23 @@ def test_no_double_overtime(plugin, battle_state):
 
 
 def test_settlement_payout(plugin):
-    result = plugin.compute_settlement({"buy_in": 500})
-    assert result["winner_payout"] == 1000
-    assert result["loser_penalty"] == 500
+    result = plugin.compute_settlement({
+        "buy_in": 500,
+        "winner": "player_1",
+        "loser": "player_2",
+        "winner_membership_id": "uuid-1",
+        "loser_membership_id": "uuid-2",
+    })
+    assert result["total_pool"] == 1000
+    assert len(result["participant_results"]) == 2
+    winner_r = next(r for r in result["participant_results"] if r["rank"] == 1)
+    assert winner_r["payout"] == 1000
+    assert winner_r["slot_index"] == 0
+    assert winner_r["membership_id"] == "uuid-1"
+    loser_r = next(r for r in result["participant_results"] if r["rank"] == 2)
+    assert loser_r["payout"] == 0
+    assert loser_r["slot_index"] == 1
+    assert loser_r["membership_id"] == "uuid-2"
 
 
 # ── build_public_view ────────────────────────────────────────

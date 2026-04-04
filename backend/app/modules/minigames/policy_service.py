@@ -146,6 +146,13 @@ def run_all_checks(
 # ---------------------------------------------------------------------------
 # Async DB helpers (all SQLAlchemy imports deferred to function body)
 # ---------------------------------------------------------------------------
+#
+# TODO(sprint-b): N-player refactor — count_player_matches_today and
+# count_opponent_matches_this_cycle still filter on the removed
+# MinigameSession.player_1_membership_id / player_2_membership_id columns.
+# Sprint B will rewrite these queries to join through
+# MinigameSessionParticipant so they work for any num_players. Pure check_*
+# helpers above are unaffected.
 
 
 async def count_player_matches_today(

@@ -15,7 +15,12 @@ from dataclasses import dataclass
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import MinigameSessionPhase as Phase, MinigameTurnSide
+from app.core.enums import MinigameSessionPhase as Phase
+
+# TODO(sprint-b): N-player refactor — MinigameTurnSide enum removed.
+# Turn tracking now uses MinigameSession.current_turn_index (int) + the
+# MinigameSessionParticipant table. The service functions below still hold
+# the old 1v1 shape and will be rewritten in Sprint B.
 from app.modules.minigames.models import (
     MinigameActionReceipt,
     MinigameSession,
@@ -59,7 +64,7 @@ def validate_action_envelope(
     envelope: dict,
     session_phase: Phase | str,
     session_revision: int,
-    current_turn: MinigameTurnSide | str | None,
+    current_turn: str | None,  # TODO(sprint-b): switch to current_turn_index + participants list
     player_1_membership_id,
     player_2_membership_id,
 ) -> ActionError | None:
@@ -114,17 +119,16 @@ def validate_action_envelope(
         )
 
     # d. Turn check — SKIP FOR SOLO GAMES (player_2_membership_id is None)
+    # TODO(sprint-b): Replace with N-player turn check using current_turn_index
+    # and the MinigameSessionParticipant table. Current shape accepts raw string
+    # turn markers ("player_1" / "player_2") for legacy 1v1 callers only.
     if player_2_membership_id is not None:
-        # 1v1 game — enforce turn order
-        if isinstance(current_turn, str):
-            try:
-                current_turn = MinigameTurnSide(current_turn)
-            except ValueError:
-                current_turn = None
+        # 1v1 game — enforce turn order (legacy string compare)
+        turn_str = current_turn if isinstance(current_turn, str) else None
 
         expected_actor = (
             player_1_membership_id
-            if current_turn == MinigameTurnSide.PLAYER_1
+            if turn_str == "player_1"
             else player_2_membership_id
         )
 
@@ -178,117 +182,11 @@ async def process_action(
         RuntimeError — if a race condition prevents the update (stale lock)
     """
 
-    actor_id = envelope.get("actor_membership_id")
-    action_id = envelope.get("action_id")
-    client_seq = envelope.get("client_seq", 0)
-    actor_slot = _resolve_actor_slot(
-        actor_membership_id=actor_id,
-        player_1_membership_id=mg_session.player_1_membership_id,
-        player_2_membership_id=mg_session.player_2_membership_id,
+    # TODO(sprint-b): N-player refactor — process_action needs to be rewritten
+    # to resolve the actor's slot via MinigameSessionParticipant lookup and
+    # advance current_turn_index modulo num_players. The full async pipeline
+    # (optimistic lock, event log, receipt) will be re-implemented in Sprint B.
+    del session, mg_session, plugin, envelope  # silence unused-arg warnings
+    raise NotImplementedError(
+        "process_action is awaiting N-player rewrite in Sprint B"
     )
-    if actor_slot is None:
-        raise ValueError("تعذر تحديد اللاعب المنفذ")
-
-    action = dict(envelope.get("action", {}) or {})
-    payload = dict(action.get("payload", {}) or {})
-    payload["actor"] = actor_slot
-    action["payload"] = payload
-
-    current_state = mg_session.game_state
-    current_revision = mg_session.revision
-
-    # a. Plugin-level action validation
-    error_msg = plugin.validate_action(action, current_state)
-    if error_msg is not None:
-        raise ValueError(error_msg)
-
-    # b. Apply the action
-    new_state, side_effects = plugin.apply_action(action, current_state)
-
-    # c. Advance turn
-    if mg_session.player_2_membership_id is None:
-        # Solo game — keep PLAYER_1 always
-        next_turn = MinigameTurnSide.PLAYER_1
-    else:
-        # 1v1 — alternate turns
-        if mg_session.current_turn == MinigameTurnSide.PLAYER_1:
-            next_turn = MinigameTurnSide.PLAYER_2
-        else:
-            next_turn = MinigameTurnSide.PLAYER_1
-
-    new_revision = current_revision + 1
-    new_turn_number = mg_session.turn_number + 1
-    now = now_riyadh_naive()
-
-    # d. Optimistic lock UPDATE (WHERE revision = current)
-    update_result = await session.execute(
-        update(MinigameSession)
-        .where(
-            MinigameSession.id == mg_session.id,
-            MinigameSession.revision == current_revision,
-        )
-        .values(
-            game_state=new_state,
-            revision=new_revision,
-            current_turn=next_turn,
-            turn_number=new_turn_number,
-            turn_started_at=now,
-            updated_at=now,
-        )
-        .returning(MinigameSession.id)
-    )
-
-    updated_row = update_result.scalar_one_or_none()
-    if updated_row is None:
-        raise RuntimeError("تعديل متزامن — يرجى إعادة المحاولة")
-
-    # e. Log MinigameSessionEvent
-    event = MinigameSessionEvent(
-        id=uuid.uuid4(),
-        session_id=mg_session.id,
-        revision=new_revision,
-        event_type="action",
-        actor_type="player",
-        actor_membership_id=actor_id,
-        action_type=action.get("type"),
-        payload=action,
-        result={"side_effects": side_effects},
-        from_phase=mg_session.phase.value if isinstance(mg_session.phase, Phase) else str(mg_session.phase),
-        to_phase=mg_session.phase.value if isinstance(mg_session.phase, Phase) else str(mg_session.phase),
-        correlation_id=mg_session.correlation_id,
-        created_at=now,
-    )
-    session.add(event)
-
-    # f. Log MinigameActionReceipt (idempotency)
-    client_result: dict = {
-        "success": True,
-        "revision": new_revision,
-        "side_effects": side_effects,
-    }
-    result_dict: dict = {
-        **client_result,
-        "_state": new_state,
-        "_current_turn": next_turn.value if hasattr(next_turn, "value") else next_turn,
-        "_turn_number": new_turn_number,
-    }
-
-    # g. Check terminal state via plugin
-    terminal_result = plugin.evaluate_terminal(new_state)
-    client_result["terminal_result"] = terminal_result
-    result_dict["terminal_result"] = terminal_result
-
-    if action_id is not None:
-        receipt = MinigameActionReceipt(
-            action_id=action_id if isinstance(action_id, uuid.UUID) else uuid.UUID(str(action_id)),
-            session_id=mg_session.id,
-            actor_membership_id=actor_id,
-            client_seq=client_seq,
-            response=client_result,
-            created_at=now,
-        )
-        session.add(receipt)
-
-    await session.flush()
-
-    return result_dict
