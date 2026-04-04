@@ -84,3 +84,4 @@ from app.modules.minigames.models import (  # noqa: E402, F401
     MinigameSessionSettlement,
     MinigameType,
 )
+from app.modules.minigames.mutaraha.models import MutarahaWord  # noqa: E402, F401

@@ -76,6 +76,7 @@ async def seed(session: AsyncSession) -> None:
     await _seed_quiz(session)
     await _seed_settings(session)
     await _seed_minigame_types(session)
+    await _seed_mutaraha_words(session)
 
 
 async def _seed_system_account(session: AsyncSession) -> None:
@@ -804,5 +805,205 @@ async def _seed_minigame_types(session: AsyncSession) -> None:
         if existing:
             continue
         session.add(MinigameType(**td))
+
+    await session.commit()
+
+    # Register plugin in the in-memory registry
+    from app.modules.minigames.registry import GameTypeRegistry
+    from app.modules.minigames.mutaraha.plugin import MutarahaPlugin
+    if GameTypeRegistry.get("mutaraha") is None:
+        GameTypeRegistry.register(MutarahaPlugin())
+
+
+async def _seed_mutaraha_words(session: AsyncSession) -> None:
+    """Seed مطارحة word bank with Saudi/Najdi Arabic words."""
+    from app.modules.minigames.mutaraha.models import MutarahaWord
+
+    words_data = [
+        # ── حيوانات (animals) ──
+        ("ضب", "animals", "easy"),
+        ("وضيحي", "animals", "medium"),
+        ("ثعلب", "animals", "easy"),
+        ("ذيب", "animals", "easy"),
+        ("صقر", "animals", "easy"),
+        ("حبارى", "animals", "medium"),
+        ("ورل", "animals", "medium"),
+        ("قنفذ", "animals", "easy"),
+        ("جربوع", "animals", "medium"),
+        ("وبر", "animals", "medium"),
+        ("غزال", "animals", "easy"),
+        ("نسر", "animals", "easy"),
+        ("حمام", "animals", "easy"),
+        ("بومة", "animals", "easy"),
+        ("ثعبان", "animals", "easy"),
+        ("عقرب", "animals", "easy"),
+        ("أرنب", "animals", "easy"),
+        ("حرباء", "animals", "medium"),
+        ("هدهد", "animals", "easy"),
+        ("يربوع", "animals", "medium"),
+        # ── نباتات (plants) ──
+        ("سدر", "plants", "easy"),
+        ("أرطى", "plants", "hard"),
+        ("عرفج", "plants", "hard"),
+        ("طلح", "plants", "medium"),
+        ("رمان", "plants", "easy"),
+        ("نخلة", "plants", "easy"),
+        ("عشر", "plants", "medium"),
+        ("حنظل", "plants", "medium"),
+        ("سمر", "plants", "medium"),
+        ("ريحان", "plants", "easy"),
+        ("حبق", "plants", "medium"),
+        ("تين", "plants", "easy"),
+        ("عنب", "plants", "easy"),
+        ("بطيخ", "plants", "easy"),
+        ("ليمون", "plants", "easy"),
+        ("خزامى", "plants", "medium"),
+        ("قرض", "plants", "hard"),
+        ("غاف", "plants", "hard"),
+        ("سلم", "plants", "medium"),
+        ("ضمران", "plants", "hard"),
+        # ── مدن سعودية (saudi_cities) ──
+        ("الرياض", "saudi_cities", "easy"),
+        ("جدة", "saudi_cities", "easy"),
+        ("أبها", "saudi_cities", "easy"),
+        ("تبوك", "saudi_cities", "easy"),
+        ("نجران", "saudi_cities", "medium"),
+        ("حائل", "saudi_cities", "easy"),
+        ("عنيزة", "saudi_cities", "medium"),
+        ("بريدة", "saudi_cities", "medium"),
+        ("شقراء", "saudi_cities", "medium"),
+        ("الدرعية", "saudi_cities", "medium"),
+        ("الخرج", "saudi_cities", "medium"),
+        ("الزلفي", "saudi_cities", "hard"),
+        ("المجمعة", "saudi_cities", "medium"),
+        ("الدوادمي", "saudi_cities", "hard"),
+        ("رفحاء", "saudi_cities", "hard"),
+        ("ينبع", "saudi_cities", "easy"),
+        ("الطائف", "saudi_cities", "easy"),
+        ("المدينة", "saudi_cities", "easy"),
+        ("مكة", "saudi_cities", "easy"),
+        ("الجبيل", "saudi_cities", "medium"),
+        # ── مدن عربية (arab_cities) ──
+        ("صنعاء", "arab_cities", "easy"),
+        ("دمشق", "arab_cities", "easy"),
+        ("فاس", "arab_cities", "medium"),
+        ("صلالة", "arab_cities", "medium"),
+        ("بيروت", "arab_cities", "easy"),
+        ("بغداد", "arab_cities", "easy"),
+        ("عمان", "arab_cities", "easy"),
+        ("تونس", "arab_cities", "easy"),
+        ("مسقط", "arab_cities", "easy"),
+        ("الدوحة", "arab_cities", "easy"),
+        ("المنامة", "arab_cities", "medium"),
+        ("طرابلس", "arab_cities", "medium"),
+        ("الجزائر", "arab_cities", "easy"),
+        ("القاهرة", "arab_cities", "easy"),
+        ("الكويت", "arab_cities", "easy"),
+        ("مراكش", "arab_cities", "medium"),
+        ("أصيلة", "arab_cities", "hard"),
+        ("صحار", "arab_cities", "hard"),
+        ("حلب", "arab_cities", "easy"),
+        ("عدن", "arab_cities", "easy"),
+        # ── أكلات (foods) ──
+        ("كبسة", "foods", "easy"),
+        ("جريش", "foods", "medium"),
+        ("مطبق", "foods", "medium"),
+        ("مرقوق", "foods", "medium"),
+        ("قرصان", "foods", "medium"),
+        ("هريسة", "foods", "medium"),
+        ("عريكة", "foods", "medium"),
+        ("معصوب", "foods", "medium"),
+        ("حنيني", "foods", "hard"),
+        ("كليجا", "foods", "hard"),
+        ("مطازيز", "foods", "hard"),
+        ("سليق", "foods", "medium"),
+        ("صالونة", "foods", "easy"),
+        ("مندي", "foods", "easy"),
+        ("حاشي", "foods", "medium"),
+        ("ثريد", "foods", "medium"),
+        ("دبيازة", "foods", "hard"),
+        ("لقيمات", "foods", "easy"),
+        ("بسبوسة", "foods", "easy"),
+        ("معمول", "foods", "easy"),
+        # ── ألقاب (nicknames) ──
+        ("الصقر", "nicknames", "easy"),
+        ("الفهد", "nicknames", "easy"),
+        ("الشهم", "nicknames", "medium"),
+        ("الهيبة", "nicknames", "medium"),
+        ("الذيب", "nicknames", "easy"),
+        ("العقيد", "nicknames", "medium"),
+        ("الحربي", "nicknames", "medium"),
+        ("الفارس", "nicknames", "easy"),
+        ("الشيخ", "nicknames", "easy"),
+        ("الأمير", "nicknames", "easy"),
+        ("الليث", "nicknames", "medium"),
+        ("الجسور", "nicknames", "medium"),
+        ("النمر", "nicknames", "easy"),
+        ("الباشا", "nicknames", "medium"),
+        ("الخيال", "nicknames", "medium"),
+        ("المغوار", "nicknames", "hard"),
+        ("الطويل", "nicknames", "easy"),
+        ("القناص", "nicknames", "medium"),
+        ("الهلالي", "nicknames", "medium"),
+        ("العتيبي", "nicknames", "medium"),
+        # ── أسماء عربية (arabic_names) ──
+        ("فيصل", "arabic_names", "easy"),
+        ("تركي", "arabic_names", "easy"),
+        ("نورة", "arabic_names", "easy"),
+        ("سلطان", "arabic_names", "easy"),
+        ("خالد", "arabic_names", "easy"),
+        ("فهد", "arabic_names", "easy"),
+        ("سعود", "arabic_names", "easy"),
+        ("عبدالله", "arabic_names", "easy"),
+        ("مشاري", "arabic_names", "medium"),
+        ("ناصر", "arabic_names", "easy"),
+        ("هيفاء", "arabic_names", "medium"),
+        ("ريم", "arabic_names", "easy"),
+        ("وليد", "arabic_names", "easy"),
+        ("بدر", "arabic_names", "easy"),
+        ("ثامر", "arabic_names", "medium"),
+        ("دلال", "arabic_names", "medium"),
+        ("طلال", "arabic_names", "easy"),
+        ("ماجد", "arabic_names", "easy"),
+        ("نواف", "arabic_names", "medium"),
+        ("غادة", "arabic_names", "medium"),
+        # ── أدوات تراثية (heritage) ──
+        ("دلة", "heritage", "easy"),
+        ("محماس", "heritage", "medium"),
+        ("فنجال", "heritage", "medium"),
+        ("مبخرة", "heritage", "medium"),
+        ("سدو", "heritage", "hard"),
+        ("بشت", "heritage", "medium"),
+        ("شماغ", "heritage", "easy"),
+        ("عقال", "heritage", "easy"),
+        ("مسباح", "heritage", "medium"),
+        ("هاون", "heritage", "medium"),
+        ("قربة", "heritage", "medium"),
+        ("ميسم", "heritage", "hard"),
+        ("رحى", "heritage", "hard"),
+        ("خرج", "heritage", "hard"),
+        ("مهباج", "heritage", "hard"),
+        ("دوشك", "heritage", "hard"),
+        ("حصيرة", "heritage", "medium"),
+        ("تنور", "heritage", "medium"),
+        ("خوص", "heritage", "hard"),
+        ("مروحة", "heritage", "easy"),
+    ]
+
+    # Check if already seeded
+    from sqlalchemy import func, select
+    count = await session.execute(select(func.count()).select_from(MutarahaWord))
+    if count.scalar_one() > 0:
+        return  # Already seeded
+
+    for word, category, difficulty in words_data:
+        entry = MutarahaWord(
+            word=word,
+            category=category,
+            letter_count=len(word),
+            first_letter=word[0] if word else "",
+            difficulty=difficulty,
+        )
+        session.add(entry)
 
     await session.commit()
